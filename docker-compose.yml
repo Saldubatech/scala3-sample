@@ -1,0 +1,40 @@
+# run with "docker compose up -d"
+version: '3.7'
+
+networks:
+  test-network:
+    name: test-network
+    external: true
+
+services:
+  # docker run --hostname postgres --name postgres-epallet -v postgres-epallet-data:/Users/jmp/code/docker-shared/postgres-epallet-data -p 54321:5432 -e POSTGRES_PASSWORD=postgresEpalletLocal -d postgres:16
+  postgres_svc:
+    image: postgres:16
+    hostname: postgres-svc
+    restart: always
+    volumes:
+      - /Users/jmp/code/docker-shared/postgres-test-data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=local_postgres_test
+      - POSTGRES_DB=postgres
+    ports:
+      - "54322:5432"
+    networks:
+      - test-network
+  app-compose:
+    # docker run -d -e "DB_HOST='postgres-epallet'" -e "--hostname app --name app-manual -p 8089:80 com.saldubatech/image:latest
+    image: com.saldubatech/image:latest
+    hostname: app-compose
+    environment:
+     - DB_HOST=postgres-svc
+     - DB_PORT=5432
+     - DB_USER=test_user
+     - DB_PASSWORD=TestSecreto
+     - DB_NAME=test_db
+    depends_on:
+      - postgres_svc
+    networks:
+      - test-network
+    ports:
+      - "8081:80"
