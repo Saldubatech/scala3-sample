@@ -14,9 +14,11 @@ private[api] object Utils:
       .mapError(err => ValidationError(err.getMessage))
 
   def handleError(err: DomainError): UIO[Response] = err match {
-    case NotFoundError          => ZIO.succeed(Response.status(Status.NotFound))
-    case ValidationError(msg)   => msg.toResponseZIO(Status.BadRequest)
+    case NotFoundError        => ZIO.succeed(Response.status(Status.NotFound))
+    case ValidationError(msg) => msg.toResponseZIO(Status.BadRequest)
     case RepositoryError(cause) =>
       ZIO.logErrorCause(cause.getMessage, Cause.fail(cause)) *>
-        "Internal server error, contact system administrator".toResponseZIO(Status.InternalServerError)
+      "Internal server error, contact system administrator".toResponseZIO(
+        Status.InternalServerError
+      )
   }

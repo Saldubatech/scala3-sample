@@ -46,21 +46,21 @@ object ItemRepositoryLiveSpec extends ZIOSpecDefault:
         for {
           item <- ItemRepository.getById(ItemId(2))
         } yield assert(item)(isSome) &&
-        assert(item.get.name)(equalTo("second item")) &&
-        assert(item.get.price)(equalTo(BigDecimal("2")))
+          assert(item.get.name)(equalTo("second item")) &&
+          assert(item.get.price)(equalTo(BigDecimal("2")))
       },
       test("update item 3") {
         for {
           _    <- ItemRepository.update(ItemId(3), ItemData("updated item", BigDecimal(3)))
           item <- ItemRepository.getById(ItemId(3))
         } yield assert(item)(isSome) &&
-        assert(item.get.name)(equalTo("updated item")) &&
-        assert(item.get.price)(equalTo(BigDecimal(3)))
-      },
+          assert(item.get.name)(equalTo("updated item")) &&
+          assert(item.get.price)(equalTo(BigDecimal(3)))
+      }
     ).provideShared(
       containerLayer,
       DataSourceBuilderLive.layer,
       dataSourceLayer,
       postgresLayer,
-      repoLayer,
+      repoLayer
     ) @@ sequential

@@ -15,7 +15,7 @@ object ItemServiceSpec extends ZIOSpecDefault:
 
   val getItemMock: ULayer[ItemRepository] = ItemRepoMock.GetById(
     equalTo(ItemId(123)),
-    value(Some(exampleItem)),
+    value(Some(exampleItem))
   ) ++ ItemRepoMock.GetById(equalTo(ItemId(124)), value(None))
 
   val getByNonExistingId: ULayer[ItemRepository] =
@@ -24,10 +24,10 @@ object ItemServiceSpec extends ZIOSpecDefault:
   val updateMock: ULayer[ItemRepository] =
     ItemRepoMock.Update(
       hasField("id", _._1, equalTo(exampleItem.id)),
-      value(Some(())),
+      value(Some(()))
     ) ++ ItemRepoMock.Update(
       hasField("id", _._1, equalTo(ItemId(124))),
-      value(None),
+      value(None)
     )
 
   def spec = suite("item service test")(
@@ -39,10 +39,10 @@ object ItemServiceSpec extends ZIOSpecDefault:
     }.provide(getItemMock),
     test("update item") {
       for {
-        found   <- assertZIO(updateItem(ItemId(123), "foo", BigDecimal(123)))(
-                     isSome(equalTo(Item(ItemId(123), "foo", BigDecimal(123))))
-                   )
+        found <- assertZIO(updateItem(ItemId(123), "foo", BigDecimal(123)))(
+          isSome(equalTo(Item(ItemId(123), "foo", BigDecimal(123))))
+        )
         missing <- assertZIO(updateItem(ItemId(124), "bar", BigDecimal(124)))(isNone)
       } yield found && missing
-    }.provide(updateMock),
+    }.provide(updateMock)
   )

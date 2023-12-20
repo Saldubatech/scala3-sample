@@ -5,10 +5,11 @@ object Dependencies {
     val zioVersion = "2.0.19"
     object Runtime {
       val zioJsonVersion = "0.6.2"
-      val zioConfigVersion = "3.0.7"
-      val zioHttpVersion = "3.0.0-RC1"  // Pending adoption of RC2, but too many changes at this point
+      val zioConfigVersion = "4.0.0-RC16" // "3.0.7"
+      val zioHttpVersion =
+        "3.0.0-RC1" // Pending adoption of RC2, but too many changes at this point
       val quillVersion = "4.8.0" // "4.6.0.1"??
-      
+
       val quill = "io.getquill" %% "quill-jdbc-zio" % quillVersion excludeAll
         ExclusionRule(organization = "org.scala-lang.modules")
       val zio = "dev.zio" %% "zio" % zioVersion
@@ -52,8 +53,8 @@ object Dependencies {
 
   object Testing {
     val containersPostgresVersion = "0.41.0"
-    val containersPostgres = "com.dimafeng" %% "testcontainers-scala-postgresql" % containersPostgresVersion % Test
+    val containersPostgres =
+      "com.dimafeng" %% "testcontainers-scala-postgresql" % containersPostgresVersion % Test
 
   }
 }
-

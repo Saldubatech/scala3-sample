@@ -41,7 +41,7 @@ object Boot extends ZIOAppDefault:
 
   private val program = Server.serve(routes)
 
-  override val run = 
+  override val run =
     program
       .provide(
         bootstrap,
@@ -52,4 +52,4 @@ object Boot extends ZIOAppDefault:
         repoLayer,
         postgresLayer,
         dataSourceLayer
-    )
+      )

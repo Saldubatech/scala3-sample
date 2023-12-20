@@ -18,10 +18,10 @@ object ItemService:
     ZIO.serviceWithZIO[ItemRepository](_.getById(id))
 
   def updateItem(
-      id: ItemId,
-      name: String,
-      price: BigDecimal,
-    ): ZIO[ItemRepository, DomainError, Option[Item]] =
+    id: ItemId,
+    name: String,
+    price: BigDecimal
+  ): ZIO[ItemRepository, DomainError, Option[Item]] =
     for {
       repo         <- ZIO.service[ItemRepository]
       data         <- ZIO.succeed(ItemData(name, price))
@@ -29,13 +29,13 @@ object ItemService:
     } yield maybeUpdated.map(_ => Item.withData(id, data))
 
   def partialUpdateItem(
-      id: ItemId,
-      name: Option[String],
-      price: Option[BigDecimal],
-    ): ZIO[ItemRepository, DomainError, Option[Item]] =
+    id: ItemId,
+    name: Option[String],
+    price: Option[BigDecimal]
+  ): ZIO[ItemRepository, DomainError, Option[Item]] =
     (for {
       repo        <- ZIO.service[ItemRepository]
       currentItem <- repo.getById(id).some
-      data         = ItemData(name.getOrElse(currentItem.name), price.getOrElse(currentItem.price))
-      _           <- repo.update(id, data).some
+      data = ItemData(name.getOrElse(currentItem.name), price.getOrElse(currentItem.price))
+      _ <- repo.update(id, data).some
     } yield Item.withData(id, data)).unsome

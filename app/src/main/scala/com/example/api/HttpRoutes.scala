@@ -23,9 +23,9 @@ object HttpRoutes extends JsonSupport:
         for {
           id        <- Utils.extractLong(itemId)
           maybeItem <- ItemService.getItemById(ItemId(id))
-          item      <- maybeItem
-                         .map(ZIO.succeed(_))
-                         .getOrElse(ZIO.fail(NotFoundError))
+          item <- maybeItem
+            .map(ZIO.succeed(_))
+            .getOrElse(ZIO.fail(NotFoundError))
         } yield item
 
       effect.foldZIO(Utils.handleError, _.toResponseZIO)
@@ -35,8 +35,9 @@ object HttpRoutes extends JsonSupport:
         for {
           id     <- Utils.extractLong(itemId)
           amount <- ItemService.deleteItem(ItemId(id))
-          _      <- if (amount == 0) ZIO.fail(NotFoundError)
-                    else ZIO.unit
+          _ <-
+            if (amount == 0) ZIO.fail(NotFoundError)
+            else ZIO.unit
         } yield ()
 
       effect.foldZIO(Utils.handleError, _.toEmptyResponseZIO)
@@ -56,9 +57,9 @@ object HttpRoutes extends JsonSupport:
           id         <- Utils.extractLong(itemId)
           updateItem <- req.jsonBodyAs[UpdateItemRequest]
           maybeItem  <- ItemService.updateItem(ItemId(id), updateItem.name, updateItem.price)
-          item       <- maybeItem
-                          .map(ZIO.succeed(_))
-                          .getOrElse(ZIO.fail(NotFoundError))
+          item <- maybeItem
+            .map(ZIO.succeed(_))
+            .getOrElse(ZIO.fail(NotFoundError))
         } yield item
 
       effect.foldZIO(Utils.handleError, _.toResponseZIO)
@@ -68,14 +69,14 @@ object HttpRoutes extends JsonSupport:
         for {
           id                <- Utils.extractLong(itemId)
           partialUpdateItem <- req.jsonBodyAs[PartialUpdateItemRequest]
-          maybeItem         <- ItemService.partialUpdateItem(
-                                 id = ItemId(id),
-                                 name = partialUpdateItem.name,
-                                 price = partialUpdateItem.price,
-                               )
-          item              <- maybeItem
-                                 .map(ZIO.succeed(_))
-                                 .getOrElse(ZIO.fail(NotFoundError))
+          maybeItem <- ItemService.partialUpdateItem(
+            id = ItemId(id),
+            name = partialUpdateItem.name,
+            price = partialUpdateItem.price
+          )
+          item <- maybeItem
+            .map(ZIO.succeed(_))
+            .getOrElse(ZIO.fail(NotFoundError))
         } yield item
 
       effect.foldZIO(Utils.handleError, _.toResponseZIO)

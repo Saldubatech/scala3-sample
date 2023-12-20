@@ -5,7 +5,7 @@ import java.sql.SQLException
 import com.example.domain._
 import io.getquill._
 import io.getquill.jdbczio.Quill
-import zio.{ IO, URLayer, ZIO, ZLayer }
+import zio.{IO, URLayer, ZIO, ZLayer}
 
 final class ItemRepositoryLive(quill: Quill.Postgres[Literal]) extends ItemRepository:
 
@@ -24,11 +24,9 @@ final class ItemRepositoryLive(quill: Quill.Postgres[Literal]) extends ItemRepos
       }
     }
 
-    effect
-      .either
-      .resurrect
-      .refineOrDie {
-        case e: NullPointerException => RepositoryError(e)
+    effect.either.resurrect
+      .refineOrDie { case e: NullPointerException =>
+        RepositoryError(e)
       }
       .flatMap {
         case Left(e: SQLException) => ZIO.fail(RepositoryError(e))
@@ -42,8 +40,8 @@ final class ItemRepositoryLive(quill: Quill.Postgres[Literal]) extends ItemRepos
       }
     }
 
-    effect.refineOrDie {
-      case e: SQLException => RepositoryError(e)
+    effect.refineOrDie { case e: SQLException =>
+      RepositoryError(e)
     }
 
   override def getAll(): IO[RepositoryError, List[Item]] =
@@ -53,8 +51,8 @@ final class ItemRepositoryLive(quill: Quill.Postgres[Literal]) extends ItemRepos
       }
     }
 
-    effect.refineOrDie {
-      case e: SQLException => RepositoryError(e)
+    effect.refineOrDie { case e: SQLException =>
+      RepositoryError(e)
     }
 
   override def getById(id: ItemId): IO[RepositoryError, Option[Item]] =
@@ -66,8 +64,8 @@ final class ItemRepositoryLive(quill: Quill.Postgres[Literal]) extends ItemRepos
 
     effect
       .map(_.headOption)
-      .refineOrDie {
-        case e: SQLException => RepositoryError(e)
+      .refineOrDie { case e: SQLException =>
+        RepositoryError(e)
       }
 
   override def update(itemId: ItemId, data: ItemData): IO[RepositoryError, Option[Unit]] =
@@ -81,8 +79,8 @@ final class ItemRepositoryLive(quill: Quill.Postgres[Literal]) extends ItemRepos
 
     effect
       .map(n => if (n > 0) Some(()) else None)
-      .refineOrDie {
-        case e: SQLException => RepositoryError(e)
+      .refineOrDie { case e: SQLException =>
+        RepositoryError(e)
       }
 
 object ItemRepositoryLive:

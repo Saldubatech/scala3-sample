@@ -1,6 +1,5 @@
 package com.example.infrastructure.postgresql
 
-
 import com.dimafeng.testcontainers.PostgreSQLContainer
 import org.testcontainers.utility.DockerImageName
 import zio._

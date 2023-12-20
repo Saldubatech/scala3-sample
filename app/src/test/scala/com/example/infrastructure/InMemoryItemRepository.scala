@@ -4,15 +4,15 @@ import com.example.domain._
 import zio._
 
 final class InMemoryItemRepository(
-    random: Random,
-    storeRef: Ref[Map[ItemId, ItemData]],
-  ) extends ItemRepository:
+  random: Random,
+  storeRef: Ref[Map[ItemId, ItemData]]
+) extends ItemRepository:
 
   override def add(data: ItemData): IO[RepositoryError, ItemId] =
     for {
       itemId <- random.nextLong.map(_.abs)
-      id      = ItemId(itemId)
-      _      <- storeRef.update(store => store + (id -> data))
+      id = ItemId(itemId)
+      _ <- storeRef.update(store => store + (id -> data))
     } yield id
 
   override def delete(id: ItemId): IO[RepositoryError, Long] =
@@ -28,7 +28,7 @@ final class InMemoryItemRepository(
 
   override def getById(id: ItemId): IO[RepositoryError, Option[Item]] =
     for {
-      store    <- storeRef.get
+      store <- storeRef.get
       maybeItem = store.get(id).map(data => Item.withData(id, data))
     } yield maybeItem
 

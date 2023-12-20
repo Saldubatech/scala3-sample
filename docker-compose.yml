@@ -38,3 +38,8 @@ services:
       - test-network
     ports:
       - "8081:80"
+
+# TO ADD: 
+# * Swagger UI test harness: https://articles.wesionary.team/swagger-ui-on-docker-for-testing-rest-apis-5b3d5fcdee7
+# * Insomnia API Test harness: https://hub.docker.com/r/kasmweb/insomnia
+# 

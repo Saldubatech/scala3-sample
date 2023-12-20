@@ -1,5 +1,12 @@
 {
   "files.watcherExclude": {
     "**/target": true
-  }
+  },
+  "cSpell.words": [
+    "scalafix",
+    "scalafmt",
+    "semanticdb",
+    "tpolecat",
+    "Typesafe"
+  ]
 }

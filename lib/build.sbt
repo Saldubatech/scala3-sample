@@ -7,13 +7,12 @@ enablePlugins (
   JavaAppPackaging
 )
 
-name := "app"
+name := "lib"
 
 Compile / run / fork := true
 Test / run / fork := true
 run / envVars += "DB_PASSWORD" -> localConfig.value.fold("")(_.getString("DB_PASSWORD"))
 run / envVars += "DB_PORT" -> localConfig.value.fold("")(_.getString("DB_PORT"))
-val wkw = ExclusionRule()
 
 dependencyOverrides += "org.slf4j" % "slf4j-api" % "2.0.9"
 libraryDependencies ++= Seq(
@@ -43,7 +42,15 @@ libraryDependencies ++= Seq(
   Dependencies.Testing.containersPostgres,
   Dependencies.Zio.Testing.magnolia
 )
-
+publish / skip := false
 testFrameworks := Seq(new TestFramework("zio.test.sbt.ZTestFramework"))
 
+val PACKAGES_TOKEN_VAR = "GH_PUBLISH_TO_PACKAGES"
 
+GhPackages.credentials("jmpicnic", PACKAGES_TOKEN_VAR) match {
+  case None => Nil
+  case Some(cred) => credentials += cred
+}
+
+// Configure publishing settings
+publishTo := {  Some(GhPackages.repo) }

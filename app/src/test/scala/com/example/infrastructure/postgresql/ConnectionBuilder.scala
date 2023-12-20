@@ -11,8 +11,8 @@ trait DataSourceBuilder:
   def dataSource: DataSource
 
 final class DataSourceBuilderLive(
-    container: PostgreSQLContainer
-  ) extends DataSourceBuilder:
+  container: PostgreSQLContainer
+) extends DataSourceBuilder:
 
   val dataSource: DataSource =
     val ds = new PGSimpleDataSource()
