@@ -13,6 +13,7 @@ object Dependencies {
       val quill = "io.getquill" %% "quill-jdbc-zio" % quillVersion excludeAll
         ExclusionRule(organization = "org.scala-lang.modules")
       val zio = "dev.zio" %% "zio" % zioVersion
+      val schema = "dev.zio" %% "zio-schema" % "0.4.15"
       val streams = "dev.zio" %% "zio-streams" % zioVersion
       val http = "dev.zio" %% "zio-http" % zioHttpVersion
       val config = "dev.zio" %% "zio-config" % zioConfigVersion

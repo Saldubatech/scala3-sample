@@ -24,7 +24,6 @@ object Configuration:
       Config.Nested("api", { Config.string("host") ++ Config.int("port") }).to[ApiConfig]
 
     val layer = ZLayer(
-//      ZIO.attempt(
       read(
         apiConfig.from(
           TypesafeConfigProvider.fromTypesafeConfig(
@@ -32,7 +31,6 @@ object Configuration:
           )
         )
       )
-//      )
     )
 
     /* This was the original code with Config V 3.0.7

@@ -17,6 +17,10 @@ hs_err_pid*
 **/.metals
 **/.tasty
 
+# Scala worksheet temporary files
+
+**/.scala-build
+
 # project/project
 
 # Scratch areas

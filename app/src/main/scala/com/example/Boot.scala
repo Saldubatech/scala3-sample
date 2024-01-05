@@ -45,7 +45,6 @@ object Boot extends ZIOAppDefault:
     program
       .provide(
         bootstrap,
-//        Slf4jBridge.initialize,
         healthCheckServiceLayer,
         serverLayer,
         ApiConfig.layer,

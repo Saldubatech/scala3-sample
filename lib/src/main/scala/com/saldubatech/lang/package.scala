@@ -5,3 +5,11 @@ extension [A](self: Option[A])
     self.foreach[Unit](f)
     self
   }
+
+
+val TODO: Nothing = {
+  throw NotImplementedError()
+}
+
+type INJECTOR[O, D] = (O) => D
+

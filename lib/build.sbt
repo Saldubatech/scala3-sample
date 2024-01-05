@@ -19,6 +19,7 @@ libraryDependencies ++= Seq(
   Dependencies.Zio.Runtime.quill,
   Dependencies.Persistence.postgres,
   Dependencies.Zio.Runtime.zio,
+  Dependencies.Zio.Runtime.schema,
   Dependencies.Zio.Runtime.streams,
   Dependencies.Zio.Runtime.http,
   Dependencies.Zio.Runtime.config,
