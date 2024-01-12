@@ -7,9 +7,9 @@ extension [A](self: Option[A])
   }
 
 
-val TODO: Nothing = {
+def TODO: Nothing = {
   throw NotImplementedError()
 }
 
-type INJECTOR[O, D] = (O) => D
+type INJECTOR[O, D] = O => D
 

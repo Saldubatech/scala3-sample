@@ -1,15 +1,19 @@
 package com.saldubatech.lang
 
 class LogicCalculus[D] {
-  type PREDICATE = (D) => Boolean
+  type PREDICATE = D => Boolean
 
   def lift(v: Boolean): PREDICATE = (d: D) => v
+
   val TRUE: PREDICATE = lift(true)
   val FALSE: PREDICATE = lift(false)
 
-  def project[OTHER](op: PREDICATE)(using inj: INJECTOR[OTHER, D]) = (o: OTHER) =>  op(inj(o))
+  def project[OTHER](op: PREDICATE)(using inj: INJECTOR[OTHER, D]): OTHER => Boolean = (o: OTHER) =>  op(inj(o))
 
-  def unary(u: Boolean => Boolean): (PREDICATE) => PREDICATE = (p: PREDICATE) => (d: D) => u(p(d))
+  def unary(u: Boolean => Boolean): PREDICATE => PREDICATE = (p: PREDICATE) => (d: D) => u(p(d))
+
+  def fullBinary(b: (Boolean, Boolean) => Boolean): (PREDICATE, PREDICATE) => PREDICATE =
+    (l, r) => (d: D) => b(l(d), r(d))
 
   def lBinary(b: (Boolean, Boolean) => Boolean, shortOn: Boolean): (PREDICATE, PREDICATE) => PREDICATE =
     (l: PREDICATE, r: PREDICATE) => (d: D) => {
@@ -53,13 +57,16 @@ class LogicCalculus[D] {
   extension (l: PREDICATE) def ||(r: PREDICATE): PREDICATE = lBinary( (lb, rb) => lb || rb, true )(l, r)
   extension (l: PREDICATE) def :&&(r: PREDICATE): PREDICATE = rBinary( (lb, rb) => lb && rb, false )(l, r)
   extension (l: PREDICATE) def :||(r: PREDICATE): PREDICATE = rBinary( (lb, rb) => lb || rb, true )(l, r)
+  extension (l: PREDICATE) def =?=(r: PREDICATE): PREDICATE = fullBinary ( (lb: Boolean, rb: Boolean) => lb == rb)(l, r)
+  extension (l: PREDICATE) def =!=(r: PREDICATE): PREDICATE = fullBinary ( (lb: Boolean, rb: Boolean) => lb != rb)(l, r)
+  extension (p: PREDICATE) def unary_! : PREDICATE = unary(!_)(p)
 
-  def !(p: PREDICATE) = unary( !_ )(p)
   def all(predicates: PREDICATE*): PREDICATE = leftAssoc((l, r) => l && r, false, false)(predicates)
   def any(predicates: PREDICATE*): PREDICATE = leftAssoc((l, r) => l || r, false, true)(predicates)
   def rightAll(predicates: PREDICATE*): PREDICATE = rightAssoc((l, r) => l && r, false, false)(predicates)
   def rightAny(predicates: PREDICATE*): PREDICATE = rightAssoc((l, r) => l || r, false, true)(predicates)
+  def same(l: PREDICATE, r: PREDICATE): PREDICATE = l =?= r
 
 }
 
-def projection[O, D](op: (O) => Boolean)(using inj: INJECTOR[D, O]) =(d: D) => op(inj(d))
+def projection[O, D](op: O => Boolean)(using inj: INJECTOR[D, O]) = (d: D) => op(inj(d))

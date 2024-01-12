@@ -11,13 +11,15 @@ name := "lib"
 
 Compile / run / fork := true
 Test / run / fork := true
+Test/ logBuffered := false
 run / envVars += "DB_PASSWORD" -> localConfig.value.fold("")(_.getString("DB_PASSWORD"))
 run / envVars += "DB_PORT" -> localConfig.value.fold("")(_.getString("DB_PORT"))
 
 dependencyOverrides += "org.slf4j" % "slf4j-api" % "2.0.9"
 libraryDependencies ++= Seq(
+
+  // ZIO Runtime
   Dependencies.Zio.Runtime.quill,
-  Dependencies.Persistence.postgres,
   Dependencies.Zio.Runtime.zio,
   Dependencies.Zio.Runtime.schema,
   Dependencies.Zio.Runtime.streams,
@@ -25,6 +27,13 @@ libraryDependencies ++= Seq(
   Dependencies.Zio.Runtime.config,
   Dependencies.Zio.Runtime.configTypesafe,
   Dependencies.Zio.Runtime.json,
+  Dependencies.Zio.Runtime.reactiveStreamsInterop,
+
+
+  // Persistence
+  Dependencies.Persistence.postgres,
+  Dependencies.Persistence.slick,
+  Dependencies.Persistence.slickHikari,
 
   // logging
 //  Dependencies.Zio.Runtime.logging,
@@ -36,22 +45,23 @@ libraryDependencies ++= Seq(
 
   // test
   Dependencies.Logging.sl4jSimple % Test,
-  Dependencies.Zio.Testing.zio,
-  Dependencies.Zio.Testing.sbt,
-  Dependencies.Zio.Testing.junit,
-  Dependencies.Zio.Testing.mock,
-  Dependencies.Testing.containersPostgres,
-  Dependencies.Zio.Testing.magnolia
+  Dependencies.Zio.Testing.zio % Test,
+  Dependencies.Zio.Testing.sbt % Test,
+  Dependencies.Zio.Testing.junit % Test,
+  Dependencies.Zio.Testing.mock % Test,
+  Dependencies.Testing.containersPostgres, // No testing because it builds library for others.
+  Dependencies.Zio.Testing.magnolia % Test
 )
 publish / skip := false
 testFrameworks := Seq(new TestFramework("zio.test.sbt.ZTestFramework"))
 
 val PACKAGES_TOKEN_VAR = "GH_PUBLISH_TO_PACKAGES"
 
-GhPackages.credentials("jmpicnic", PACKAGES_TOKEN_VAR) match {
-  case None => Nil
-  case Some(cred) => credentials += cred
-}
+GhPackages.credentials("jmpicnic", PACKAGES_TOKEN_VAR).foreach( cred => credentials += cred)
+//GhPackages.credentials("jmpicnic", PACKAGES_TOKEN_VAR) match {
+//  case None => Nil
+//  case Some(cred) => credentials += cred
+//}
 
 // Configure publishing settings
 publishTo := {  Some(GhPackages.repo) }

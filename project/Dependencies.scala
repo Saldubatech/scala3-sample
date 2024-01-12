@@ -4,6 +4,7 @@ object Dependencies {
   object Zio {
     val zioVersion = "2.0.19"
     object Runtime {
+      // ZIO Ecosystem
       val zioJsonVersion = "0.6.2"
       val zioConfigVersion = "4.0.0-RC16" // "3.0.7"
       val zioHttpVersion =
@@ -12,6 +13,11 @@ object Dependencies {
 
       val quill = "io.getquill" %% "quill-jdbc-zio" % quillVersion excludeAll
         ExclusionRule(organization = "org.scala-lang.modules")
+      // https://github.com/ScalaConsultants/zio-slick-interop
+      // This is a very small library that may be worth copying/onboarding. (MIT License)
+      // NOT AVAILABLE val slickInterop = "io.scalac" %% "zio-slick-interop"  % "0.4.0"
+      val reactiveStreamsInterop = "dev.zio" %% "zio-interop-reactivestreams" % "2.0.2"
+
       val zio = "dev.zio" %% "zio" % zioVersion
       val schema = "dev.zio" %% "zio-schema" % "0.4.15"
       val streams = "dev.zio" %% "zio-streams" % zioVersion
@@ -19,6 +25,7 @@ object Dependencies {
       val config = "dev.zio" %% "zio-config" % zioConfigVersion
       val configTypesafe = "dev.zio" %% "zio-config-typesafe" % zioConfigVersion
       val json = "dev.zio" %% "zio-json" % zioJsonVersion
+
       // logging
       val zioLoggingVersion = "2.1.15"
       val logging = "dev.zio" %% "zio-logging" % zioLoggingVersion
@@ -28,11 +35,11 @@ object Dependencies {
 
     object Testing {
       val zioMockVersion = "1.0.0-RC11"
-      val zio = "dev.zio" %% "zio-test" % zioVersion % Test
-      val sbt = "dev.zio" %% "zio-test-sbt" % zioVersion % Test
-      val junit = "dev.zio" %% "zio-test-junit" % zioVersion % Test
-      val mock = "dev.zio" %% "zio-mock" % zioMockVersion % Test
-      val magnolia = "dev.zio" %% "zio-test-magnolia" % zioVersion % Test
+      val zio = "dev.zio" %% "zio-test" % zioVersion
+      val sbt = "dev.zio" %% "zio-test-sbt" % zioVersion
+      val junit = "dev.zio" %% "zio-test-junit" % zioVersion
+      val mock = "dev.zio" %% "zio-mock" % zioMockVersion
+      val magnolia = "dev.zio" %% "zio-test-magnolia" % zioVersion
     }
 
   }
@@ -48,6 +55,11 @@ object Dependencies {
 
   }
   object Persistence {
+    // Slick
+    val slickVersion = "3.5.0-M5"
+    val slick = "com.typesafe.slick" %% "slick" % slickVersion
+    val slickHikari = "com.typesafe.slick" %% "slick-hikaricp" % slickVersion
+
     val postgresqlVersion = "42.6.0"
     val postgres = "org.postgresql" % "postgresql" % postgresqlVersion
   }
@@ -55,7 +67,10 @@ object Dependencies {
   object Testing {
     val containersPostgresVersion = "0.41.0"
     val containersPostgres =
-      "com.dimafeng" %% "testcontainers-scala-postgresql" % containersPostgresVersion % Test
+      "com.dimafeng" %% "testcontainers-scala-postgresql" % containersPostgresVersion
+    val scalaTestVersion = "3.2.17"
+    val scalaTest = "org.scalatest" %% "scalatest" % scalaTestVersion
+    val scalaTic = "org.scalatest" %% "scalatic" % scalaTestVersion
 
   }
 }

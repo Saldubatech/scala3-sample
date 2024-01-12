@@ -35,12 +35,13 @@ libraryDependencies ++= Seq(
 //  Dependencies.Logging.logbackCore,
 
   // test
-  Dependencies.Zio.Testing.zio,
-  Dependencies.Zio.Testing.sbt,
-  Dependencies.Zio.Testing.junit,
-  Dependencies.Zio.Testing.mock,
-  Dependencies.Testing.containersPostgres,
-  Dependencies.Zio.Testing.magnolia
+  Dependencies.Logging.sl4jSimple % Test,
+  Dependencies.Zio.Testing.zio % Test,
+  Dependencies.Zio.Testing.sbt % Test,
+  Dependencies.Zio.Testing.junit % Test,
+  Dependencies.Zio.Testing.mock % Test,
+  Dependencies.Testing.containersPostgres % Test,
+  Dependencies.Zio.Testing.magnolia % Test
 )
 
 testFrameworks := Seq(new TestFramework("zio.test.sbt.ZTestFramework"))
