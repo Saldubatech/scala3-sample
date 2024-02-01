@@ -7,6 +7,8 @@ enablePlugins (
   JavaAppPackaging
 )
 
+scalacOptions += "-explain"
+
 name := "lib"
 
 Compile / run / fork := true
@@ -21,7 +23,7 @@ libraryDependencies ++= Seq(
   // ZIO Runtime
   Dependencies.Zio.Runtime.quill,
   Dependencies.Zio.Runtime.zio,
-  Dependencies.Zio.Runtime.schema,
+  // Needed to access the "Chunk" type.
   Dependencies.Zio.Runtime.streams,
   Dependencies.Zio.Runtime.http,
   Dependencies.Zio.Runtime.config,
@@ -35,6 +37,13 @@ libraryDependencies ++= Seq(
   Dependencies.Persistence.slick,
   Dependencies.Persistence.slickHikari,
 
+  // Schema & Optics
+  Dependencies.Zio.Ecosystem.optics,
+  Dependencies.Zio.Ecosystem.schema,
+  Dependencies.Zio.Ecosystem.schemaJson,
+  Dependencies.Zio.Ecosystem.schemaDerivation,
+  Dependencies.Zio.Ecosystem.schemaOptics,
+  Dependencies.Zio.Ecosystem.schemaTest % Test,
   // logging
 //  Dependencies.Zio.Runtime.logging,
 //  Dependencies.Zio.Runtime.sl4jBridge,
@@ -57,11 +66,11 @@ testFrameworks := Seq(new TestFramework("zio.test.sbt.ZTestFramework"))
 
 val PACKAGES_TOKEN_VAR = "GH_PUBLISH_TO_PACKAGES"
 
-GhPackages.credentials("jmpicnic", PACKAGES_TOKEN_VAR).foreach( cred => credentials += cred)
-//GhPackages.credentials("jmpicnic", PACKAGES_TOKEN_VAR) match {
-//  case None => Nil
-//  case Some(cred) => credentials += cred
-//}
+//GhPackages.credentials("jmpicnic", PACKAGES_TOKEN_VAR).foreach( cred => credentials += cred)
+GhPackages.credentials("jmpicnic", PACKAGES_TOKEN_VAR) match {
+  case None => Nil
+  case Some(cred) => credentials += cred
+}
 
 // Configure publishing settings
 publishTo := {  Some(GhPackages.repo) }

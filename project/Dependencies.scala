@@ -19,7 +19,6 @@ object Dependencies {
       val reactiveStreamsInterop = "dev.zio" %% "zio-interop-reactivestreams" % "2.0.2"
 
       val zio = "dev.zio" %% "zio" % zioVersion
-      val schema = "dev.zio" %% "zio-schema" % "0.4.15"
       val streams = "dev.zio" %% "zio-streams" % zioVersion
       val http = "dev.zio" %% "zio-http" % zioHttpVersion
       val config = "dev.zio" %% "zio-config" % zioConfigVersion
@@ -31,6 +30,21 @@ object Dependencies {
       val logging = "dev.zio" %% "zio-logging" % zioLoggingVersion
       val sl4jBridge = "dev.zio" %% "zio-logging-slf4j2-bridge" % zioLoggingVersion
       val slf4j = "dev.zio" %% "zio-logging-slf4j2" % zioLoggingVersion
+    }
+    object Ecosystem {
+      val schemaVersion = "0.4.15"
+      val schema = "dev.zio" %% "zio-schema" % schemaVersion
+      val schemaAvro = "dev.zio" %% "zio-schema-avro" % schemaVersion
+      val schemaJson = "dev.zio" %% "zio-schema-json" % schemaVersion
+      val schemaBson = "dev.zio" %% "zio-schema-bson" % schemaVersion
+      val schemaMsgPack = "dev.zio" %% "zio-schema-msg-pack" % schemaVersion
+      val schemaProto = "dev.zio" %% "zio-schema-protobuf" % schemaVersion
+      val schemaThrift = "dev.zio" %% "zio-schema-thrift" % schemaVersion
+      val schemaDerivation = "dev.zio" %% "zio-schema-derivation" % schemaVersion
+      val schemaOptics = "dev.zio" %% "zio-schema-optics" % schemaVersion
+      val schemaTest = "dev.zio" %% "zio-schema-zio-test" % schemaVersion
+      val opticsVersion = "0.2.1"
+      val optics = "dev.zio" %% "zio-optics" % opticsVersion
     }
 
     object Testing {

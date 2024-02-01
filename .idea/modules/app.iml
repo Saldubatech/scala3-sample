@@ -51,12 +51,14 @@
     <orderEntry type="library" name="sbt: dev.zio:zio-logging-slf4j2_3:2.1.15:jar" level="project" />
     <orderEntry type="library" name="sbt: dev.zio:zio-logging_3:2.1.15:jar" level="project" />
     <orderEntry type="library" scope="TEST" name="sbt: dev.zio:zio-mock_3:1.0.0-RC11:jar" level="project" />
+    <orderEntry type="library" name="sbt: dev.zio:zio-optics_3:0.2.1:jar" level="project" />
     <orderEntry type="library" name="sbt: dev.zio:zio-parser_3:0.1.9:jar" level="project" />
     <orderEntry type="library" name="sbt: dev.zio:zio-prelude-macros_3:1.0.0-RC18:jar" level="project" />
     <orderEntry type="library" name="sbt: dev.zio:zio-prelude_3:1.0.0-RC18:jar" level="project" />
-    <orderEntry type="library" name="sbt: dev.zio:zio-schema-derivation_3:0.4.8:jar" level="project" />
-    <orderEntry type="library" name="sbt: dev.zio:zio-schema-json_3:0.4.8:jar" level="project" />
+    <orderEntry type="library" name="sbt: dev.zio:zio-schema-derivation_3:0.4.15:jar" level="project" />
+    <orderEntry type="library" name="sbt: dev.zio:zio-schema-json_3:0.4.15:jar" level="project" />
     <orderEntry type="library" name="sbt: dev.zio:zio-schema-macros_3:0.4.15:jar" level="project" />
+    <orderEntry type="library" name="sbt: dev.zio:zio-schema-optics_3:0.4.15:jar" level="project" />
     <orderEntry type="library" name="sbt: dev.zio:zio-schema_3:0.4.15:jar" level="project" />
     <orderEntry type="library" name="sbt: dev.zio:zio-stacktracer_3:2.0.19:jar" level="project" />
     <orderEntry type="library" name="sbt: dev.zio:zio-streams_3:2.0.19:jar" level="project" />

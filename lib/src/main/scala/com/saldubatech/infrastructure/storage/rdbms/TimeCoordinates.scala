@@ -8,4 +8,6 @@ case class TimeCoordinates(recordedAt: Epoch, effectiveAt: Epoch) {
 }
 
 object TimeCoordinates:
-  def now = TimeCoordinates(Epoch.now, Epoch.now)
+  def now: TimeCoordinates = TimeCoordinates(Epoch.now, Epoch.now)
+
+  def origin: TimeCoordinates = TimeCoordinates(Epoch.zero, Epoch.zero)

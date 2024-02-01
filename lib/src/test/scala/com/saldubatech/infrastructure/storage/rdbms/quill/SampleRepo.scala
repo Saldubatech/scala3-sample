@@ -34,7 +34,7 @@ class SampleRepoService(using val e: ItemEntity) extends EntityPersistenceServic
     ZIO.serviceWithZIO[EntityRepo](_.delete(id))
 
   override def getAll: EIO[List[entity.Record]] =
-    ZIO.serviceWithZIO[EntityRepo](_.getAll())
+    ZIO.serviceWithZIO[EntityRepo](_.getAll)
 
   override def getById(id: Id): EIO[Option[entity.Record]] =
     ZIO.serviceWithZIO[EntityRepo](_.getById(id))

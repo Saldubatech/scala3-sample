@@ -37,7 +37,7 @@ inThisBuild(
     semanticdbVersion           := scalafixSemanticdb.revision
   )
 )
-
+scalacOptions += "-explain"
 val silencerVersion = "1.7.14"
 
 // This is needed just to provide the annotations that are no longer needed with scala 3 per https://github.com/ghik/silencer

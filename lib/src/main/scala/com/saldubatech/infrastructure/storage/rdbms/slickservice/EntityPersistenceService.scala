@@ -71,7 +71,7 @@ trait EntityPersistenceService[P <: Payload, E <: EntityType[P]]
       )
     }
 
-    override def getAll(): entity.EIO[List[Record]] = {
+    override def getAll: entity.EIO[List[Record]] = {
       val query: DBIO[Seq[Record]] = universalQuery.result
       mapFromDBIO(query)(s => ZIO.succeed(List(s*)))
     }

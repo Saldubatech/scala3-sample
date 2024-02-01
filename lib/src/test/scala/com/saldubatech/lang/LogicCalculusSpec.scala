@@ -46,7 +46,8 @@ object LogicCalculusSpec extends JUnitRunnableSpec {
           val negated = !probePredicate
           assertTrue(negated("asdf"))
 
-      },
+      }
+    },
     test("&&") {
       check(probe, probe2) {
         case (l, r) =>

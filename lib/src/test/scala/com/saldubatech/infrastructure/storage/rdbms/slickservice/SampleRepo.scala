@@ -38,7 +38,7 @@ class SampleRepoService(using e: ItemEntity)
   override def delete(id: Id): EIO[Long] =
     ZIO.serviceWithZIO[EntityRepo](_.delete(id))
   override def getAll: EIO[List[Record]] =
-    ZIO.serviceWithZIO[EntityRepo](_.getAll())
+    ZIO.serviceWithZIO[EntityRepo](_.getAll)
   override def getById(id: Id): EIO[Option[Record]] =
     ZIO.serviceWithZIO[EntityRepo](_.getById(id))
   override def update(itemId: Id, data: ItemPayload): EIO[Option[Unit]] =

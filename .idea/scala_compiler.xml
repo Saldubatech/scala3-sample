@@ -73,6 +73,7 @@
         <parameter value="utf8" />
         <parameter value="-Ykind-projector" />
         <parameter value="-Xfatal-warnings" />
+        <parameter value="-explain" />
         <parameter value="-Xsemanticdb" />
         <parameter value="-semanticdb-target" />
         <parameter value="$PROJECT_DIR$/lib/target/scala-3.3.1/meta" />
@@ -90,6 +91,7 @@
         <parameter value="utf8" />
         <parameter value="-Ykind-projector" />
         <parameter value="-Xfatal-warnings" />
+        <parameter value="-explain" />
         <parameter value="-Xsemanticdb" />
         <parameter value="-semanticdb-target" />
         <parameter value="$PROJECT_DIR$/target/scala-3.3.1/meta" />
