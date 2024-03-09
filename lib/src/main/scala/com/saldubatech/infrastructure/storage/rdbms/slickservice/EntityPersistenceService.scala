@@ -20,7 +20,7 @@ trait EntityPersistenceService[P <: Payload, E <: EntityType[P]]
   def getAll: EIO[List[Record]]
   def getById(id: Id): EIO[Option[Record]]
   def update(itemId: Id, data: P): EIO[Option[Unit]]
-    
+
   protected abstract class BaseRepo(maxRecords: Long = 1000)(using protected val dbP: DatabaseProvider) extends EntityRepo:
     import dbP.dbProfile.api._
     protected type TBL <: BaseTable
@@ -33,7 +33,7 @@ trait EntityPersistenceService[P <: Payload, E <: EntityType[P]]
         .mapError{
           case pe: PersistenceError => pe
           case other: Throwable => RepositoryError.fromThrowable(other)
-        }(zio.CanFail.canFail, zio.internal.stacktracer.Tracer.autoTrace)
+        }
 
     protected abstract class BaseTable(tag: Tag) extends Table[Record](tag, tableName):
       protected type LIFTER[A] = A match
@@ -59,15 +59,15 @@ trait EntityPersistenceService[P <: Payload, E <: EntityType[P]]
       val insert: DBIO[Int] = table += record(overrideRId, Id(), TimeCoordinates.now, data)
       mapFromDBIO(insert)(n =>
         if (n == 1) ZIO.succeed(overrideRId)
-        else ZIO.fail[PersistenceError](InsertionError(() => s"Could not insert record with id $overrideRId"))
+        else ZIO.fail[PersistenceError](InsertionError(s"Could not insert record with id $overrideRId"))
       )
     }
 
     override def delete(id: Id): entity.EIO[Long] = {
-      val delete = table.filter(_.recordId === id).delete
+      val delete = table.filter((it: TBL) => it.recordId === id).delete
       mapFromDBIO(delete)(n =>
         if (n == 1) ZIO.succeed(n)
-        else ZIO.fail[PersistenceError](InsertionError(() => s"Could not delete record with id $id"))
+        else ZIO.fail[PersistenceError](NotFoundError(s"Could not delete record with id $id"))
       )
     }
 
@@ -81,22 +81,23 @@ trait EntityPersistenceService[P <: Payload, E <: EntityType[P]]
       mapFromDBIO(query){
         case Nil => ZIO.none
         case head +: Seq() => ZIO.some(head)
-        case wkw => ZIO.fail(RepositoryError(() => s"Found more than one record with id $id"))
+        case wkw => ZIO.fail(RepositoryError(s"Found more than one record with id $id"))
       }
     }
 
     private def doUpdate(itemId: Id, eId: Id, data: P): EIO[Unit] =
       mapFromDBIO(table.filter(_.recordId === itemId).update(record(itemId, eId, TimeCoordinates.now, data))){
         case 1 => ZIO.unit
-        case 0 => ZIO.fail(RepositoryError(() => s"Could not update record with id $itemId"))
+        case 0 => ZIO.fail(RepositoryError(s"Could not update record with id $itemId"))
       }
+
     override def update(itemId: Id, data: P): EIO[Option[Unit]] =
       for {
         rOption <- getById(itemId).fold(
           ZIO.fail(_),
           {
             case Some(ir) => ZIO.succeed(ir)
-            case None => ZIO.fail(NotFoundError(() => itemId))
+            case None => ZIO.fail(NotFoundError(itemId))
           }
         )
         re <- rOption

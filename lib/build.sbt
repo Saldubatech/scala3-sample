@@ -7,7 +7,7 @@ enablePlugins (
   JavaAppPackaging
 )
 
-scalacOptions += "-explain"
+//scalacOptions += "-explain"
 
 name := "lib"
 

@@ -1,260 +1,169 @@
 package com.saldubatech.lang.meta
 
-import zio.optics.Lens
-
-import collection.mutable.ListBuffer
-import reflect.Selectable.reflectiveSelectable
-
-trait Context:
-  type Value[_]
-  type BOOLEAN
-  val TRUE: BOOLEAN
-  val FALSE: BOOLEAN
-
-  trait Sorter[T]:
-    def lt(left: Value[T], right: Value[T]): BOOLEAN
-
-    def le(left: Value[T], right: Value[T]): BOOLEAN
-
-    def gt(left: Value[T], right: Value[T]): BOOLEAN
-
-    def ge(left: Value[T], right: Value[T]): BOOLEAN
-
-  infix def and(left: BOOLEAN, right: BOOLEAN): BOOLEAN
-  infix def or(left: BOOLEAN, right: BOOLEAN): BOOLEAN
-  infix def not(b: BOOLEAN): BOOLEAN
-
-  infix def eq[T](left: Value[T], right: Value[T]): BOOLEAN
-  infix def ne[T](left: Value[T], right: Value[T]): BOOLEAN
-  infix def lt[T](left: Value[T], right: Value[T])(using ordering: Sorter[T]): BOOLEAN
-  infix def le[T](left: Value[T], right: Value[T])(using ordering: Sorter[T]): BOOLEAN
-  infix def gt[T](left: Value[T], right: Value[T])(using ordering: Sorter[T]): BOOLEAN
-  infix def ge[T](left: Value[T], right: Value[T])(using ordering: Sorter[T]): BOOLEAN
-
-  trait LiftProtocol[T]:
-    def lift(t: T): Value[T]
-
-  trait ResolveProtocol[T]:
-      def resolve(v: Value[T]): T
-
-class InMemoryContext extends Context:
-  override type Value[T] = T
-  type BOOLEAN = Boolean
-  override val TRUE: BOOLEAN = true
-  override val FALSE: BOOLEAN = false
-
-  class ComparableSorter[T](using val o: Ordering[T]) extends Sorter[T]:
-    override def lt(left: Value[T], right: Value[T]): BOOLEAN = o.lt(left, right)
-    override def le(left: Value[T], right: Value[T]): BOOLEAN = o.lteq(left, right)
-    override def gt(left: Value[T], right: Value[T]): BOOLEAN = o.gt(left, right)
-    override def ge(left: Value[T], right: Value[T]): BOOLEAN = o.gteq(left, right)
-
-  implicit def comparableSorter[T](using o: Ordering[T]): ComparableSorter[T] = ComparableSorter[T]
-
-
-  override infix def and(left: BOOLEAN, right: BOOLEAN): BOOLEAN = left && right
-  override infix def or(left: BOOLEAN, right: BOOLEAN): BOOLEAN = left || right
-  override def not(b: BOOLEAN): BOOLEAN = !b
-
-  override infix def eq[T](left: Value[T], right: Value[T]): BOOLEAN = left == right
-
-  override infix def ne[T](left: Value[T], right: Value[T]): BOOLEAN = left != right
-
-  override infix def lt[T](left: Value[T], right: Value[T])(using ordering: Sorter[T]): BOOLEAN = ordering.lt(left, right)
-
-  override infix def le[T](left: Value[T], right: Value[T])(using ordering: Sorter[T]): BOOLEAN = ordering.le(left, right)
-
-  override infix def gt[T](left: Value[T], right: Value[T])(using ordering: Sorter[T]): BOOLEAN = ordering.gt(left, right)
-
-  override infix def ge[T](left: Value[T], right: Value[T])(using ordering: Sorter[T]): BOOLEAN = ordering.ge(left, right)
-
-  class Lift[T] extends LiftProtocol[T]:
-    def lift(t: T): T = t
-
-  class Resolve[T] extends ResolveProtocol[T]:
-    def resolve(v: T): T = v
-
-
-trait ElementType[P, CTX <: Context]:
-  val ctx: CTX
-  final type LANG_TYPE = P
-  final type LIFTED_TYPE = ctx.Value[P]
-  import ctx._
-
-  trait Comprehension:
-    val value: LIFTED_TYPE => Either[Throwable, BOOLEAN]
-    def unary_- : Comprehension = Negate(this)
-    def +(other: Comprehension): Comprehension = Plus(this, other)
-    def *(other: Comprehension): Comprehension = Times(this, other)
-    def -(other: Comprehension): Comprehension = this + (-other)
-
-  case class Plus(left: Comprehension, right: Comprehension) extends Comprehension:
-    override val value: LIFTED_TYPE => Either[Throwable, BOOLEAN] = l => for {
-      lv <- left.value(l)
-      rv <- right.value(l)
-    } yield ctx.or(lv, rv)
-
-  case class Times(left: Comprehension, right: Comprehension) extends Comprehension:
-    override val value: LIFTED_TYPE => Either[Throwable, BOOLEAN] = l => for {
-      lv <- left.value(l)
-      rv <- right.value(l)
-    } yield ctx.and(lv, rv)
-
-  case class Negate(arg: Comprehension) extends Comprehension:
-    override val value: LIFTED_TYPE => Either[Throwable, BOOLEAN] = l => for {
-      lv <- arg.value(l)
-    } yield ctx.not(lv)
-
-  trait Predicate extends Comprehension
-  trait UnaryPredicate extends Predicate
-
-  trait BinaryPredicate extends Predicate:
-    val term: ctx.Value[P]
-
-  case class Eq(term: LIFTED_TYPE) extends BinaryPredicate:
-    override val value: LIFTED_TYPE => Either[Throwable, BOOLEAN] = l => Right(ctx.eq(term, l))
-  case class Ne(term: LIFTED_TYPE) extends BinaryPredicate:
-    override val value: LIFTED_TYPE => Either[Throwable, BOOLEAN] = l => Right(ctx.ne(term, l))
-
-  def eq(term: LIFTED_TYPE): Comprehension = Eq(term)
-  def ne(term: LIFTED_TYPE): Comprehension = Ne(term)
-  object empty extends UnaryPredicate:
-    override val value: LIFTED_TYPE => Either[Throwable, BOOLEAN] = _ => Right(ctx.FALSE)
-
-  object universe extends UnaryPredicate:
-    override val value: LIFTED_TYPE => Either[Throwable, BOOLEAN] = _ => Right(ctx.TRUE)
-
-  def eval(t: LIFTED_TYPE): PartialFunction[Comprehension, Either[Throwable, BOOLEAN]] = {
-    case e if (e == empty) => Right(FALSE)
-    case u if (u == universe) => Right(TRUE)
-    case Plus(l, r) => for {
-      left <- eval(t)(l)
-      right <- eval(t)(r)
-    } yield ctx.or(left, right)
-    case Times(l, r) => for {
-      left <- eval(t)(l)
-      right <- eval(t)(r)
-    } yield ctx.and(left, right)
-    case Negate(arg) => for {
-      result <- eval(t)(arg)
-    } yield ctx.not(result)
-    case Eq(term) => Right(ctx.eq(term, t))
-    case Ne(term) => Right(ctx.ne(term, t))
-  }
-
-trait ComparableElementType[P, CTX <: Context] extends ElementType[P, CTX]:
-  val ordering: ctx.Sorter[P]
-  import ctx._
-
-  override def eval(t: LIFTED_TYPE): PartialFunction[Comprehension, Either[Throwable, BOOLEAN]] =
-    super.eval(t) orElse {
-      case Lt(term) => Right(ordering.lt(term, t))
-      case Le(term) => Right(ordering.le(term, t))
-      case Gt(term) => Right(ordering.gt(term, t))
-      case Ge(term) => Right(ordering.ge(term, t))
-    }
-  case class Lt(term: LIFTED_TYPE)(using Sorter[LANG_TYPE]) extends BinaryPredicate:
-    override val value: LIFTED_TYPE => Either[Throwable, BOOLEAN] = l => Right(ctx.lt(term, l))
-
-  case class Le(term: LIFTED_TYPE)(using Sorter[LANG_TYPE]) extends BinaryPredicate:
-    override val value: LIFTED_TYPE => Either[Throwable, BOOLEAN] = l => Right(ctx.le(term, l))
-
-
-  case class Gt(term: LIFTED_TYPE)(using Sorter[LANG_TYPE]) extends BinaryPredicate:
-    override val value: LIFTED_TYPE => Either[Throwable, BOOLEAN] = l => Right(ctx.gt(term, l))
-
-
-  case class Ge(term: LIFTED_TYPE)(using Sorter[LANG_TYPE]) extends BinaryPredicate:
-    override val value: LIFTED_TYPE => Either[Throwable, BOOLEAN] = l => Right(ctx.ge(term, l))
-
-  infix def lt(term: LIFTED_TYPE)(using Sorter[LANG_TYPE]): Comprehension = Lt(term)
-  infix def le(term: LIFTED_TYPE)(using Sorter[LANG_TYPE]): Comprehension = Le(term)
-  infix def gt(term: LIFTED_TYPE)(using Sorter[LANG_TYPE]): Comprehension = Gt(term)
-  infix def ge(term: LIFTED_TYPE)(using Sorter[LANG_TYPE]): Comprehension = Ge(term)
-
-abstract class ValueElementType[T <: AnyVal, CTX <: Context](using override val ctx: CTX) extends ComparableElementType[T, CTX]
-
-
-
-
-abstract class ProductElementType[CTX <: Context, P <: Product]
-(using override val ctx: CTX) extends ElementType[P, CTX], Selectable:
-  //override val ctx: CTX = lCtx
-
-  trait Locator[V, VT <: ElementType[V, ctx.type]]:
-    val vt: VT
-    def project(p: LIFTED_TYPE): Either[Throwable, vt.LIFTED_TYPE]
-
-  val elements: Map[String, Locator[_, _]]
-
-  def selectDynamic(element: String) = elements(element)
-
-  //infix def >>>[S, ST <: ElementType[S, CTX, ST]](subPath: LocatorProtocol[CTX, V, VT, S, ST])(using sType: ST): LocatorProtocol[CTX, H, HT, S, ST]
-  class Projection[V, VT <: ElementType[V, ctx.type]]
-    (val vType: VT, val locator: Locator[V, vType.type], val vComprehension: vType.Comprehension)
-      extends Comprehension:
-    override val value: LIFTED_TYPE => Either[Throwable, ctx.BOOLEAN] = l => locator.project(l).flatMap(vType.eval(_)(vComprehension))
-  object Projection {
-    def unapply[V, VT <: ElementType[V, ctx.type]](p: Projection[V, VT]) = (p.vType, p.locator, p.vComprehension)
-  }
-
-  def project[V, VT <: ElementType[V, ctx.type]](using vt: VT)(locator: Locator[V, vt.type], vComprehension: vt.Comprehension) =
-    Projection(vt, locator, vComprehension)
-
-  override def eval(t: LIFTED_TYPE): PartialFunction[Comprehension, Either[Throwable, ctx.BOOLEAN]] =
-    super.eval(t) orElse {
-      case p: Projection[_, _] => {
-        val vE: Either[Throwable, p.vType.LIFTED_TYPE] = p.locator.project(t)
-        val rE: Either[Throwable, ctx.BOOLEAN] = vE.flatMap(v => p.vType.eval(v)(p.vComprehension))
-        rE
-      }
-//        for {
-//          v: p.vType.LIFTED_TYPE <- p.locator.project(t)
-//          result: ctx.BOOLEAN <- p.vType.eval(v)(p.vComprehension)
-//        } yield result
-    }
-
-trait ElementSet[T, CTX <: Context, TTYPE <: ElementType[T, CTX], C[_] <: Seq[_]]:
-  val tType: TTYPE
-
-  def find(comprehension: tType.Comprehension): Either[Throwable, C[T]]
-
-  def findUnique(comprehension: tType.Comprehension): Either[Throwable, T]
-
-  def add(t: T): Either[Throwable, tType.LIFTED_TYPE]
-
-  def remove(t: T): Either[Throwable, tType.LIFTED_TYPE]
-
-
-class ListBasedSet[CTX <: InMemoryContext, T, TTYPE <: ElementType[T, CTX]](using val tType: TTYPE)
-  extends ElementSet[T, CTX, TTYPE, List]:
-  private val store: ListBuffer[T] = ListBuffer()
-
-  override def find(comprehension: tType.Comprehension): Either[Throwable, List[T]] =
-    store.foldLeft[Either[Throwable, List[T]]](Right(List()))(
-      (acc, next) => for {
-        l <- acc
-        e <- tType.eval(next)(comprehension)
-      } yield if(tType.ctx.eq(e, tType.ctx.TRUE)) l :+ next else l
-    )
-
-  override def findUnique(comprehension: tType.Comprehension): Either[Throwable, T] =
-    find(comprehension) match {
-      case Left(e) => Left(e)
-      case Right(e) if e.isEmpty => Left(new Throwable("No element found"))
-      case Right(e) if e.size > 1 => Left(new Throwable("More than one element found"))
-      case Right(e) => Right(e.head)
-    }
-
-  override def add(t: tType.LIFTED_TYPE): Either[Throwable, tType.LIFTED_TYPE] =
-    if (store.contains(t)) Left(new Throwable("Element already exists"))
-    else {
-      store.append(t)
-      Right(t)
-    }
-
-  override def remove(t: T): Either[Throwable, tType.LIFTED_TYPE] =
-    if (store.contains(t)) {
-      store.subtractOne(t)
-      Right(t)
-    } else Left(new Throwable("Element does not exist"))
+import zio.{RIO, Tag, TagK, Task, UIO, URIO, ZIO, ZLayer}
+
+  /*
+ * The structural data of an Element that represents a type `P` in Scala for operatings in the context `CTX`
+ */
+  trait ElementType[P: Tag, CTX <: Context[_]](val ctx: CTX)// :
+//    // An alias for P denoting that this is the Scala (Language) type of the element.
+//    final type LANG_TYPE = P
+//    // An alias for the corresponding type in the context (The lifted type)
+//    //final type LIFTED_TYPE = ctx.Value[P]
+//    type LIFTED_TYPE
+//    // Import the implementation bindings for the context
+//
+//    import ctx._
+//
+//    /**
+//     * Represents a Set of Elements. It provides the ability to filter them returning a contextual collection of Scala values
+//   */
+//    trait Set:
+//      def filter(ev: LIFTED_TYPE => BOOLEAN): ctx.C[LANG_TYPE]
+//
+//    /*
+//     * The main abstraction in this file. It represents a "Comprehension" of values of type `Value[P]` in the context.
+//     * Comprehensions need to be interpreted against a `Set` to be able to retrieve the actual Scala values.
+//     */
+//    trait Comprehension:
+//      // A mapping between a value of `LIFTED_TYPE` and the context `BOOLEAN`. It is expressed as an UIO to allow
+//      // treating them as values in the context of Zio execution environment for lazy evaluation.
+//      type CONDITION = LIFTED_TYPE => Task[BOOLEAN]
+//  
+//      // The value of a comprehension is represented by a Condition on the values of the type the ElementType represents.
+//      val value: CONDITION
+//  
+//      // A Negation of a given Comprehension.
+//      def unary_- : Comprehension = Negate(this)
+//  
+//      // An addition of two Comprehensions, representing the union of the two sets of values.
+//      def +(other: Comprehension): Comprehension = Plus(this, other)
+//      // A multiplication of two Comprehensions, representing the intersection of the two sets of values.
+//      def *(other: Comprehension): Comprehension = Times(this, other)
+//  
+//      // The difference between two Comprehensions, which is equivalent to the union of the first one times the negation of
+//      // the second one.
+//      def -(other: Comprehension): Comprehension = this * (-other)
+//  
+//    // A Comprehension Representing the sum of two other comprehensions
+//    case class Plus(left: Comprehension, right: Comprehension) extends Comprehension:
+//      override val value: CONDITION = lifted => for {
+//        lv <- left.value(lifted)
+//        rv <- right.value(lifted)
+//      } yield ctx.or(lv, rv)
+//
+//
+//    // A Comprehension Representing the product of two other comprehensions
+//    case class Times(left: Comprehension, right: Comprehension) extends Comprehension:
+//      override val value: CONDITION = lifted => for {
+//        lv <- left.value(lifted)
+//        rv <- right.value(lifted)
+//      } yield ctx.and(lv, rv)
+//
+//
+//    // A Comprehension Representing the negation of another one.
+//    // Note that this implies the existence of a "Universal Set", which in practice is given by the Evaluation infrastructure.
+//    case class Negate(arg: Comprehension) extends Comprehension:
+//      override val value: CONDITION = lifted => arg.value(lifted).map(ctx.not)
+//  
+//    // A Synonym of Comprehension to act as the root of the hierarchy of elemental Comprehensions
+//    trait Predicate extends Comprehension
+//  
+//    // A Predicate that will take only one value of type `LIFTED_TYPE`
+//    trait UnaryPredicate extends Predicate
+//  
+//    // A Predicate that will take two values of type `LIFTED_TYPE`
+//    trait BinaryPredicate extends Predicate:
+//      val term: ctx.Value[P]
+//  
+//    // Predicate which is true for values that are equal to the given term.
+//    case class Eq(term: LIFTED_TYPE)(using equality: ctx.Equality[LANG_TYPE]) extends BinaryPredicate:
+//      override val value: CONDITION = lifted => ZIO.attempt(equality.eq(term, lifted))
+//  
+//    // Predicate which is true for values that are not equal to the given term.
+//    case class Ne(term: LIFTED_TYPE)(using equality: ctx.Equality[LANG_TYPE]) extends BinaryPredicate:
+//      override val value: CONDITION = lifted => ZIO.attempt(equality.ne(term, lifted))
+//  
+//    // Convenience methods to create the appropriate conprehension.
+//    def eq(term: LIFTED_TYPE)(using ctx.Equality[LANG_TYPE]): Comprehension = Eq(term)
+//    def ne(term: LIFTED_TYPE)(using ctx.Equality[LANG_TYPE]): Comprehension = Ne(term)
+//    object empty extends UnaryPredicate:
+//      override val value: CONDITION = lifted => ZIO.succeed(ctx.FALSE)
+//  
+//    // The universal set of values. It evaluates to true for all values.
+//    object universe extends UnaryPredicate:
+//      override val value: CONDITION = lifted => ZIO.succeed(ctx.TRUE)
+//
+//trait BaseElementType[P: Tag, CTX <: Context[_]] extends ElementType[P, CTX]:
+//  // An alias for the corresponding type in the context (The lifted type)
+//  final type LIFTED_TYPE = ctx.Value[P]
+//
+//// An extension of a ComparableType that provides a total order relationship between pairs of its values
+//trait ComparableElementType[P, CTX <: Context[_]] extends ElementType[P, CTX]:
+//  // The sorter to be used to define the order relationship.
+//  val ordering: ctx.Sorter[P]
+//  import ctx._
+//
+//  // LessThan
+//  case class Lt(term: LIFTED_TYPE)(using sorter: Sorter[LANG_TYPE]) extends BinaryPredicate:
+//    override val value: CONDITION = lifted => ZIO.attempt(sorter.lt(term, lifted))
+//
+//  // LessOrEqual
+//  case class Le(term: LIFTED_TYPE)(using sorter: Sorter[LANG_TYPE]) extends BinaryPredicate:
+//    override val value: CONDITION = lifted => ZIO.attempt(sorter.le(term, lifted))
+//
+//  // GreaterThan
+//  case class Gt(term: LIFTED_TYPE)(using sorter: Sorter[LANG_TYPE]) extends BinaryPredicate:
+//    override val value: CONDITION = lifted => ZIO.attempt(sorter.gt(term, lifted))
+//
+//  // Greater or Equal
+//  case class Ge(term: LIFTED_TYPE)(using sorter: Sorter[LANG_TYPE]) extends BinaryPredicate:
+//    override val value: CONDITION = lifted => ZIO.attempt(sorter.ge(term, lifted))
+//
+//  // Convenience Methods to Create the appropriate Comprehension
+//  infix def lt(term: LIFTED_TYPE)(using sorter: Sorter[LANG_TYPE]): Comprehension = Lt(term)
+//  infix def le(term: LIFTED_TYPE)(using sorter: Sorter[LANG_TYPE]): Comprehension = Le(term)
+//  infix def gt(term: LIFTED_TYPE)(using sorter: Sorter[LANG_TYPE]): Comprehension = Gt(term)
+//  infix def ge(term: LIFTED_TYPE)(using sorter: Sorter[LANG_TYPE]): Comprehension = Ge(term)
+//
+//// An Extension of the ComparableElementType that requires its values to be of an `AnyVal` type
+//// Intended to represent basic types such as Int, Double, etc.
+//abstract class ValueElementType[P <: AnyVal : Tag, CTX <: Context[_]]
+//(c : CTX)
+//extends ComparableElementType[P, CTX], ElementType[P, CTX](c)
+//
+//// An ElementType that requires its values to be of a `Product` type.
+//// Intended to represent Tuples, Structs, etc.
+//// The functionality it adds is to be able to dereference is components through a typed `Locator`
+//abstract class ProductElementType[CTX <: Context[_], P <: Product : Tag](c: CTX)
+//  extends ElementType[P, CTX](c), Selectable:
+//  //override val ctx: CTX = lCtx
+//  // The type that defines the information needed to dereference the components of a product type.
+//  type LIFTED_PRODUCT
+//  final type LIFTED_TYPE = LIFTED_PRODUCT
+//  trait Locator[V]:
+//    val vt: ElementType[V, ctx.type]
+//    val projection: LIFTED_TYPE => Task[vt.LIFTED_TYPE]
+//
+//  // A map that gives specific names to the components of a product type by associating a Locator with each name.
+//  val elements: Map[String, Locator[_]]
+//
+//  // This is still unclear. It is intended to support the new "Record" extensibility syntax in Scala3. TBD
+//  def selectDynamic(element: String): Locator[_] = elements(element)
+//
+//  //infix def >>>[S, ST <: ElementType[S, CTX, ST]](subPath: LocatorProtocol[CTX, V, VT, S, ST])(using sType: ST): LocatorProtocol[CTX, H, HT, S, ST]
+//  // A Projection represents a Transformation of a comprehension expressed in terms of the component of a Product into a Comprehension of the Product type
+//  // itself. E.g. Given a Comprehension on cities by their name, it could be projected into a comprehension on Countries by providing a `Locator` that specifies
+//  // how to retrieve their Capital city.
+//  class Projection[V]
+//    (val vType: ElementType[V, ctx.type], val locator: Locator[V], val vComprehension: vType.Comprehension)
+//      extends Comprehension:
+//    override val value: CONDITION = lifted =>
+//      for {
+//        v <- locator.projection(lifted)
+//        c <- vComprehension.value(v)
+//      } yield c
+//
+//
+//  def project[V](using vt: ElementType[V, ctx.type])(locator: Locator[V], vComprehension: vt.Comprehension) =
+//    Projection(vt, locator, vComprehension)
