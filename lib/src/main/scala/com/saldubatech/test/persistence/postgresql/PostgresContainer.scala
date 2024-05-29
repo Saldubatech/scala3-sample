@@ -6,7 +6,7 @@ import zio._
 
 object PostgresContainer:
 
-  def make(imageName: String = "postgres:alpine", withSchema: String = "item_schema.sql"):
+  def make(withSchema: String = "item_schema.sql", imageName: String = "postgres:alpine"):
   ZIO[Any with Scope, Throwable, PostgreSQLContainer] =
     ZIO.acquireRelease {
       ZIO.attempt {

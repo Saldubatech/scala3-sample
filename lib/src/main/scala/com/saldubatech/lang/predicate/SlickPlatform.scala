@@ -26,7 +26,7 @@ class SlickPlatform(val dbP: DatabaseProvider) extends Platform:
     final type TABLE_QUERY = TableQuery[STORE_TYPE]
     final type QUERY = Query[STORE_TYPE, V, Seq]
     val tableQuery: TABLE_QUERY
-    final val query = tableQuery.take(maxRecords)
+    final lazy val query = tableQuery.take(maxRecords)
     val stCtag: ClassTag[STORE_TYPE]
 
   inline def tableFor[V, T <: Table[V]]
@@ -80,7 +80,7 @@ class SlickRepoZioService[E: ZTag]
 
   type REPO = repo.type
 
-  type EIO[A] = ZIO[REPO, PersistenceError, A]
+  type EIO[A] = ZIO[DatabaseProvider, PersistenceError, A]
 
   protected def mapFromDBIO[RS](action: DBIO[RS]): EIO[RS] =
     ZIO.fromDBIO[RS](action).provideEnvironment(ZEnvironment(platform.dbP))
@@ -89,18 +89,10 @@ class SlickRepoZioService[E: ZTag]
         case other: Throwable => RepositoryError.fromThrowable(other)
       }
 
-  def add(data: E): EIO[E] = ZIO.serviceWithZIO(r => mapFromDBIO(r.add(data)))
+  def add(data: E): EIO[E] = mapFromDBIO[E](repo.add(data))
 
   def find[PRED <: Predicate[repo.STORAGE]]
   (using prj: PREDICATE_REQUIREMENT[repo.STORAGE, PRED])
-  (p: PRED): EIO[Seq[E]] = ZIO.serviceWithZIO[repo.type](r => mapFromDBIO(r.find(p)))
+  (p: PRED): EIO[Seq[E]] = mapFromDBIO[Seq[E]](repo.find(p))
 
-object SlickRepoZioService:
-  def zioLayer[E : ZTag]
-  (using ec: ExecutionContext)
-  (builder: (SlickPlatform, ExecutionContext) => SlickRepoZioService[E]): URLayer[SlickPlatform, SlickRepoZioService[E]] =
-    ZLayer {
-      for {
-        platform <- ZIO.service[SlickPlatform]
-      } yield builder(platform, ec)
-    }
+object SlickRepoZioService
