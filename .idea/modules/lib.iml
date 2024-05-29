@@ -109,9 +109,9 @@
     <orderEntry type="library" name="sbt: org.rnorth.duct-tape:duct-tape:1.0.8:jar" level="project" />
     <orderEntry type="library" name="sbt: org.scala-lang.modules:scala-collection-compat_3:2.9.0:jar" level="project" />
     <orderEntry type="library" name="sbt: org.scala-lang:scala-compiler:2.13.11:jar" level="project" />
-    <orderEntry type="library" name="sbt: org.scala-lang:scala-library:2.13.11:jar" level="project" />
+    <orderEntry type="library" name="sbt: org.scala-lang:scala-library:2.13.12:jar" level="project" />
     <orderEntry type="library" name="sbt: org.scala-lang:scala-reflect:2.13.11:jar" level="project" />
-    <orderEntry type="library" name="sbt: org.scala-lang:scala3-library_3:3.3.1:jar" level="project" />
+    <orderEntry type="library" name="sbt: org.scala-lang:scala3-library_3:3.3.3:jar" level="project" />
     <orderEntry type="library" name="sbt: org.scala-lang:scalap:2.13.11:jar" level="project" />
     <orderEntry type="library" scope="TEST" name="sbt: org.scala-sbt:test-interface:1.0:jar" level="project" />
     <orderEntry type="library" name="sbt: org.scalameta:common_2.13:4.8.10:jar" level="project" />
@@ -127,7 +127,13 @@
     <orderEntry type="library" name="sbt: org.testcontainers:jdbc:1.19.0:jar" level="project" />
     <orderEntry type="library" name="sbt: org.testcontainers:postgresql:1.19.0:jar" level="project" />
     <orderEntry type="library" name="sbt: org.testcontainers:testcontainers:1.19.0:jar" level="project" />
+    <orderEntry type="library" name="sbt: org.typelevel:algebra_3:2.9.0:jar" level="project" />
+    <orderEntry type="library" name="sbt: org.typelevel:alleycats-core_3:2.10.0:jar" level="project" />
+    <orderEntry type="library" name="sbt: org.typelevel:cats-core_3:2.10.0:jar" level="project" />
+    <orderEntry type="library" name="sbt: org.typelevel:cats-kernel_3:2.10.0:jar" level="project" />
+    <orderEntry type="library" name="sbt: org.typelevel:kittens_3:3.3.0:jar" level="project" />
     <orderEntry type="library" name="sbt: org.typelevel:paiges-core_2.13:0.4.2:jar" level="project" />
+    <orderEntry type="library" name="sbt: org.typelevel:shapeless3-deriving_3:3.4.1:jar" level="project" />
     <orderEntry type="module-library">
       <library name="sbt: unmanaged-sources-and-docs">
         <CLASSES />

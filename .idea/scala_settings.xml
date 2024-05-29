@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ScalaProjectSettings">
-    <option name="compilerHighlightingScala2" value="true" />
     <option name="customScalatestSyntaxHighlighting" value="true" />
+    <option name="disableLangInjection" value="true" />
+    <option name="dontCacheCompoundTypes" value="true" />
     <option name="enableJavaToScalaConversion" value="false" />
-    <option name="implicitParametersSearchDepth" value="2" />
+    <option name="implicitParametersSearchDepth" value="3" />
     <option name="includeBlockExpressions" value="true" />
     <option name="includeLiterals" value="true" />
     <option name="intInjectionMapping">

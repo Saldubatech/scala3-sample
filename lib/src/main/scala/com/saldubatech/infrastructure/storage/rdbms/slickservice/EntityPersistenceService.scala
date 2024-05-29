@@ -27,7 +27,7 @@ trait EntityPersistenceService[P <: Payload, E <: EntityType[P]]
     protected lazy val table: TableQuery[TBL]
     type RECORDS = Query[TBL, Extract[TBL], Seq]
     protected lazy val universalQuery: RECORDS = table.take(maxRecords)
-    private def mapFromDBIO[DBRS, RS](action: DBIO[DBRS])(resolve: DBRS => EIO[RS] = ZIO.succeed(zio.internal.stacktracer.Tracer.autoTrace)): EIO[RS] =
+    protected def mapFromDBIO[DBRS, RS](action: DBIO[DBRS])(resolve: DBRS => EIO[RS] = ZIO.succeed(zio.internal.stacktracer.Tracer.autoTrace)): EIO[RS] =
       ZIO.fromDBIO(action).provideEnvironment(ZEnvironment(dbP))
         .flatMap(resolve)
         .mapError{
@@ -75,13 +75,18 @@ trait EntityPersistenceService[P <: Payload, E <: EntityType[P]]
       val query: DBIO[Seq[Record]] = universalQuery.result
       mapFromDBIO(query)(s => ZIO.succeed(List(s*)))
     }
+    
+    def findSome(criteria: TBL => Rep[Boolean]): entity.EIO[List[Record]] = {
+      val q: DBIO[Seq[Record]] = universalQuery.filter(criteria).result
+      mapFromDBIO(q)(s => ZIO.succeed(s.toList))
+    }
 
     override def getById(id: Id): entity.EIO[Option[Record]] = {
       val query = universalQuery.filter(_.recordId === id).result
       mapFromDBIO(query){
         case Nil => ZIO.none
         case head +: Seq() => ZIO.some(head)
-        case wkw => ZIO.fail(RepositoryError(s"Found more than one record with id $id"))
+        case _ => ZIO.fail(RepositoryError(s"Found more than one record with id $id"))
       }
     }
 

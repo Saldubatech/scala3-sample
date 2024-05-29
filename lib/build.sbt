@@ -19,6 +19,13 @@ run / envVars += "DB_PORT" -> localConfig.value.fold("")(_.getString("DB_PORT"))
 
 dependencyOverrides += "org.slf4j" % "slf4j-api" % "2.0.9"
 libraryDependencies ++= Seq(
+  // Basic Utilities
+  // Cats Functional Types
+  Dependencies.Cats.core,
+  Dependencies.Cats.alley,
+  Dependencies.Cats.kittens,
+  Dependencies.Cats.algebra,
+  // Dependencies.Cats.effect
 
   // ZIO Runtime
   Dependencies.Zio.Runtime.quill,

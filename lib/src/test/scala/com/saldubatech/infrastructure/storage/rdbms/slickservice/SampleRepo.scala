@@ -1,14 +1,10 @@
 package com.saldubatech.infrastructure.storage.rdbms.slickservice
 
 import com.saldubatech.infrastructure.storage.rdbms.{EntityType, Id, Payload, TimeCoordinates}
-import com.saldubatech.types.datetime.Epoch
 import slick.interop.zio.DatabaseProvider
 import slick.lifted.{MappedProjection, ProvenShape}
 import slick.jdbc.JdbcProfile
 import zio.{URLayer, ZIO, ZLayer}
-
-import scala.deriving.Mirror.ProductOf
-
 
 
 final case class ItemPayload(name: String, price: BigDecimal) extends Payload
@@ -16,11 +12,11 @@ final case class ItemPayload(name: String, price: BigDecimal) extends Payload
 class ItemEntity extends EntityType[ItemPayload]:
   override type PL_TUPLE = (String, BigDecimal)
   final case class Record(
-    override val recordId: Id,
-    override val entityId: Id,
-    override val coordinates: TimeCoordinates,
-    override val payload: ItemPayload
-  ) extends RecordTemplate
+                           override val recordId: Id,
+                           override val entityId: Id,
+                           override val coordinates: TimeCoordinates,
+                           override val payload: ItemPayload
+                         ) extends RecordTemplate
 
   override def record(recordId: Id, entityId: Id, coordinates: TimeCoordinates, payload: ItemPayload): Record =
     Record(recordId, entityId, coordinates, payload)

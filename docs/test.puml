@@ -1,0 +1,9 @@
+@startuml (id=TOP_BOTTOM)
+
+class Top
+
+class Bottom
+
+Top *--> Bottom
+
+@enduml

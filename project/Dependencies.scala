@@ -1,6 +1,24 @@
 import sbt.*
 object Dependencies {
   val lastUpdated = "20231121"
+
+  object Cats {
+    val catsVersion = "2.9.0"
+    // https://mvnrepository.com/artifact/org.typelevel/cats-core
+    val core = "org.typelevel" %% "cats-core" % catsVersion
+    // https://mvnrepository.com/artifact/org.typelevel/alleycats-core
+    val alley =  "org.typelevel" %% "alleycats-core" % catsVersion
+    // https://mvnrepository.com/artifact/org.typelevel/algebra
+    val algebra = "org.typelevel" %% "algebra" % catsVersion
+
+
+    // https://mvnrepository.com/artifact/org.typelevel/cats-effect
+    val effectsVersion = "3.6-0142603"
+    val effect = "org.typelevel" %% "cats-effect" % effectsVersion
+
+    val kittensVersion = "3.3.0"
+    val kittens = "org.typelevel" %% "kittens" % kittensVersion
+  }
   object Zio {
     val zioVersion = "2.0.19"
     object Runtime {
@@ -70,9 +88,11 @@ object Dependencies {
   }
   object Persistence {
     // Slick
-    val slickVersion = "3.5.0-M5"
+    val slickVersion = "3.5.1"
     val slick = "com.typesafe.slick" %% "slick" % slickVersion
     val slickHikari = "com.typesafe.slick" %% "slick-hikaricp" % slickVersion
+
+    val slickTest = "com.typesafe.slick" %% "slick-testkit" % slickVersion
 
     val postgresqlVersion = "42.6.0"
     val postgres = "org.postgresql" % "postgresql" % postgresqlVersion
