@@ -34,7 +34,8 @@ inThisBuild(
 //    ).value,
 //    ciDefaultTargetJavaVersions := Seq("8"),
     semanticdbEnabled           := true,
-    semanticdbVersion           := scalafixSemanticdb.revision
+    semanticdbVersion           := scalafixSemanticdb.revision,
+    Test / logBuffered          := false
   )
 )
 scalacOptions += "-explain"

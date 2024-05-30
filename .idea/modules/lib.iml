@@ -33,8 +33,8 @@
     <orderEntry type="library" name="sbt: com.lihaoyi:sourcecode_3:0.3.0:jar" level="project" />
     <orderEntry type="library" name="sbt: com.softwaremill.magnolia1_3:magnolia_3:1.3.3:jar" level="project" />
     <orderEntry type="library" name="sbt: com.typesafe.scala-logging:scala-logging_3:3.9.5:jar" level="project" />
-    <orderEntry type="library" name="sbt: com.typesafe.slick:slick-hikaricp_3:3.5.0-M5:jar" level="project" />
-    <orderEntry type="library" name="sbt: com.typesafe.slick:slick_3:3.5.0-M5:jar" level="project" />
+    <orderEntry type="library" name="sbt: com.typesafe.slick:slick-hikaricp_3:3.5.1:jar" level="project" />
+    <orderEntry type="library" name="sbt: com.typesafe.slick:slick_3:3.5.1:jar" level="project" />
     <orderEntry type="library" name="sbt: com.typesafe:config:1.4.3:jar" level="project" />
     <orderEntry type="library" name="sbt: com.zaxxer:HikariCP:5.0.1:jar" level="project" />
     <orderEntry type="library" name="sbt: dev.zio:izumi-reflect-thirdparty-boopickle-shaded_3:2.3.8:jar" level="project" />
@@ -108,12 +108,14 @@
     <orderEntry type="library" name="sbt: org.reactivestreams:reactive-streams:1.0.4:jar" level="project" />
     <orderEntry type="library" name="sbt: org.rnorth.duct-tape:duct-tape:1.0.8:jar" level="project" />
     <orderEntry type="library" name="sbt: org.scala-lang.modules:scala-collection-compat_3:2.9.0:jar" level="project" />
+    <orderEntry type="library" scope="TEST" name="sbt: org.scala-lang.modules:scala-xml_3:2.1.0:jar" level="project" />
     <orderEntry type="library" name="sbt: org.scala-lang:scala-compiler:2.13.11:jar" level="project" />
     <orderEntry type="library" name="sbt: org.scala-lang:scala-library:2.13.12:jar" level="project" />
     <orderEntry type="library" name="sbt: org.scala-lang:scala-reflect:2.13.11:jar" level="project" />
     <orderEntry type="library" name="sbt: org.scala-lang:scala3-library_3:3.3.3:jar" level="project" />
     <orderEntry type="library" name="sbt: org.scala-lang:scalap:2.13.11:jar" level="project" />
     <orderEntry type="library" scope="TEST" name="sbt: org.scala-sbt:test-interface:1.0:jar" level="project" />
+    <orderEntry type="library" scope="TEST" name="sbt: org.scalactic:scalactic_3:3.2.18:jar" level="project" />
     <orderEntry type="library" name="sbt: org.scalameta:common_2.13:4.8.10:jar" level="project" />
     <orderEntry type="library" name="sbt: org.scalameta:parsers_2.13:4.8.10:jar" level="project" />
     <orderEntry type="library" name="sbt: org.scalameta:scalafmt-config_2.13:3.7.14:jar" level="project" />
@@ -121,6 +123,21 @@
     <orderEntry type="library" name="sbt: org.scalameta:scalafmt-sysops_2.13:3.7.14:jar" level="project" />
     <orderEntry type="library" name="sbt: org.scalameta:scalameta_2.13:4.8.10:jar" level="project" />
     <orderEntry type="library" name="sbt: org.scalameta:trees_2.13:4.8.10:jar" level="project" />
+    <orderEntry type="library" scope="TEST" name="sbt: org.scalatest:scalatest-compatible:3.2.18:jar" level="project" />
+    <orderEntry type="library" scope="TEST" name="sbt: org.scalatest:scalatest-core_3:3.2.18:jar" level="project" />
+    <orderEntry type="library" scope="TEST" name="sbt: org.scalatest:scalatest-diagrams_3:3.2.18:jar" level="project" />
+    <orderEntry type="library" scope="TEST" name="sbt: org.scalatest:scalatest-featurespec_3:3.2.18:jar" level="project" />
+    <orderEntry type="library" scope="TEST" name="sbt: org.scalatest:scalatest-flatspec_3:3.2.18:jar" level="project" />
+    <orderEntry type="library" scope="TEST" name="sbt: org.scalatest:scalatest-freespec_3:3.2.18:jar" level="project" />
+    <orderEntry type="library" scope="TEST" name="sbt: org.scalatest:scalatest-funspec_3:3.2.18:jar" level="project" />
+    <orderEntry type="library" scope="TEST" name="sbt: org.scalatest:scalatest-funsuite_3:3.2.18:jar" level="project" />
+    <orderEntry type="library" scope="TEST" name="sbt: org.scalatest:scalatest-matchers-core_3:3.2.18:jar" level="project" />
+    <orderEntry type="library" scope="TEST" name="sbt: org.scalatest:scalatest-mustmatchers_3:3.2.18:jar" level="project" />
+    <orderEntry type="library" scope="TEST" name="sbt: org.scalatest:scalatest-propspec_3:3.2.18:jar" level="project" />
+    <orderEntry type="library" scope="TEST" name="sbt: org.scalatest:scalatest-refspec_3:3.2.18:jar" level="project" />
+    <orderEntry type="library" scope="TEST" name="sbt: org.scalatest:scalatest-shouldmatchers_3:3.2.18:jar" level="project" />
+    <orderEntry type="library" scope="TEST" name="sbt: org.scalatest:scalatest-wordspec_3:3.2.18:jar" level="project" />
+    <orderEntry type="library" scope="TEST" name="sbt: org.scalatest:scalatest_3:3.2.18:jar" level="project" />
     <orderEntry type="library" name="sbt: org.slf4j:slf4j-api:2.0.9:jar" level="project" />
     <orderEntry type="library" scope="TEST" name="sbt: org.slf4j:slf4j-simple:2.0.9:jar" level="project" />
     <orderEntry type="library" name="sbt: org.testcontainers:database-commons:1.19.0:jar" level="project" />

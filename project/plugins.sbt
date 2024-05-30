@@ -2,6 +2,7 @@ resolvers ++= Resolver.sonatypeOssRepos("public")
 //resolvers += "Artima Maven Repository" at "https://repo.artima.com/releases"
 
 
+
 // Built In
 // ===========
 addDependencyTreePlugin
@@ -37,5 +38,4 @@ addSbtPlugin("com.eed3si9n" % "sbt-assembly" % "2.1.5")
 addSbtPlugin("se.marcuslonnberg" % "sbt-docker" % "1.11.0")
 
 // Test Quality Verification
-
 //addSbtPlugin("com.artima.supersafe" % "sbtplugin" % "1.1.12")

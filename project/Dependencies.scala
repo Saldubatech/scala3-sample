@@ -102,9 +102,9 @@ object Dependencies {
     val containersPostgresVersion = "0.41.0"
     val containersPostgres =
       "com.dimafeng" %% "testcontainers-scala-postgresql" % containersPostgresVersion
-    val scalaTestVersion = "3.2.17"
+    val scalaTestVersion = "3.2.18"
     val scalaTest = "org.scalatest" %% "scalatest" % scalaTestVersion
-    val scalaTic = "org.scalatest" %% "scalatic" % scalaTestVersion
+    val scalatic = "org.scalactic" %% "scalactic" % scalaTestVersion
 
   }
 }

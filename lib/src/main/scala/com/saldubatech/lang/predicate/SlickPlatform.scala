@@ -48,11 +48,10 @@ class SlickPlatform(val dbP: DatabaseProvider) extends Platform:
     private val storage = store.tableQuery
     def universalQuery: store.QUERY = store.query // To be overriden by concrete repos
 
-    override def find[PRED <: Predicate[STORAGE]]
-    (using prj: PREDICATE_REQUIREMENT[STORAGE, PRED])
-    (p: PRED)
+    override def find(using prj: REQUIRES[STORAGE, Predicate[STORAGE]])
+    (p: Predicate[STORAGE])
     : DBIO[Seq[V]] =
-      universalQuery.filter(resolve[STORAGE, PRED](using store.stCtag, prj)(p)).result
+      universalQuery.filter(resolve[STORAGE, Predicate[STORAGE]](using store.stCtag, prj)(p)).result
 
     override def add(e: V): DBIO[V] =
       for
@@ -92,7 +91,7 @@ class SlickRepoZioService[E: ZTag]
   def add(data: E): EIO[E] = mapFromDBIO[E](repo.add(data))
 
   def find[PRED <: Predicate[repo.STORAGE]]
-  (using prj: PREDICATE_REQUIREMENT[repo.STORAGE, PRED])
+  (using prj: REQUIRES[repo.STORAGE, PRED])
   (p: PRED): EIO[Seq[E]] = mapFromDBIO[Seq[E]](repo.find(p))
 
 object SlickRepoZioService
