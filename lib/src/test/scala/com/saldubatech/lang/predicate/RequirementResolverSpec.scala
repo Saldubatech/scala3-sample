@@ -95,9 +95,9 @@ object CompileTest:
     override def eql(l: String, r: String): Boolean = l == r
     override def neq(l: String, r: String): Boolean = l != r
   }
-  val d: Classifier[String] = new StringClassifier()
+  val d: Classifier[String] = orderRequirement[String]
   class pC extends Requirement[String]
-  val p: Requirement[String] = new StringPlainRequirement()
+  val p: Requirement[String] = plainRequirement[String]
 
   def uu[P <: Predicate.Eq[String]](a: Any): Unit =
     val ct = summon[ClassTag[InMemoryPlatform.REQUIRES[String, P]]]

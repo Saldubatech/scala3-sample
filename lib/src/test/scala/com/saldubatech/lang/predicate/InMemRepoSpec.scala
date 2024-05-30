@@ -13,18 +13,15 @@ def stringRepo: InMemoryPlatform.Repo[String] = InMemoryPlatform.Repo[String]()
 class InMemRepoSpec extends AnyWordSpec {
   "A Repository" when {
     import InMemoryPlatform.plainRequirement
-    import InMemoryPlatform.orderRequirement
-    //given InMemoryPlatform.StringPlainRequirement()
-    //given InMemoryStringClassifierRequirement()
     "empty" must {
       "return an empty list" when {
         "presented with the True Predicate" in {
           val underTest = stringRepo
           val preq = summon[ClassTag[InMemoryPlatform.REQUIRES[String, Predicate.TRUE.type]]]
-          val strPlain = summon[ClassTag[InMemoryPlatform.StringPlainRequirement]]
-          //assert(preq == strPlain)
-          assert(underTest.find2(using InMemoryPlatform.plainRequirement[String])(Predicate.TRUE).isEmpty)
-          assert(underTest.find2(Predicate.TRUE).isEmpty)
+          val strPlain = summon[InMemoryPlatform.Requirement[String]]
+          val strPlainCt = summon[ClassTag[strPlain.type]]
+          assert(preq == strPlainCt)
+          assert(underTest.find(Predicate.TRUE).isEmpty)
         }
       }
     }
@@ -39,7 +36,7 @@ class InMemRepoSpec extends AnyWordSpec {
   }
   it should {
     "Have a single item after adding it" in {
-      given InMemoryPlatform.StringClassifier()
+      import InMemoryPlatform.orderRequirement
       val underTest = stringRepo
       val probe = "asdfasdf"
       val r = underTest.add(probe)
@@ -47,8 +44,7 @@ class InMemRepoSpec extends AnyWordSpec {
     }
   }
   "An Equality Predicate" when {
-    //given InMemoryStringPlainRequirement()
-    given InMemoryPlatform.StringClassifier()
+    import InMemoryPlatform.orderRequirement
     val probe = "asdfasdf"
     val testPredicate = Predicate.Eq(probe)
     "applied to an empty Repo" must {

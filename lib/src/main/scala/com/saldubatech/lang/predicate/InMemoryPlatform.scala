@@ -20,10 +20,6 @@ object InMemoryPlatform extends Platform:
     (using prj: REQUIRES[STORAGE, Predicate[STORAGE]])
     (p: Predicate[STORAGE]): Seq[DOMAIN] = store.filter(resolve(using ect, prj)(p)).toSeq
 
-    def find2
-    (using prj: REQUIRES[STORAGE, Predicate[STORAGE]])
-    (p: Predicate[STORAGE]): Seq[DOMAIN] = store.filter(resolve(using ect, prj)(p)).toSeq
-
     override def add(e: E): E =
       store += e
       e
@@ -34,18 +30,5 @@ object InMemoryPlatform extends Platform:
 
     override def eql(l: E, r: E): B = l == r
 
-    override def neq(l: E, r: E): B = l != r    
+    override def neq(l: E, r: E): B = l != r
   }
-  class StringPlainRequirement extends Requirement[String]
-
-  class StringClassifier extends Classifier[String]:
-    override def eql(l: String, r: String): B = l == r
-
-    override def neq(l: String, r: String): B = l != r
-
-  class StringOrder extends Sort[String]:
-    override def lt(l: String, r: String): B = l < r
-
-    override def eql(l: String, r: String): B = l == r
-
-    override def neq(l: String, r: String): B = l != r
