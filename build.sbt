@@ -28,7 +28,7 @@ inThisBuild(
     ciReleaseJobs              := Seq.empty,
     ciPostReleaseJobs          := Seq.empty,
     ciCheckWebsiteBuildProcess := Seq.empty,
-    scalaVersion               := "3.3.1",
+    scalaVersion               := Dependencies.scalaVersion,
 //    ciTargetScalaVersions := makeTargetScalaMap(
 //      `sample-app`
 //    ).value,
@@ -53,8 +53,9 @@ lazy val root = (project in file("."))
   .settings(
     name            := "m-service-root",
     testFrameworks  := Seq(new TestFramework("zio.test.sbt.ZTestFramework")),
-  ).aggregate(libProject, appProject, imageProject)
+  ).aggregate(libProject, sandboxProject, appProject, imageProject)
 
 val libProject = (project in file("lib"))
 val appProject = (project in file("app")).dependsOn(libProject)
+val sandboxProject = (project in file("sandbox")).dependsOn(libProject)
 val imageProject = (project in file("image")).dependsOn(appProject)

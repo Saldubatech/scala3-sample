@@ -1,6 +1,5 @@
 package com.saldubatech.lang.predicate
 
-import com.saldubatech.lang.predicate.Predicate.TRUE
 import org.scalatest.wordspec.AnyWordSpec
 
 import scala.reflect.ClassTag

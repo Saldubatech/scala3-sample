@@ -21,6 +21,9 @@ run / envVars += "DB_PORT" -> localConfig.value.fold("")(_.getString("DB_PORT"))
 dependencyOverrides += "org.slf4j" % "slf4j-api" % "2.0.9"
 libraryDependencies ++= Seq(
   // Basic Utilities
+  // Apache Math
+  Dependencies.ApacheCommons.math,
+
   // Cats Functional Types
   Dependencies.Cats.core,
   Dependencies.Cats.alley,
@@ -29,7 +32,6 @@ libraryDependencies ++= Seq(
   // Dependencies.Cats.effect
 
   // ZIO Runtime
-  Dependencies.Zio.Runtime.quill,
   Dependencies.Zio.Runtime.zio,
   // Needed to access the "Chunk" type.
   Dependencies.Zio.Runtime.streams,
@@ -39,8 +41,8 @@ libraryDependencies ++= Seq(
   Dependencies.Zio.Runtime.json,
   Dependencies.Zio.Runtime.reactiveStreamsInterop,
 
-
   // Persistence
+  Dependencies.Zio.Runtime.quill,
   Dependencies.Persistence.postgres,
   Dependencies.Persistence.slick,
   Dependencies.Persistence.slickHikari,
@@ -51,7 +53,6 @@ libraryDependencies ++= Seq(
   Dependencies.Zio.Ecosystem.schemaJson,
   Dependencies.Zio.Ecosystem.schemaDerivation,
   Dependencies.Zio.Ecosystem.schemaOptics,
-  Dependencies.Zio.Ecosystem.schemaTest % Test,
   // logging
 //  Dependencies.Zio.Runtime.logging,
 //  Dependencies.Zio.Runtime.sl4jBridge,
@@ -69,7 +70,9 @@ libraryDependencies ++= Seq(
   Dependencies.Testing.containersPostgres, // No testing because it builds library for others.
   Dependencies.Zio.Testing.magnolia % Test,
   Dependencies.Testing.scalatic % Test,
-  Dependencies.Testing.scalaTest % Test
+  Dependencies.Testing.scalaTest, // Needed in production for developing tests by client libraries.
+  Dependencies.Zio.Ecosystem.schemaTest % Test
+
 )
 publish / skip := false
 testFrameworks := Seq(new TestFramework("zio.test.sbt.ZTestFramework"))
@@ -77,10 +80,12 @@ testFrameworks := Seq(new TestFramework("zio.test.sbt.ZTestFramework"))
 val PACKAGES_TOKEN_VAR = "GH_PUBLISH_TO_PACKAGES"
 
 //GhPackages.credentials("jmpicnic", PACKAGES_TOKEN_VAR).foreach( cred => credentials += cred)
-GhPackages.credentials("jmpicnic", PACKAGES_TOKEN_VAR) match {
-  case None => Nil
-  case Some(cred) => credentials += cred
+
+val ghCredentials: Seq[Credentials] = GhPackages.credentials("jmpicnic", PACKAGES_TOKEN_VAR) match {
+  case None => Seq()
+  case Some(cred) => Seq(cred)
 }
+credentials ++= ghCredentials
 
 // Configure publishing settings
 publishTo := {  Some(GhPackages.repo) }

@@ -7,6 +7,7 @@
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/lib.iml" filepath="$PROJECT_DIR$/.idea/modules/lib.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/m-service-root.iml" filepath="$PROJECT_DIR$/.idea/modules/m-service-root.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/m-service-root-build.iml" filepath="$PROJECT_DIR$/.idea/modules/m-service-root-build.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/sandbox.iml" filepath="$PROJECT_DIR$/.idea/modules/sandbox.iml" />
     </modules>
   </component>
 </project>

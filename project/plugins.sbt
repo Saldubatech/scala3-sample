@@ -39,3 +39,7 @@ addSbtPlugin("se.marcuslonnberg" % "sbt-docker" % "1.11.0")
 
 // Test Quality Verification
 //addSbtPlugin("com.artima.supersafe" % "sbtplugin" % "1.1.12")
+
+//
+// https://github.com/spray/sbt-revolver
+addSbtPlugin("io.spray" % "sbt-revolver" % "0.10.0")

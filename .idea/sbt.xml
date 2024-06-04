@@ -15,6 +15,7 @@
             <option value="$PROJECT_DIR$/image" />
             <option value="$PROJECT_DIR$/lib" />
             <option value="$PROJECT_DIR$/project" />
+            <option value="$PROJECT_DIR$/sandbox" />
           </set>
         </option>
         <option name="preferScala2" value="false" />

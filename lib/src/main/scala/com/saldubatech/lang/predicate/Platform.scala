@@ -27,9 +27,11 @@ abstract class Platform:
     def eql(l: E, r: E): B
 
     def neq(l: E, r: E): B
+  end Classifier
 
   abstract class Sort[E] extends Classifier[E]:
     def lt(l: E, r: E): B
+  end Sort
 
   // Convenience definition for frequently used type.
   type SELF[E] = E
@@ -99,3 +101,6 @@ abstract class Platform:
     def find(using prj: REQUIRES[STORAGE, Predicate[STORAGE]])(p: Predicate[STORAGE]): RS_IO[Seq[DOMAIN]]
 
     def add(e: DOMAIN): RS_IO[DOMAIN]
+  end BaseRepo
+
+end Platform

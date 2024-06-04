@@ -27,7 +27,7 @@
       <option name="explainTypeErrors" value="true" />
       <option name="continuations" value="true" />
     </profile>
-    <profile name="sbt 2" modules="app">
+    <profile name="sbt 2" modules="app,appProject">
       <option name="implicitConversions" value="true" />
       <option name="higherKinds" value="true" />
       <option name="macros" value="true" />
@@ -94,6 +94,23 @@
         <parameter value="-Xsemanticdb" />
         <parameter value="-semanticdb-target" />
         <parameter value="$PROJECT_DIR$/target/scala-3.3.1/meta" />
+      </parameters>
+    </profile>
+    <profile name="sbt 6" modules="sandbox,sandboxProject">
+      <option name="implicitConversions" value="true" />
+      <option name="higherKinds" value="true" />
+      <option name="macros" value="true" />
+      <option name="deprecationWarnings" value="true" />
+      <option name="uncheckedWarnings" value="true" />
+      <option name="featureWarnings" value="true" />
+      <parameters>
+        <parameter value="-encoding" />
+        <parameter value="utf8" />
+        <parameter value="-Ykind-projector" />
+        <parameter value="-Xfatal-warnings" />
+        <parameter value="-Xsemanticdb" />
+        <parameter value="-semanticdb-target" />
+        <parameter value="$PROJECT_DIR$/sandbox/target/scala-3.3.1/meta" />
       </parameters>
     </profile>
   </component>

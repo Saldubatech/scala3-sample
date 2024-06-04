@@ -2,7 +2,7 @@ package com.saldubatech.lang.predicate.examples
 
 import algebra.instances.boolean
 import algebra.lattice.Bool
-import com.saldubatech.lang.predicate.{Platform, Predicate, InMemoryPlatform}
+import com.saldubatech.lang.predicate.{InMemoryPlatform, Predicate}
 
 
 object stringRepo extends InMemoryPlatform.Repo[String]
