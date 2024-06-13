@@ -8,5 +8,7 @@
     "semanticdb",
     "tpolecat",
     "Typesafe"
-  ]
+  ],
+  "metals.inlayHints.implicitArguments.enable": true,
+  "metals.inlayHints.implicitConversions.enable": true
 }

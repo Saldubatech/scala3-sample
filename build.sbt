@@ -52,7 +52,7 @@ ThisBuild / libraryDependencies ++= Seq(
 lazy val root = (project in file("."))
   .settings(
     name            := "m-service-root",
-    testFrameworks  := Seq(new TestFramework("zio.test.sbt.ZTestFramework")),
+    testFrameworks  ++= Seq(new TestFramework("zio.test.sbt.ZTestFramework")),
   ).aggregate(libProject, sandboxProject, appProject, imageProject)
 
 val libProject = (project in file("lib"))

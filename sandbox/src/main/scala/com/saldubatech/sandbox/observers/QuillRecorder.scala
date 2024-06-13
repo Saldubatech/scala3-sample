@@ -26,21 +26,14 @@ class QuillRecorder
   import OperationEventNotification.*
   import recorderPlatform.quill.*
 
-  private case class OperationEventRecord(batch: String, operation: OperationEventType, id: Id, at: Tick, job: Id, station: Id, fromStation: Id):
+  case class OperationEventRecord(batch: String, operation: OperationEventType, id: Id, at: Tick, job: Id, station: Id, fromStation: Id):
     lazy val opEvent: OperationEventNotification = OperationEventNotification.apply(operation, id, at, job, station, fromStation)
 
-  private case class OperationRecord(
-                                      batch: String,
-                                      operation: OperationType,
-                                      id: Id,
-                                      started: Tick,
-                                      duration: Tick,
-                                      job: Id,
-                                      station: Id
-                                    )
-  private object Events extends QuillRepo[OperationEventRecord]:
+
+  object Events extends QuillRepo[OperationEventRecord]:
     override val platform: QuillPlatform = recorderPlatform
     import OperationEventNotification.*
+    
     private[QuillRecorder] def fromOpEvent(opEv: OperationEventNotification): OperationEventRecord =
       OperationEventRecord(simulationBatch, opEv.operation, opEv.id, opEv.at, opEv.job, opEv.station, opEv.fromStation)
 
@@ -57,11 +50,21 @@ class QuillRecorder
       Quoted[Query[OperationEventRecord]] => IO[SQLException, List[OperationEventRecord]] = RepoHelper.recordFinder()
     override val inserter:
       OperationEventRecord => IO[SQLException, Long] = RepoHelper.inserterTemplate(baseQuery())
+    override val allRecordsCounter: IO[SQLException, Long] = RepoHelper.allRecordCounterTemplate(baseQuery())
 
+  case class OperationRecord(
+                              batch: String,
+                              operation: OperationType,
+                              id: Id,
+                              started: Tick,
+                              duration: Tick,
+                              job: Id,
+                              station: Id
+                            )
 
   private object Operations extends QuillRepo[OperationRecord]:
     override val platform: QuillPlatform = recorderPlatform
-
+    
     inline def baseQuery(): EntityQuery[OperationRecord] = querySchema[OperationRecord](
       "event_record",
       _.id -> "rid"
@@ -76,6 +79,7 @@ class QuillRecorder
 
     override val inserter:
       OperationRecord => IO[SQLException, Long] = RepoHelper.inserterTemplate(baseQuery())
+    override val allRecordsCounter: IO[SQLException, Long] = RepoHelper.allRecordCounterTemplate(baseQuery())
 
 
   override def record(ev: OperationEventNotification): REPO_IO[OperationEventNotification] =

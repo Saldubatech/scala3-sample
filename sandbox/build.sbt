@@ -94,7 +94,7 @@ libraryDependencies ++= Seq(
   Dependencies.Pekko.test % Test
 )
 // publish / skip := false
-testFrameworks := Seq(new TestFramework("zio.test.sbt.ZTestFramework"))
+testFrameworks ++= Seq(new TestFramework("zio.test.sbt.ZTestFramework"))
 
 assembly / mainClass := Some("com.saldubatech.sandbox.Boot")
 

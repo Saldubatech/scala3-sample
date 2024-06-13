@@ -1,4 +1,4 @@
-package com.saldubatech.lang.predicate
+package com.saldubatech.lang.predicate.platforms
 
 import algebra.instances.boolean
 import algebra.lattice.Bool
@@ -31,9 +31,11 @@ object InMemoryPlatform extends Platform:
     override final val platform: InMemoryPlatform.type = selfInMemoryPlatform
     type STORAGE = E
     val store: collection.mutable.ListBuffer[STORAGE] = collection.mutable.ListBuffer()
-    
-    override def find[P <: Predicate[E]](p: P)(using prj: platform.REQUIRES[E, P]): Seq[E] = 
+
+    override def find[P <: Predicate[E]](p: P)(using prj: selfInMemoryPlatform.REQUIRES[E, P]): Seq[E] =
       store.filter(resolve(p)).toSeq
+
+    override def countAll: Int = store.size
 
     override def add(e: E): E =
       store += e

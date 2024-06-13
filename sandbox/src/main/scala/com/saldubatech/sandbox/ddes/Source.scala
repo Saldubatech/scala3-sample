@@ -10,18 +10,18 @@ import org.apache.pekko.actor.typed.scaladsl.ActorContext
 import scala.reflect.{ClassTag, TypeTest}
 
 object Source:
-  case class Trigger[SOURCED <: DomainMessage](supply: Seq[SOURCED], startDelay: Option[Tick] = None) 
+  case class Trigger[SOURCED <: DomainMessage](supply: Seq[SOURCED], startDelay: Option[Tick] = None)
     extends DomainMessage
-  
+
   type SOURCE_PROTOCOL[SOURCED <: DomainMessage] = Trigger[SOURCED]
 
   class DP[SOURCED <: DomainMessage]
   (private val target: SimActor[SOURCED],
    private val name: String,
    private val interval: LongRVar,
-   private val notifier: OperationEventNotification => Unit) 
+   private val notifier: OperationEventNotification => Unit)
     extends DomainProcessor[SOURCE_PROTOCOL[SOURCED]] with LogEnabled:
-    
+
     private def scheduleSend(at: Tick, forTime: Tick, targetMsg: SOURCED, target: SimActor[SOURCED], interval: Tick)(using env: SimEnvironment): Tick =
       log.debug(s"Source[$name] at ${at}, Scheduling message for $forTime : $targetMsg with Target ${target.name}")
       env.schedule(target)(forTime, targetMsg)
@@ -43,7 +43,7 @@ object Source:
         forTime += scheduleSend(at, forTime, msg, target, interval())
       }
       Right(())
-      
+
 
 class Source[SOURCED <: DomainMessage, TARGET <: SimActor[SOURCED]]
 (
@@ -55,11 +55,12 @@ class Source[SOURCED <: DomainMessage, TARGET <: SimActor[SOURCED]]
   clock: Clock
 )
   extends SimActor[Source.SOURCE_PROTOCOL[SOURCED]](clock) with Subject:
-  import Source.*
+  import Source._
 
 
-  override val domainProcessor: DomainProcessor[SOURCE_PROTOCOL[SOURCED]] = 
+  override val domainProcessor: DomainProcessor[SOURCE_PROTOCOL[SOURCED]] =
     Source.DP(target, name, interval, opEv => notify(opEv))
+    
   override def oam(msg: OAMMessage): ActionResult =
     msg match
       case obsMsg: ObserverManagement => observerManagement(obsMsg)

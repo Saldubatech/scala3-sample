@@ -62,7 +62,6 @@ object SlickRepoSpec
   val dataSourceLayer: ZLayer[DataSourceBuilder, Nothing, DataSource] = ZLayer(ZIO.serviceWith[DataSourceBuilder](_.dataSource))
 
   val dbProviderLayer: ZLayer[DataSource with JdbcProfile, Throwable, DatabaseProvider] = DatabaseProvider.fromDataSource()
-    // Quill.Postgres.fromNamingStrategy(Literal)
 
   val slickPlatformLayer: ZLayer[DatabaseProvider, Throwable, SlickPlatform] = PredicateLayers.slickPlatformLayer
 

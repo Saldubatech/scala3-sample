@@ -50,14 +50,16 @@ class SlickPlatform(val dbP: DatabaseProvider) extends Platform:
     extends Repo[V, DBIO] with SlickRepoProfile[V]:
     final val platform: SlickPlatform = selfSlickPlatform
     final type STORAGE = TBL
-    
+
     final def universalQuery = tableQuery.take(maxRecords)
 
     given ClassTag[TBL] = tblTag
 
     override def find[P <: Predicate[STORAGE]](p: P)(using prj: platform.REQUIRES[STORAGE, P])
-    : DBIO[Seq[V]] = 
+    : DBIO[Seq[V]] =
       universalQuery.filter(platform.resolve(using tblTag, prj)(p)).result
+
+    override def countAll: DBIO[Int] = universalQuery.length.result
 
     override def add(e: V): DBIO[V] = {
       log.debug(s"Repo Adding to DB: $e")
@@ -99,6 +101,8 @@ abstract class SlickRepoZioService[E: ZTag]
 
   def find[PRED <: Predicate[repo.STORAGE]](p: PRED)(using repo.platform.REQUIRES[repo.STORAGE, PRED])
   : REPO_IO[Seq[E]] = mapFromDBIO[Seq[E]](repo.find(p))
+
+  def countAll: REPO_IO[Int] = mapFromDBIO[Int](repo.countAll)
 
 
 

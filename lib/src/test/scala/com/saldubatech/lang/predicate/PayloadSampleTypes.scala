@@ -22,16 +22,16 @@ open class SuperClass
 class SubClass extends SuperClass
 
 object SampleRequirements:
-  import InMemoryPlatform._
+  import com.saldubatech.lang.predicate.platforms.InMemoryPlatform._
   val plainSubClassRequirement = summon[ClassTag[Requirement[SubClass]]]
   val classifierSubClassRequirement = summon[ClassTag[Classifier[SubClass]]]
   val orderSubClassRequirement = summon[ClassTag[Sort[SubClass]]]
   val unknownSubClassRequirement = summon[ClassTag[UnknownRequirement[SubClass]]]
-  
+
   val plainSuperClassRequirement = summon[ClassTag[Requirement[SuperClass]]]
   val classifierSuperClassRequirement = summon[ClassTag[Classifier[SuperClass]]]
   val orderSuperClassRequirement = summon[ClassTag[Sort[SuperClass]]]
   val unknownSuperClassRequirement = summon[ClassTag[UnknownRequirement[SuperClass]]]
-  
+
   val anyPlainRequirementTag: ClassTag[Requirement[Any]] = summon[ClassTag[Requirement[Any]]]
 

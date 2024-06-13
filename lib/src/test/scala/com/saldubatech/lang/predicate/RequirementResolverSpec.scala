@@ -1,5 +1,6 @@
 package com.saldubatech.lang.predicate
 
+import com.saldubatech.lang.predicate.platforms.InMemoryPlatform
 import org.scalatest.wordspec.AnyWordSpec
 
 import scala.reflect.ClassTag
@@ -90,7 +91,7 @@ class RequirementResolverSpec extends AnyWordSpec:
   }
 
 object CompileTest:
-  import InMemoryPlatform._
+  import com.saldubatech.lang.predicate.platforms.InMemoryPlatform._
   class cC extends Classifier[String] {
     override def eql(l: String, r: String): Boolean = l == r
     override def neq(l: String, r: String): Boolean = l != r

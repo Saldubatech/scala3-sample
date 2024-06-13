@@ -68,4 +68,5 @@ object SimulationLayers:
     val tapRef = fixture.spawn(tap)
 
     sourceRef ! Subject.InstallObserver("observerTap", tapRef)
+    sinkRef ! Subject.InstallObserver("observerTap", tapRef)
   }

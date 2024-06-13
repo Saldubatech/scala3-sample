@@ -45,7 +45,7 @@ libraryDependencies ++= Seq(
   Dependencies.Zio.Testing.magnolia % Test
 )
 
-testFrameworks := Seq(new TestFramework("zio.test.sbt.ZTestFramework"))
+testFrameworks ++= Seq(new TestFramework("zio.test.sbt.ZTestFramework"))
 
 assembly / mainClass := Some("com.example.Boot")
 

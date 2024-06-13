@@ -4,7 +4,7 @@ import algebra.instances.boolean
 import algebra.lattice.Bool
 import com.saldubatech.infrastructure.storage.rdbms.ziointerop.Layers as DbLayers
 import com.saldubatech.infrastructure.storage.rdbms.{PersistenceError, PersistenceIO}
-import com.saldubatech.lang.predicate.InMemoryPlatform.B
+import InMemoryPlatform.B
 import com.saldubatech.lang.predicate.{Platform, Predicate, Repo}
 import io.getquill.*
 import io.getquill.jdbczio.Quill
@@ -74,7 +74,14 @@ trait QuillRepo[T]:
           bq.insertValue(lift(t))
         }
       )
-
+      
+    inline def allRecordCounterTemplate(inline bq: EntityQuery[T]): IO[SQLException, Long] =
+      platform.quill.run(
+        quote {
+          bq.size
+        }
+      )
+    
     inline def recordFinder(): Quoted[Query[T]] => IO[SQLException, List[T]] = (q: Quoted[Query[T]]) => platform.quill.run(q)
 
     // Precursor to handling more general predicates...
@@ -98,6 +105,10 @@ trait QuillRepo[T]:
 
   def find(q: Quoted[Query[T]]): PersistenceIO[List[T]] =
     recordFinder(q).mapError(exc => PersistenceError("SQL Error", Some(exc)))
+
+  val allRecordsCounter: IO[SQLException, Long]
+  def countAll: PersistenceIO[Long] =
+    allRecordsCounter.mapError(exc => PersistenceError("SQL Error", Some(exc)))
 
 
   def findOne(q: Quoted[Query[T]]): PersistenceIO[T] =

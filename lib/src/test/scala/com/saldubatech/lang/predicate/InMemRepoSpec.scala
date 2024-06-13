@@ -1,5 +1,6 @@
 package com.saldubatech.lang.predicate
 
+import com.saldubatech.lang.predicate.platforms.InMemoryPlatform
 import org.scalatest.wordspec.AnyWordSpec
 
 import scala.reflect.ClassTag
@@ -7,13 +8,13 @@ import scala.reflect.ClassTag
 
 // https://www.scalatest.org/user_guide/selecting_a_style
 
-type SELF[T] = T 
+type SELF[T] = T
 
 def stringRepo: InMemoryPlatform.InMemoryRepo[String] = InMemoryPlatform.repoFor[String]
 
 class InMemRepoSpec extends AnyWordSpec {
   "A Repository" when {
-    import InMemoryPlatform.plainRequirement
+    import com.saldubatech.lang.predicate.platforms.InMemoryPlatform.plainRequirement
     "empty" must {
       "return an empty list" when {
         "presented with the True Predicate" in {
@@ -37,7 +38,7 @@ class InMemRepoSpec extends AnyWordSpec {
   }
   it should {
     "Have a single item after adding it" in {
-      import InMemoryPlatform.orderRequirement
+      import com.saldubatech.lang.predicate.platforms.InMemoryPlatform.orderRequirement
       val underTest = stringRepo
       val probe = "asdfasdf"
       val r = underTest.add(probe)
@@ -45,7 +46,7 @@ class InMemRepoSpec extends AnyWordSpec {
     }
   }
   "An Equality Predicate" when {
-    import InMemoryPlatform.orderRequirement
+    import com.saldubatech.lang.predicate.platforms.InMemoryPlatform.orderRequirement
     val probe = "asdfasdf"
     val testPredicate = Predicate.Eq(probe)
     "applied to an empty Repo" must {

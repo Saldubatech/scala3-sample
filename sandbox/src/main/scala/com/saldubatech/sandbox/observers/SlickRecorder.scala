@@ -1,5 +1,6 @@
 package com.saldubatech.sandbox.observers
 
+import com.saldubatech
 import com.saldubatech.infrastructure.storage.rdbms.PersistenceError
 import com.saldubatech.lang.Id
 import com.saldubatech.lang.predicate.SlickPlatform.REPO_IO
@@ -39,7 +40,7 @@ class SlickRecorder
 
     private[SlickRecorder] def fromOpEvent(opEv: OperationEventNotification): OperationEventRecord =
         OperationEventRecord(simulationBatch, opEv.operation, opEv.id, opEv.at, opEv.job, opEv.station, opEv.fromStation)
-
+    
     implicit class EventRecordTable(tag: Tag) extends Table[OperationEventRecord](tag, "event_record") {
 
       val batch: Rep[String] = column[String]("batch")
@@ -58,11 +59,11 @@ class SlickRecorder
     private[SlickRecorder] val _repo: recorderPlatform.BaseSlickRepo[OperationEventRecord] =
       new recorderPlatform.BaseSlickRepo[OperationEventRecord]() {
         protected type TBL = EventRecordTable
-        lazy val tblTag = summon[ClassTag[EventRecordTable]]
+        lazy val tblTag: ClassTag[EventRecordTable] = summon[ClassTag[EventRecordTable]]
         lazy val tableQuery = _tblQ
       } // recorderPlatform.repoFor[OperationEventRecord, EventRecordTable](_tblQ, 10000)
 
-    private[SlickRecorder] object persistenceService
+    object persistenceService
       extends SlickRepoZioService[OperationEventRecord](recorderPlatform) {
       override val repo: Repo[OperationEventRecord, DBIO] = _repo
     }

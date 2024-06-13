@@ -10,6 +10,8 @@
     <appender-ref ref="console" />
   </root>
   <logger name="com.saldubatech.sandbox" level="debug"/>
-  <logger name="slick.interop.zio" level="debug"/>
+  <logger name="slick.interop.zio" level="info"/>
+  <logger name="com.saldubatech.sandbox.ddes" level="info"/>
+  <logger name="com.saldubatech.sandbox.observers" level="info"/>
 
 </configuration>
