@@ -7,12 +7,12 @@ import org.apache.pekko.actor.typed.scaladsl.ActorContext
 import scala.reflect.{ClassTag, TypeTest}
 
 object Composite:
-  infix type CMP[C1 <: DomainMessage, C2 <: DomainMessage] =
+  infix type CMP[C1 <: SimMessage, C2 <: SimMessage] =
     C2 match
       case x *: xs => C1 *: C2
       case _ => C1 *: C2 *: EmptyTuple
 
-  type MAP[V, L[_ <: DomainMessage]] <: Tuple =
+  type MAP[V, L[_ <: SimMessage]] <: Tuple =
     V match
       case x *: xs => L[x] *: MAP[xs, L]
       case EmptyTuple => EmptyTuple
@@ -53,40 +53,40 @@ object Composite:
 
   type T_OR[T, ELEM] = ELEM & OR[T]
 
-  trait LocalSimNode[+DOMAIN_PAYLOAD <: DomainMessage]:
+  trait LocalSimNode[+DOMAIN_PAYLOAD <: SimMessage]:
     type DOMAIN_MESSAGE
     type EVENT_ACTION
     type DOMAIN_EVENT
     def accept[DM <: DOMAIN_MESSAGE](at: Tick, ctx: ActorContext[EVENT_ACTION], ev: DOMAIN_EVENT): ActionResult
 
-  case class LocalDomainEvent[+PAYLOAD <: DomainMessage : ClassTag]
+  case class LocalDomainEvent[+PAYLOAD <: SimMessage : ClassTag]
   (at: Tick, from: LocalSimNode[?], target: LocalSimNode[PAYLOAD], payload: PAYLOAD)
 
-  case class LocalEventAction[+PAYLOAD <: DomainMessage : ClassTag]
+  case class LocalEventAction[+PAYLOAD <: SimMessage : ClassTag]
   (action: SimAction, event: LocalDomainEvent[PAYLOAD])
 
-trait LComp[DM <: DomainMessage]:
+trait LComp[DM <: SimMessage]:
   import Composite.*
 
   def accept[
-    SDM >: DM <: DomainMessage,
+    SDM >: DM <: SimMessage,
     EV_ACT <: LocalEventAction[SDM],
     CTX <: ActorContext[EV_ACT]
   ](at: Tick, ctx: CTX, ev: LocalDomainEvent[SDM]): ActionResult
 
 trait Composite[DOMAIN_TUPLE <: Tuple]
-(using evidence: Composite.TUPLE_CHECK[DOMAIN_TUPLE, DomainMessage])
+(using evidence: Composite.TUPLE_CHECK[DOMAIN_TUPLE, SimMessage])
 (
   val components: Map[
-    ClassTag[_ <: Composite.OR[DOMAIN_TUPLE] & DomainMessage], 
-    LComp[_ <: Composite.OR[DOMAIN_TUPLE] & DomainMessage]
+    ClassTag[_ <: Composite.OR[DOMAIN_TUPLE] & SimMessage], 
+    LComp[_ <: Composite.OR[DOMAIN_TUPLE] & SimMessage]
   ]
 )
-  extends Composite.LocalSimNode[Composite.OR[DOMAIN_TUPLE] & DomainMessage]:
+  extends Composite.LocalSimNode[Composite.OR[DOMAIN_TUPLE] & SimMessage]:
 
   import Composite.*
-  final type DOMAIN_MESSAGE = OR[DOMAIN_TUPLE] & DomainMessage
-  type DE_LIFTER[DM <: DomainMessage] = LocalDomainEvent[DM]
+  final type DOMAIN_MESSAGE = OR[DOMAIN_TUPLE] & SimMessage
+  type DE_LIFTER[DM <: SimMessage] = LocalDomainEvent[DM]
   final type DOMAIN_EVENT = OR[MAP[DOMAIN_TUPLE, DE_LIFTER]] &LocalDomainEvent[?]
   final type EVENT_ACTION = OR[MAP[DOMAIN_TUPLE, LocalEventAction]] & LocalEventAction[?]
 

@@ -1,6 +1,6 @@
 import sbt.*
 object Dependencies {
-  val lastUpdated = "20240530"
+  val lastUpdated = "20240606"
   val scalaVersion = "3.3.1"
 
   object Lang {
@@ -52,11 +52,14 @@ object Dependencies {
       // ZIO Ecosystem
       val zioJsonVersion = "0.6.2"
       val zioConfigVersion = "4.0.2" // "4.0.0-RC16"
-      val zioHttpVersion = "3.0.0-RC1" // Upgrade when ready to put effort in HTTP layer, to update the samples.
+      val zioHttpVersion = "3.0.0-RC8" // Upgrade when ready to put effort in HTTP layer, to update the samples.
       val quillVersion = "4.8.5" // "4.8.0"
 
-      val quill = "io.getquill" %% "quill-jdbc-zio" % quillVersion excludeAll
+      val quillJdbcZio = "io.getquill" %% "quill-jdbc-zio" % quillVersion excludeAll
         ExclusionRule(organization = "org.scala-lang.modules")
+      val quillJdbc = "io.getquill" %% "quill-jdbc" % quillVersion
+      val quillCaliban = "io.getquill" %% "quill-caliban" % quillVersion
+
       // https://github.com/ScalaConsultants/zio-slick-interop
       // This is a very small library that may be worth copying/onboarding. (MIT License)
       // NOT AVAILABLE val slickInterop = "io.scalac" %% "zio-slick-interop"  % "0.4.0"
@@ -119,12 +122,19 @@ object Dependencies {
     val test = "org.apache.pekko" %% "pekko-actor-testkit-typed" % pekkoVersion
   }
 
+  object Circe {
+    val version = "0.14.7"
+    val core = "io.circe" %% "circe-core" % version
+    val generic = "io.circe" %% "circe-generic" % version
+    val parser = "io.circe" %% "circe-parser" % version
+  }
+
   object Logging {
     // https://mvnrepository.com/artifact/org.slf4j/slf4j-api
     val sl4jVersion = "2.0.13" // "2.0.9"
     val sl4jApi = "org.slf4j" % "slf4j-api" % sl4jVersion
     val sl4jSimple = "org.slf4j" % "slf4j-simple" % sl4jVersion
-    val logbackVersion = "1.4.11"
+    val logbackVersion = "1.5.6"
     val logbackClassic = "ch.qos.logback" % "logback-classic" % logbackVersion
     val logbackCore = "ch.qos.logback" % "logback-core" % logbackVersion
 
@@ -134,8 +144,16 @@ object Dependencies {
     val slickVersion = "3.5.1"
     val slick = "com.typesafe.slick" %% "slick" % slickVersion
     val slickHikari = "com.typesafe.slick" %% "slick-hikaricp" % slickVersion
+    val slickPgVersion = "0.22.2"
+    val slickPg = "com.github.tminglei" %% "slick-pg" % slickPgVersion
+    val pgCirce = "com.github.tminglei" %% "slick-pg_circe-json" % slickPgVersion
 
     val slickTest = "com.typesafe.slick" %% "slick-testkit" % slickVersion
+
+    // https://flywaydb.org/
+    // https://alexn.org/blog/2020/11/15/managing-database-migrations-scala/
+    val flywayDbVersion = "10.14.4"
+    val flywayDb = "org.flywaydb" % "flyway-core" % "7.2.0"
 
     val postgresqlVersion = "42.7.3" // "42.6.0"
     val postgres = "org.postgresql" % "postgresql" % postgresqlVersion

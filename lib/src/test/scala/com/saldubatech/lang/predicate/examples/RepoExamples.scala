@@ -5,7 +5,7 @@ import algebra.lattice.Bool
 import com.saldubatech.lang.predicate.{InMemoryPlatform, Predicate}
 
 
-object stringRepo extends InMemoryPlatform.Repo[String]
+object stringRepo extends InMemoryPlatform.InMemoryRepo[String]
 
 object MemSample:
   val equalsToBlah: Predicate.Eq[String] = Predicate.Eq("blah")

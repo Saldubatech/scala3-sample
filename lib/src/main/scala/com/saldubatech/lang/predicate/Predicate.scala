@@ -22,9 +22,18 @@ class Classification[-E]:
 class Sorting[-E]:
   this: Predicate[E] =>
 
+class Projection[-E, +T]:
+  this: Predicate[E] =>
+
+//class ProjectionPredicate[-E, T, PROJECTION[_] <: Predicate[T]]
+//  extends Projection[E, T] with Predicate[E]:
+//  def project: Predicate[T]
+
+
 class ClassificationPredicate[-E] extends Classification[E] with Predicate[E]
 
 class SortingPredicate[-E] extends Sorting[E] with Predicate[E]
+
 abstract class Unary[E, P <: Predicate[E]]:
   this: Predicate[E] =>
   val p: P

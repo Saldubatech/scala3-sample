@@ -1,8 +1,7 @@
 package com.saldubatech.types.datetime
 
-import scala.collection.mutable
-
 import java.time.ZoneId
+import scala.collection.mutable
 
 enum Timezone(val iana: String, val zoneId: ZoneId):
   case UTC extends Timezone("UTC", ZoneId.of("UTC"))

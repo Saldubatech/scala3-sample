@@ -1,18 +1,21 @@
 package com.saldubatech.sandbox
 
-import com.saldubatech.lang.util.LogEnabled
-import org.apache.pekko.actor.typed.{ActorRef, Behavior}
+import com.saldubatech.lang.Id
+import com.saldubatech.lang.types.{AppError, MAP, OR, SUB_TUPLE}
+import com.saldubatech.util.LogEnabled
 import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
+import org.apache.pekko.actor.typed.{ActorRef, Behavior}
 
 import java.util.UUID
 import scala.reflect.ClassTag
 
 package object ddes {
-  sealed class SimulationError(msg: String, cause: Option[Throwable] = None) extends Throwable(msg, cause.orNull)
+  sealed class SimulationError(msg: String, cause: Option[Throwable] = None) extends AppError(msg, cause)
 
-  case class CollectedError(errors: Seq[SimulationError], msg: String = "") extends SimulationError(msg)
+  case class CollectedError(errors: Seq[SimulationError], override val msg: String = "") extends SimulationError(msg)
 
-  case class FatalError(msg: String, cause: Option[Throwable] = None) extends SimulationError(msg, cause)
+  case class FatalError(override val msg: String, override val cause: Option[Throwable] = None)
+    extends SimulationError(msg, cause)
 
   // Provisional, just to have a placeholder to decide what to use.
   type ActionResult = Either[SimulationError, Unit]
@@ -25,90 +28,108 @@ package object ddes {
 
   trait DdesMessage extends Product with Serializable
 
-  case class SimAction private(at: Tick, action: String)
+  case class SimAction private(generatedAt: Tick, forEpoch: Tick, action: String)
   object SimAction:
-    def apply(at: Tick): SimAction = SimAction(at, UUID.randomUUID().toString)
+    def apply(generatedAt: Tick, forEpoch: Tick): SimAction =
+      SimAction(generatedAt, forEpoch, UUID.randomUUID().toString)
 
-  trait DomainMessage extends Product with Serializable
+  trait SimMessage extends Product with Serializable
 
-  case class DomainEvent[+TDM <: DomainMessage, +DM <: TDM : ClassTag]
+  trait DomainMessage extends Product with Serializable:
+    val id: Id = Id
+  trait OAMMessage extends SimMessage
+
+  sealed abstract class DomainEvent[+DM <: DomainMessage : ClassTag]:
+    val from: SimActor[?]
+    val target: SimActor[? <: DM]
+    val payload: DM
+    val dmCt: ClassTag[? <: DM] = implicitly[ClassTag[DM]]
+
+  case class EventAction[+DM <: DomainMessage : ClassTag]
   (
-    at: Tick,
-    from: SimActor[?],
-    target: SimActor[TDM],
-    payload: DM
-  ) extends DdesMessage:
-    val dmCt: ClassTag[? <: TDM] = implicitly[ClassTag[DM]]
+    action: SimAction,
+    override val from: SimActor[?],
+    override val target: SimActor[? <: DM],
+    override val payload: DM
+  ) extends DomainEvent[DM]
 
-
-  case class EventAction[+TDM <: DomainMessage, +DM <: TDM, +EV <: DomainEvent[TDM, DM]]
-  (action: SimAction, event:  EV)
-
-  abstract class NodeType[+PAYLOAD <: DomainMessage]:
-    type DOMAIN_MESSAGE <: PAYLOAD
-    type DOMAIN_EVENT <: DomainEvent[DOMAIN_MESSAGE, DOMAIN_MESSAGE]
-    type EVENT_ACTION <: EventAction[DOMAIN_MESSAGE, DOMAIN_MESSAGE, DOMAIN_EVENT]
-    val dmCt: ClassTag[DOMAIN_MESSAGE]
-    final type SELF_ACTOR = ActorRef[EVENT_ACTION]
-    final type SELF_CONTEXT = ActorContext[EVENT_ACTION]
-
-  final class SimpleTypes[PAYLOAD <: DomainMessage : ClassTag] extends NodeType[PAYLOAD]:
-    override type DOMAIN_MESSAGE = PAYLOAD
-    override type DOMAIN_EVENT = DomainEvent[DOMAIN_MESSAGE, DOMAIN_MESSAGE]
-    override type EVENT_ACTION = EventAction[DOMAIN_MESSAGE, DOMAIN_MESSAGE, DOMAIN_EVENT]
-    override final val dmCt = summon[ClassTag[DOMAIN_MESSAGE]]
 
   trait Command:
     val forEpoch: Tick
     val action: SimAction
     def send: SimAction
-  abstract class SimActor[+PAYLOAD <: DomainMessage](
-                                                     using
-                                                     private val clock: Clock
-                                                   ) extends LogEnabled:
-    self =>
+
+    override def toString: String = s"Command(${action.action} at time ${action.generatedAt} for time[$forEpoch]"
+
+
+  trait SimEnvironment:
+    def currentTime: Tick
+    def schedule[TARGET_DM <: DomainMessage](target: SimActor[TARGET_DM])(forTime: Tick, targetMsg: TARGET_DM): Unit
+
+  trait DomainProcessor[DM <: DomainMessage]:
+    def accept(at: Tick, ev: DomainEvent[DM])(using env: SimEnvironment): ActionResult
+
+  abstract class SimActor[DM <: DomainMessage : ClassTag]
+  (private val clock: Clock)
+    extends LogEnabled:
+    selfSimActor =>
+
     val name: String
 
-    val types: NodeType[PAYLOAD]
-    import types._
-    final type PROTOCOL = types.DOMAIN_MESSAGE
+    def oam(msg: OAMMessage): ActionResult
 
-    def newAction[DM <: DOMAIN_MESSAGE : ClassTag](action: SimAction, from: SimActor[?], message: DM): EVENT_ACTION
+    protected val domainProcessor: DomainProcessor[DM]
 
-    private var _ctx: Option[SELF_CONTEXT] = None
-    lazy val ctx: SELF_CONTEXT = _ctx.get
+    var _ctx: Option[ActorContext[EventAction[DM] | OAMMessage]] = None
+    lazy val ctx: ActorContext[EventAction[DM] | OAMMessage] = _ctx.get
+    var _currentTime: Option[Tick] = Some(clock.startTime)
+    def currentTime: Tick = _currentTime.get
 
-    private var _at: Tick = 0
-    def at: Tick = _at
+    object Env extends SimEnvironment:
+      override def currentTime: Tick = selfSimActor.currentTime
 
-    def accept[DM <: DOMAIN_MESSAGE](at: Tick, ctx: ActorContext[EVENT_ACTION], ev: DOMAIN_EVENT): ActionResult
+      override def schedule[TARGET_DM <: DomainMessage]
+      (target: SimActor[TARGET_DM])(forTime: Tick, targetMsg: TARGET_DM): Unit =
+        clock.request(target.command(forTime, selfSimActor, targetMsg))
 
-    def command[DM <: DOMAIN_MESSAGE : ClassTag](forTime: Tick, from: SimActor[?], message: DM): Command =
+    given env: SimEnvironment = Env
+
+    def command(forTime: Tick, from: SimActor[?], message: DM): Command =
       new Command:
         override val forEpoch: Tick = forTime
-        override val action: SimAction = SimAction(at)
+        override val action: SimAction = SimAction(currentTime, forEpoch)
+
+        override def toString: String = super.toString + s" with Msg: $message"
 
         override def send: SimAction = {
+          log.debug(s"Sending command at $currentTime from ${from.name} to $name")
           ctx.self ! newAction(action, from, message)
           action
         }
-    final def init(): Behavior[EVENT_ACTION] = Behaviors.setup {
-      ctx =>
-        _ctx = Some(ctx)
-        Behaviors.receiveMessage(simMsg =>
-          _at = simMsg.event.at
-          accept(simMsg.action.at, ctx, simMsg.event)
-          clock.complete(simMsg.action, this)
-          Behaviors.same
-        )
-    }
 
-    def schedule[TARGET_PROTOCOL <: DomainMessage]
-    (target: SimActor[TARGET_PROTOCOL])(forTime: Tick, targetMsg: target.PROTOCOL): Unit =
-      clock.request(target.command(forTime, this, targetMsg)(using target.types.dmCt))
+    def newAction(action: SimAction, from: SimActor[?], message: DM): EventAction[DM] =
+      EventAction(action, from, this, message)
 
+    // Seems to be needed to help the compiler decide what is what
+    private def dispatch[DE <: EventAction[DM] : ClassTag](msg: DE | OAMMessage): Unit =
+      msg match
+        case oamMsg: OAMMessage =>
+          oam(oamMsg)
+        case evAct: DE =>
+          log.debug(s"$name receiving at ${evAct.action.forEpoch} : ${evAct}")
+          _currentTime = Some(evAct.action.forEpoch)
+          domainProcessor.accept(evAct.action.forEpoch, evAct)
+          clock.complete(evAct.action, this)
 
+    def init(): Behavior[EventAction[DM] | OAMMessage] =
+      Behaviors.setup {
+        ctx =>
+          log.debug(s"Initializing Simulation Actor: $selfSimActor")
+          _ctx = Some(ctx)
+          Behaviors.receiveMessage {
+            msg =>
+              dispatch(msg)
+              Behaviors.same
+          }
+      }
 }
-
-object _Tst:
-  val a: Int = 33

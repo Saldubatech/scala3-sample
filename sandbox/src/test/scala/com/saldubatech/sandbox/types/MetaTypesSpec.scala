@@ -25,7 +25,7 @@ object MockTypes:
   type ID[T] = T
 
 object Meta:
-  import MockTypes._
+  import MockTypes.*
 
 
 
@@ -68,8 +68,8 @@ object Meta:
 
 
 class MetaTypeSpec extends AnyWordSpec:
-  import MockTypes._
-  import Meta._
+  import Meta.*
+  import MockTypes.*
 
   def summonCT[T](using ct: ClassTag[T]): ClassTag[T] = ct
 
@@ -85,7 +85,10 @@ class MetaTypeSpec extends AnyWordSpec:
         summon[ORT[T1 *: T2 *: EmptyTuple] =:= (T1 | T2)]
         summon[ORT[T1 *: T2 *: EmptyTuple] =:= ORT[T1 *: T2 *: EmptyTuple]]
         summon[ORT[T1] =:= T1]
-        summon[ORT[T1] =:= ORT[T1]]
+      }
+      "Check Compiletime logic" in {
+        assertCompiles("summon[ORT[T1] =:= ORT[T1]]")
+        assertDoesNotCompile("summon[ORT[T1] =:= ORT[T2]]")
       }
       "summon =:=" in {
         summon[T1 =:= (T1 | Nothing)]

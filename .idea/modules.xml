@@ -2,12 +2,12 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/app.iml" filepath="$PROJECT_DIR$/.idea/modules/app.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/image.iml" filepath="$PROJECT_DIR$/.idea/modules/image.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/lib.iml" filepath="$PROJECT_DIR$/.idea/modules/lib.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/m-service-root.iml" filepath="$PROJECT_DIR$/.idea/modules/m-service-root.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/m-service-root-build.iml" filepath="$PROJECT_DIR$/.idea/modules/m-service-root-build.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/sandbox.iml" filepath="$PROJECT_DIR$/.idea/modules/sandbox.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/m-service-root.app.iml" filepath="$PROJECT_DIR$/.idea/modules/m-service-root.app.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/m-service-root.image.iml" filepath="$PROJECT_DIR$/.idea/modules/m-service-root.image.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/m-service-root.lib.iml" filepath="$PROJECT_DIR$/.idea/modules/m-service-root.lib.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/m-service-root.m-service-root-build.iml" filepath="$PROJECT_DIR$/.idea/modules/m-service-root.m-service-root-build.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/m-service-root.sandbox.iml" filepath="$PROJECT_DIR$/.idea/modules/m-service-root.sandbox.iml" />
     </modules>
   </component>
 </project>

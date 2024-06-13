@@ -101,6 +101,5 @@ object CompileTest:
 
   def uu[P <: Predicate.Eq[String]](a: Any): Unit =
     val ct = summon[ClassTag[InMemoryPlatform.REQUIRES[String, P]]]
-    println(s"####### CT: ${ct}")
 
   val r: Unit = uu(d)

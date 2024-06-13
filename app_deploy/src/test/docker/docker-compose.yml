@@ -1,0 +1,50 @@
+#file: noinspection ComposeUnknownKeys
+version: '3.7'
+
+networks:
+  sandbox-network:
+    name: test-network
+    external: true
+
+services:
+  env_file:
+    - path: ./.env
+      required: true
+    - path: ./.other_env
+      required: false
+  # docker run --hostname postgres --name postgres-epallet -v postgres-epallet-data:/Users/jmp/code/docker-shared/postgres-epallet-data -p 54321:5432 -e POSTGRES_PASSWORD=postgresEpalletLocal -d postgres:16
+  postgres_svc:
+    image: postgres:16
+    hostname: postgres-svc
+    restart: always
+    volumes:
+      - /Users/jmp/code/docker-shared/postgres-test-data:/var/lib/postgresql/sandbox-data
+    environment:
+      - POSTGRES_USER=${DB_ROOT_USER}
+      - POSTGRES_PASSWORD=${DB_ROOT_PASSWORD}
+      - POSTGRES_DB=postgres
+    ports:
+      - "${DB_PORT}:5432"
+    networks:
+      - test-network
+  app-compose:
+    # docker run -d -e "DB_HOST='postgres-epallet'" -e "--hostname app --name app-manual -p 8089:80 com.saldubatech/image:latest
+    image: com.saldubatech/image:latest
+    hostname: app-compose
+    environment:
+      - DB_HOST=postgres-svc
+      - DB_PORT=5432
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=test_db
+    depends_on:
+      - postgres_svc
+    networks:
+      - test-network
+    ports:
+      - "${APP_HOST_PORT}:80"
+
+# TO ADD:
+# * Swagger UI test harness: https://articles.wesionary.team/swagger-ui-on-docker-for-testing-rest-apis-5b3d5fcdee7
+# * Insomnia API Test harness: https://hub.docker.com/r/kasmweb/insomnia
+#

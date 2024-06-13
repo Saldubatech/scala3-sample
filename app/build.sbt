@@ -17,7 +17,8 @@ val wkw = ExclusionRule()
 
 dependencyOverrides += "org.slf4j" % "slf4j-api" % "2.0.9"
 libraryDependencies ++= Seq(
-  Dependencies.Zio.Runtime.quill,
+  Dependencies.Zio.Runtime.quillJdbcZio,
+  Dependencies.Zio.Runtime.quillCaliban,
   Dependencies.Persistence.postgres,
   Dependencies.Zio.Runtime.zio,
   Dependencies.Zio.Runtime.streams,

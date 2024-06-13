@@ -21,6 +21,12 @@ run / envVars += "DB_PORT" -> localConfig.value.fold("")(_.getString("DB_PORT"))
 dependencyOverrides += "org.slf4j" % "slf4j-api" % "2.0.9"
 libraryDependencies ++= Seq(
   // Basic Utilities
+  // sl4j Core
+  Dependencies.Logging.logbackCore,
+  Dependencies.Logging.sl4jApi,
+  // Basic Log Implementation
+  // This needs to move to Test when ready for "production"
+  Dependencies.Logging.logbackClassic,
   // Apache Math
   Dependencies.ApacheCommons.math,
 
@@ -30,6 +36,11 @@ libraryDependencies ++= Seq(
   Dependencies.Cats.kittens,
   Dependencies.Cats.algebra,
   // Dependencies.Cats.effect
+
+  // Circe
+  Dependencies.Circe.core,
+  Dependencies.Circe.generic,
+  Dependencies.Circe.parser,
 
   // ZIO Runtime
   Dependencies.Zio.Runtime.zio,
@@ -42,9 +53,12 @@ libraryDependencies ++= Seq(
   Dependencies.Zio.Runtime.reactiveStreamsInterop,
 
   // Persistence
-  Dependencies.Zio.Runtime.quill,
+  Dependencies.Zio.Runtime.quillJdbcZio,
+  Dependencies.Zio.Runtime.quillCaliban,
   Dependencies.Persistence.postgres,
   Dependencies.Persistence.slick,
+  Dependencies.Persistence.slickPg,
+  Dependencies.Persistence.pgCirce,
   Dependencies.Persistence.slickHikari,
 
   // Schema & Optics
@@ -62,7 +76,7 @@ libraryDependencies ++= Seq(
 //  Dependencies.Logging.logbackCore,
 
   // test
-  Dependencies.Logging.sl4jSimple % Test,
+  //Dependencies.Logging.sl4jSimple % Test,
   Dependencies.Zio.Testing.zio % Test,
   Dependencies.Zio.Testing.sbt % Test,
   Dependencies.Zio.Testing.junit % Test,

@@ -1,8 +1,8 @@
 package com.saldubatech.sandbox.ddes
 
-import com.saldubatech.lang.util.LogEnabled
-import org.apache.pekko.actor.typed.{ActorRef, Behavior}
+import com.saldubatech.util.LogEnabled
 import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
+import org.apache.pekko.actor.typed.{ActorRef, Behavior}
 
 import scala.collection.mutable.ListBuffer
 import scala.reflect.ClassTag
@@ -10,7 +10,7 @@ import scala.reflect.ClassTag
   // To approximate requiring a case class short of creating a macro.
 
 object Clock:
-  import DDE._
+  import DDE.*
   sealed trait ClockMessage extends DdesMessage
   
   case class ActionComplete(action: SimAction, by: SimActor[?]) extends ClockMessage
@@ -25,9 +25,10 @@ class Clock(
              val maxTime: Option[Tick],
              val startTime: Tick = Tick(0L)
            ) extends LogEnabled:
-  import DDE._
-  import Clock._
-  
+  selfClock =>
+
+  import Clock.*
+  import DDE.*
 
   private var now: Tick = startTime
   private var _ctx: Option[ActorContext[PROTOCOL]] = None
@@ -65,19 +66,20 @@ class Clock(
     else simError(now, withCtx, FatalError(s"Closing a non existing action: ${action}"))
 
   private def advanceClock(withCtx: ActorContext[PROTOCOL]): Unit =
-    log.debug(s"\tAdvancing Clock")
-    for {
-      (tick, commands) <- popNextCommands()
-      mT <- maxTime orElse Some(-1L)
-    } yield {
-      log.debug(s"\tMaxTime: $mT, now: $now, advanceTo: $tick")
-      if mT >= 0 && mT <= tick then
-        log.debug(s"\tAdvance Clock ==> Simulation End")
-        simEnd(now, withCtx)
-      else
-        log.debug(s"\tAdvance Clock ==> From: ${now} to: ${tick}")
-        now = tick
-        commands.foreach {cmd => openActions += cmd.send}
+    log.debug(s"Advancing Clock")
+    popNextCommands().fold(
+      log.info("Nothing to do, waiting")
+    ){
+      (tick, commands) =>
+        val mT: Tick = maxTime.getOrElse(-1L)
+        log.debug(s"\tMaxTime: $mT, now: $now, advanceTo: $tick")
+        if mT >= 0 && mT <= tick then
+          log.debug(s"\tAdvanced Clock ==> Simulation End")
+          simEnd(now, withCtx)
+        else
+          log.debug(s"\tAdvanced Clock ==> From: ${now} to: ${tick}")
+          now = tick
+          commands.foreach { cmd => openActions += cmd.send }
     }
 
   def start(): Behavior[PROTOCOL] =
@@ -86,7 +88,7 @@ class Clock(
       _ctx = Some(ctx)
       Behaviors.receiveMessage {
         case cmd: Command =>
-          log.debug(s"Clock Received Command ${cmd}")
+          log.debug(s"Clock Receiving ${cmd}")
           scheduleCommand(ctx, cmd)
           Behaviors.same
         case ActionComplete(action, _) =>

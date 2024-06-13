@@ -5,21 +5,16 @@ import com.saldubatech.sandbox.ddes.{Clock, DomainMessage, SimActor}
 
 import scala.reflect.ClassTag
 
-class UnlimitedTransportWithDelay0[C, TGT >: SimActor[Load[C]] <: SimActor[?]]
-(val target: TGT, val delay: LongRVar)
-(using evidence: Load[C] <:< target.PROTOCOL) 
+class UnlimitedTransportWithDelay0[C]
+(val target: SimActor[Load[C]], val delay: LongRVar)
   extends AbstractTransport[C]:
   class Induct(private val binding: SimActor[?]) extends BaseInduct:
-    override def accept(l: Load[C]): Unit =
-      binding.schedule(target)(binding.at+delay(), l)
+    override def induct(l: Load[C]): Unit =
+      binding.Env.schedule(target)(binding.currentTime+delay(), l)
 
-  class Discharge(override val destination: Intake[C]) extends BaseDischarge
-
-
+  class Discharge(override val discharge: Intake[C]) extends BaseDischarge
 
 
-object Tst:
-  abstract class LoadDestination[PROTOCOL <: DomainMessage : ClassTag]
-  (override val name: String)
-  (using clock: Clock)
-    extends SimActor[PROTOCOL]
+
+
+object Tst

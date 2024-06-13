@@ -7,8 +7,10 @@ import scala.reflect.ClassTag
 
 // https://www.scalatest.org/user_guide/selecting_a_style
 
+type SELF[T] = T 
 
-def stringRepo: InMemoryPlatform.Repo[String] = InMemoryPlatform.Repo[String]()
+def stringRepo: InMemoryPlatform.InMemoryRepo[String] = InMemoryPlatform.repoFor[String]
+
 class InMemRepoSpec extends AnyWordSpec {
   "A Repository" when {
     import InMemoryPlatform.plainRequirement

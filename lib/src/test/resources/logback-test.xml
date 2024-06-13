@@ -1,0 +1,20 @@
+<configuration>
+  <appender name="console" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <!-- https://logback.qos.ch/manual/layouts.html -->
+      <pattern>%d %highlight(%-5level) [%50.-50thread] %-30logger\t%msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <root level="error">
+    <appender-ref ref="console" />
+  </root>
+  <logger name="com.saldubatech" level="INFO"/>
+  <logger name="com.saldubatech.util.ErrorLog$" level="ERROR"/>
+  <logger name="com.saldubatech.util.WarnLog$" level="WARN"/>
+  <logger name="com.saldubatech.util.InfoLog$" level="INFO"/>
+  <logger name="com.saldubatech.util.DebugLog$" level="DEBUG"/>
+  <logger name="com.saldubatech.util.TraceLog$" level="TRACE"/>
+  <logger name="namedlog" level="ERROR"/>
+
+</configuration>

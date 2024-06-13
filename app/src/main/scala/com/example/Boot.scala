@@ -1,13 +1,15 @@
 package com.example
 
-import com.example.api._
-import com.example.api.healthcheck._
+import com.example.api.*
+import com.example.api.healthcheck.*
 import com.example.config.Configuration.ApiConfig
-import com.example.infrastructure._
+import com.example.domain.ItemRepository
+import com.example.infrastructure.*
+import com.typesafe.config
 import io.getquill.jdbczio.Quill
 import io.getquill.Literal
-import zio._
-import zio.config._
+import zio.*
+import zio.config.*
 import zio.http.Server
 import zio.logging.backend.SLF4J
 //import zio.logging.slf4j.bridge.Slf4jBridge
@@ -19,7 +21,7 @@ object Boot extends ZIOAppDefault:
 
   // private val dataSourceLayer = Quill.DataSource.fromPrefix("db")
 
-  private val dbConfig = ConfigFactory.defaultApplication().getConfig("db").resolve()
+  private val dbConfig: config.Config = ConfigFactory.defaultApplication().getConfig("db").resolve()
 
   private val dataSourceLayer = Quill.DataSource.fromConfig(dbConfig)
 
@@ -37,9 +39,9 @@ object Boot extends ZIOAppDefault:
       }
       .orDie
 
-  val routes = HttpRoutes.app ++ HealthCheckRoutes.app
+  val routes = HttpRoutes.routes ++ HealthCheckRoutes.routes
 
-  private val program = Server.serve(routes)
+  private val program: URIO[HealthCheckService with ItemRepository with Server, Nothing] = Server.serve(routes)
 
   override val run =
     program

@@ -2,7 +2,7 @@ package com.saldubatech.test.persistence.postgresql
 
 import com.dimafeng.testcontainers.PostgreSQLContainer
 import org.testcontainers.utility.DockerImageName
-import zio._
+import zio.*
 
 object PostgresContainer:
 

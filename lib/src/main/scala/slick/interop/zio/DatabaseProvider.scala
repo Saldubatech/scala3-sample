@@ -4,9 +4,11 @@ package slick.interop.zio
 */
 
 
+import com.saldubatech.util.LogEnabled
+
 import javax.sql.DataSource
 import com.typesafe.config.Config
-import zio._
+import zio.*
 import slick.jdbc.JdbcProfile
 import slick.jdbc.JdbcBackend
 
@@ -15,7 +17,7 @@ trait DatabaseProvider(using val dbProfile: JdbcProfile) {
   def profile: UIO[JdbcProfile]
 }
 
-object DatabaseProvider {
+object DatabaseProvider extends LogEnabled {
 
   def fromConfig(path: String = ""): ZLayer[Config with JdbcProfile, Throwable, DatabaseProvider] = {
     val dbProvider = for {
@@ -34,10 +36,13 @@ object DatabaseProvider {
                       maxConnections: Option[Int] = None
                     ): ZLayer[DataSource with JdbcProfile, Throwable, DatabaseProvider] = {
     val dbProvider = for {
-      ds <- ZIO.service[DataSource]
       p  <- ZIO.service[JdbcProfile]
+      ds <- ZIO.service[DataSource]
       db  = ZIO.attempt(p.backend.Database.forDataSource(ds, maxConnections))
-      a  <- ZIO.acquireRelease(db)(db => ZIO.succeed(db.close()))
+      a  <- ZIO.acquireRelease(db) { db =>
+        log.debug(s"Closing the Scope...")
+        ZIO.succeed(db.close())
+      }//
     } yield new DatabaseProvider(using p) {
       override val db: UIO[JdbcBackend#JdbcDatabaseDef] = ZIO.succeed(a)
       override val profile: UIO[JdbcProfile]     = ZIO.succeed(p)

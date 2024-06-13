@@ -12,19 +12,21 @@
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="library" name="sbt: scala-sdk-3.3.1" level="project" />
-    <orderEntry type="library" name="sbt: com.github.ghik:silencer-lib_2.13.11:1.7.14:jar" level="project" />
-    <orderEntry type="library" scope="TEST" name="sbt: net.sf.jopt-simple:jopt-simple:4.6:jar" level="project" />
-    <orderEntry type="library" scope="TEST" name="sbt: org.openjdk.jcstress:jcstress-core:0.3:jar" level="project" />
-    <orderEntry type="library" name="sbt: org.scala-lang:scala-library:2.13.11:jar" level="project" />
-    <orderEntry type="library" name="sbt: org.scala-lang:scala3-library_3:3.3.1:jar" level="project" />
     <orderEntry type="module-library">
       <library name="sbt: unmanaged-sources-and-docs">
         <CLASSES />
         <JAVADOC />
         <SOURCES>
           <root url="jar://$USER_HOME$/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/netty/incubator/netty-incubator-transport-native-io_uring/0.0.19.Final/netty-incubator-transport-native-io_uring-0.0.19.Final-sources.jar!/" />
+          <root url="jar://$USER_HOME$/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/netty/incubator/netty-incubator-transport-native-io_uring/0.0.24.Final/netty-incubator-transport-native-io_uring-0.0.24.Final-sources.jar!/" />
+          <root url="jar://$USER_HOME$/Library/Caches/Coursier/v1/https/repo1.maven.org/maven2/io/netty/incubator/netty-incubator-transport-native-io_uring/0.0.25.Final/netty-incubator-transport-native-io_uring-0.0.25.Final-sources.jar!/" />
         </SOURCES>
       </library>
     </orderEntry>
+    <orderEntry type="library" name="sbt: com.github.ghik:silencer-lib_2.13.11:1.7.14:jar" level="project" />
+    <orderEntry type="library" scope="TEST" name="sbt: net.sf.jopt-simple:jopt-simple:4.6:jar" level="project" />
+    <orderEntry type="library" scope="TEST" name="sbt: org.openjdk.jcstress:jcstress-core:0.3:jar" level="project" />
+    <orderEntry type="library" name="sbt: org.scala-lang:scala-library:2.13.11:jar" level="project" />
+    <orderEntry type="library" name="sbt: org.scala-lang:scala3-library_3:3.3.1:jar" level="project" />
   </component>
 </module>

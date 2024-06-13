@@ -1,60 +1,66 @@
 package com.saldubatech.sandbox.ddes
 
-import com.saldubatech.lang.util.LogEnabled
 import com.saldubatech.math.randomvariables.Distributions.LongRVar
+import com.saldubatech.sandbox.observers.Subject.ObserverManagement
+import com.saldubatech.sandbox.observers.{NewJob, OperationEventNotification, Subject}
+import com.saldubatech.util.LogEnabled
 import org.apache.pekko.actor.typed.Behavior
 import org.apache.pekko.actor.typed.scaladsl.ActorContext
 
 import scala.reflect.{ClassTag, TypeTest}
 
 object Source:
-  case class InstallTarget[+SOURCED <: DomainMessage](target: SimActor[SOURCED]) extends DomainMessage
+  case class Trigger[SOURCED <: DomainMessage](supply: Seq[SOURCED], startDelay: Option[Tick] = None) 
+    extends DomainMessage
+  
+  type SOURCE_PROTOCOL[SOURCED <: DomainMessage] = Trigger[SOURCED]
 
-  type SOURCE_PROTOCOL[+SOURCED <: DomainMessage] = InstallTarget[SOURCED]
+  class DP[SOURCED <: DomainMessage]
+  (private val target: SimActor[SOURCED],
+   private val name: String,
+   private val interval: LongRVar,
+   private val notifier: OperationEventNotification => Unit) 
+    extends DomainProcessor[SOURCE_PROTOCOL[SOURCED]] with LogEnabled:
+    
+    private def scheduleSend(at: Tick, forTime: Tick, targetMsg: SOURCED, target: SimActor[SOURCED], interval: Tick)(using env: SimEnvironment): Tick =
+      log.debug(s"Source[$name] at ${at}, Scheduling message for $forTime : $targetMsg with Target ${target.name}")
+      env.schedule(target)(forTime, targetMsg)
+      notifier(NewJob(at, targetMsg.id, name))
+      forTime + interval
 
-  class Types[SOURCED <: DomainMessage] extends NodeType[SOURCE_PROTOCOL[SOURCED]]:
-    override final type DOMAIN_MESSAGE = SOURCE_PROTOCOL[SOURCED]
-    override final type DOMAIN_EVENT = DomainEvent[DOMAIN_MESSAGE, DOMAIN_MESSAGE]
-    override final type EVENT_ACTION = EventAction[DOMAIN_MESSAGE, DOMAIN_MESSAGE, DOMAIN_EVENT]
-    override final val dmCt: ClassTag[SOURCE_PROTOCOL[SOURCED]] = summon[ClassTag[SOURCE_PROTOCOL[SOURCED]]]
+
+    override def accept
+    (at: Tick, ev: DomainEvent[SOURCE_PROTOCOL[SOURCED]])
+    (using env: SimEnvironment)
+    : ActionResult =
+      //given tgDmCt: ClassTag[ev.payload.target.PROTOCOL] = ev.payload.target.types.dmCt
+      var forTime: Tick = ev.payload.startDelay match {
+        case None => at
+        case Some(withDelay) => at + withDelay
+      }
+      ev.payload.supply.foreach { msg =>
+        log.debug(s"Source Sending: $msg for time $forTime")
+        forTime += scheduleSend(at, forTime, msg, target, interval())
+      }
+      Right(())
+      
 
 class Source[SOURCED <: DomainMessage, TARGET <: SimActor[SOURCED]]
 (
+  val target: SimActor[SOURCED]
+)
+(
   override val name: String,
   val interval: LongRVar,
-  val targetTypes: NodeType[SOURCED]
+  clock: Clock
 )
-(
-  val supply: Seq[targetTypes.DOMAIN_MESSAGE]
-)
-(
-  using clk: Clock
-)
-  extends SimActor[Source.SOURCE_PROTOCOL[SOURCED]] :
-  import Source._
-  override val types: Types[SOURCED] = Types[SOURCED]()
-  import types._
+  extends SimActor[Source.SOURCE_PROTOCOL[SOURCED]](clock) with Subject:
+  import Source.*
 
 
-  override def accept[DM <: DOMAIN_MESSAGE](at: Tick, ctx: ActorContext[EVENT_ACTION], ev: DOMAIN_EVENT): ActionResult =
-    given tgDmCt: ClassTag[ev.payload.target.PROTOCOL] = ev.payload.target.types.dmCt
-    var forTime: Tick = ev.at
-    val errors = supply.map{ msg =>
-      log.debug(s"Source Sending: $msg for time $forTime")
-      msg match
-        case tm : ev.payload.target.PROTOCOL => {
-          schedule(target=ev.payload.target)(forTime, targetMsg=tm)
-          forTime += interval()
-          Right(())
-        }
-        case _ => 
-          Left(SimulationError(s"Received a Message $msg that cannot be relayed to ${ev.payload.target.name}"))
-    }.collect{
-      case Left(err) => Some(err)
-      case _ => None
-    }.filter{_.isDefined}.map{_.get}
-    if errors.isEmpty then Right(()) else Left(CollectedError(errors, "Some Messages could not be relayed"))
-
-  override def newAction[DM <: DOMAIN_MESSAGE : ClassTag]
-  (action: SimAction, from: SimActor[?], message: DM): EVENT_ACTION =
-    EventAction(action, DomainEvent[DOMAIN_MESSAGE, DM](action.at, from, this, message))
+  override val domainProcessor: DomainProcessor[SOURCE_PROTOCOL[SOURCED]] = 
+    Source.DP(target, name, interval, opEv => notify(opEv))
+  override def oam(msg: OAMMessage): ActionResult =
+    msg match
+      case obsMsg: ObserverManagement => observerManagement(obsMsg)
+      case _ => Right(())

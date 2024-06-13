@@ -27,7 +27,7 @@
       <option name="explainTypeErrors" value="true" />
       <option name="continuations" value="true" />
     </profile>
-    <profile name="sbt 2" modules="app,appProject">
+    <profile name="sbt 2" modules="app,appProject,m-service-root.app">
       <option name="implicitConversions" value="true" />
       <option name="higherKinds" value="true" />
       <option name="macros" value="true" />
@@ -44,7 +44,7 @@
         <parameter value="$PROJECT_DIR$/app/target/scala-3.3.1/meta" />
       </parameters>
     </profile>
-    <profile name="sbt 3" modules="image">
+    <profile name="sbt 3" modules="image,m-service-root.image">
       <option name="implicitConversions" value="true" />
       <option name="higherKinds" value="true" />
       <option name="macros" value="true" />
@@ -61,7 +61,7 @@
         <parameter value="$PROJECT_DIR$/image/target/scala-3.3.1/meta" />
       </parameters>
     </profile>
-    <profile name="sbt 4" modules="lib">
+    <profile name="sbt 4" modules="lib,m-service-root.lib">
       <option name="implicitConversions" value="true" />
       <option name="higherKinds" value="true" />
       <option name="macros" value="true" />
@@ -96,7 +96,7 @@
         <parameter value="$PROJECT_DIR$/target/scala-3.3.1/meta" />
       </parameters>
     </profile>
-    <profile name="sbt 6" modules="sandbox,sandboxProject">
+    <profile name="sbt 6" modules="m-service-root.sandbox,sandbox,sandboxProject">
       <option name="implicitConversions" value="true" />
       <option name="higherKinds" value="true" />
       <option name="macros" value="true" />

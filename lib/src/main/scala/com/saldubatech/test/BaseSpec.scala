@@ -1,6 +1,6 @@
 package com.saldubatech.test
 
-import com.saldubatech.lang.util.LogEnabled
+import com.saldubatech.util.LogEnabled
 import org.scalatest.BeforeAndAfterAll
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.{AnyWordSpec, AnyWordSpecLike}

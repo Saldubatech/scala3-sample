@@ -1,0 +1,15 @@
+<configuration>
+  <appender name="console" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <!-- https://logback.qos.ch/manual/layouts.html -->
+      <pattern>%d %highlight(%-5level) [%30.-30thread] %-30logger\t%msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <root level="error">
+    <appender-ref ref="console" />
+  </root>
+  <logger name="com.saldubatech.sandbox" level="debug"/>
+  <logger name="slick.interop.zio" level="debug"/>
+
+</configuration>

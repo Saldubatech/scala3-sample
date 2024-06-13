@@ -11,63 +11,58 @@ import zio.json._
 
 object HttpRoutes extends JsonSupport:
 
-  val app: HttpApp[ItemRepository, Nothing] = Http.collectZIO {
-    case Method.GET -> !! / "items" =>
+  val routes = Routes(
+    Method.GET / "items" -> handler { (req: Request) =>
       val effect: ZIO[ItemRepository, DomainError, List[Item]] =
         ItemService.getAllItems()
-
       effect.foldZIO(Utils.handleError, _.toResponseZIO)
+    },
 
-    case Method.GET -> !! / "items" / itemId =>
+    Method.GET / "items" / string("itemId") -> handler { (itemId: String, req: Request) =>
       val effect: ZIO[ItemRepository, DomainError, Item] =
         for {
-          id        <- Utils.extractLong(itemId)
+          id <- Utils.extractLong(itemId)
           maybeItem <- ItemService.getItemById(ItemId(id))
           item <- maybeItem
             .map(ZIO.succeed(_))
             .getOrElse(ZIO.fail(NotFoundError))
         } yield item
-
       effect.foldZIO(Utils.handleError, _.toResponseZIO)
-
-    case Method.DELETE -> !! / "items" / itemId =>
+    },
+    Method.DELETE / "items" / string("itemId") -> handler { (itemId: String, req: Request) =>
       val effect: ZIO[ItemRepository, DomainError, Unit] =
         for {
-          id     <- Utils.extractLong(itemId)
+          id <- Utils.extractLong(itemId)
           amount <- ItemService.deleteItem(ItemId(id))
-          _ <-
-            if (amount == 0) ZIO.fail(NotFoundError)
-            else ZIO.unit
+          _ <- ZIO.when(amount == 0)(ZIO.fail(NotFoundError))
         } yield ()
-
       effect.foldZIO(Utils.handleError, _.toEmptyResponseZIO)
-
-    case req @ Method.POST -> !! / "items" =>
+    },
+    Method.POST / "items" -> handler { (req: Request) =>
       val effect: ZIO[ItemRepository, DomainError, Item] =
         for {
           createItem <- req.jsonBodyAs[CreateItemRequest]
-          itemId     <- ItemService.addItem(createItem.name, createItem.price)
+          itemId <- ItemService.addItem(createItem.name, createItem.price)
         } yield Item(itemId, createItem.name, createItem.price)
 
       effect.foldZIO(Utils.handleError, _.toResponseZIO(Status.Created))
-
-    case req @ Method.PUT -> !! / "items" / itemId =>
+    },
+    Method.PUT / "items" / string("itemId") -> handler { (itemId: String, req: Request) =>
       val effect: ZIO[ItemRepository, DomainError, Item] =
         for {
-          id         <- Utils.extractLong(itemId)
+          id <- Utils.extractLong(itemId)
           updateItem <- req.jsonBodyAs[UpdateItemRequest]
-          maybeItem  <- ItemService.updateItem(ItemId(id), updateItem.name, updateItem.price)
+          maybeItem <- ItemService.updateItem(ItemId(id), updateItem.name, updateItem.price)
           item <- maybeItem
             .map(ZIO.succeed(_))
             .getOrElse(ZIO.fail(NotFoundError))
         } yield item
-
       effect.foldZIO(Utils.handleError, _.toResponseZIO)
-
-    case req @ Method.PATCH -> !! / "items" / itemId =>
+    },
+    Method.PATCH / "items" / string("itemId") -> handler { (itemId: String, req: Request) =>
       val effect: ZIO[ItemRepository, DomainError, Item] =
         for {
-          id                <- Utils.extractLong(itemId)
+          id <- Utils.extractLong(itemId)
           partialUpdateItem <- req.jsonBodyAs[PartialUpdateItemRequest]
           maybeItem <- ItemService.partialUpdateItem(
             id = ItemId(id),
@@ -80,5 +75,5 @@ object HttpRoutes extends JsonSupport:
         } yield item
 
       effect.foldZIO(Utils.handleError, _.toResponseZIO)
-
-  }
+    }
+  )

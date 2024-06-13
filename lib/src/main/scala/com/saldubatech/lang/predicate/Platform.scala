@@ -1,12 +1,12 @@
 package com.saldubatech.lang.predicate
 
 import algebra.lattice.Bool
+import com.saldubatech.util.LogEnabled
 
 import scala.reflect.ClassTag
 
 /**
-* An abstract class representing a platform that can evaluate Predicates and defines a
-* Repository class for elements of a given type in the programmning language.
+* An abstract class representing a platform that can evaluate Predicates
 *
 * Concrete Platforms (InMemory, Slick, ...) need to provide the bindings through Classiriers
 * and Sorts as well as the mapping to the physical storage used.
@@ -15,6 +15,10 @@ import scala.reflect.ClassTag
 * Transformations
 */
 abstract class Platform:
+  selfPlatform =>
+  // To be called when no longer needeed.
+  def shutdown(): Unit
+  
   type LIFTED[A]
   type B = LIFTED[Boolean]
   given bool: Bool[B]
@@ -32,11 +36,13 @@ abstract class Platform:
   abstract class Sort[E] extends Classifier[E]:
     def lt(l: E, r: E): B
   end Sort
+  
+//  type EREQUIRES[E, P <: Predicate[E]] =
+//    P match
+//      case ProjectionPredicate[E, t, proj] => REQUIRES[t, proj]
+//      case p => REQUIRES[E, p]
 
-  // Convenience definition for frequently used type.
-  type SELF[E] = E
-
-
+  // Cannot be made final or it won't work, the compiler does funny things.
   type REQUIRES[E, P <: Predicate[E]] <: Requirement[E] =
     P match
       case Sorting[E] => Sort[E]
@@ -50,6 +56,7 @@ abstract class Platform:
 
   // This cannot be made private for some reason the compiler does not like it.
   type __CMB2__[L, R]
+  // Cannot be made final or it won't work, the compiler does funny things.
   type RESOLVE[E, L <: Requirement[E], R <: Requirement[E]] <: Requirement[E] =
     __CMB2__[L, R] match
       case __CMB2__[Sort[E], _] => Sort[E]
@@ -93,14 +100,4 @@ abstract class Platform:
     resolveClassified(ect, prj) orElse {
       case Predicate.Lt(ref @ ect(_: E)) => e => prj.lt(ref, e)
     }
-
-  trait BaseRepo[RS_IO[_]]:
-    type STORAGE
-    type DOMAIN
-
-    def find(using prj: REQUIRES[STORAGE, Predicate[STORAGE]])(p: Predicate[STORAGE]): RS_IO[Seq[DOMAIN]]
-
-    def add(e: DOMAIN): RS_IO[DOMAIN]
-  end BaseRepo
-
 end Platform

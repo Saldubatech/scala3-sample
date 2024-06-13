@@ -1,17 +1,19 @@
 package com.saldubatech.infrastructure.storage.rdbms
 
+import com.saldubatech.lang.types.AppError
 import zio.IO
 
-sealed class PersistenceError(msg: String, cause: Throwable = null) extends Throwable(msg, cause) {
-  private lazy val evaluatedMsg = msg
-  override def getMessage: String = evaluatedMsg
-}
+sealed class PersistenceError(msg: String, cause: Option[Throwable] = None) extends AppError(msg, cause)
 
-final case class RepositoryError(message: String, cause: Throwable = null)
-  extends PersistenceError(message, cause)
+final case class RepositoryError(override val msg: String, override val cause: Option[Throwable] = None)
+  extends PersistenceError(msg, cause)
 object RepositoryError:
-    def fromThrowable(cause: Throwable): RepositoryError = RepositoryError(cause.getMessage, cause) 
-final case class InsertionError(cause: String) extends PersistenceError(cause)
+    def fromThrowable(cause: Throwable): RepositoryError = RepositoryError(cause.getMessage, Some(cause)) 
 
-final case class ValidationError(message: String) extends PersistenceError(message)
-final case class NotFoundError(id: Id) extends PersistenceError( s"Error: $id Not Found" )
+case class InsertionError(override val msg: String) extends PersistenceError(msg)
+
+case class ValidationError(override val msg: String) extends PersistenceError(msg)
+case class NotFoundError(id: Id) extends PersistenceError( s"Error: $id Not Found" )
+
+
+type PersistenceIO[R] = IO[PersistenceError, R]

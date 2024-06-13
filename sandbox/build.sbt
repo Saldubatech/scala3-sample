@@ -11,19 +11,35 @@ name := "sandbox"
 
 Compile / run / fork := true
 Test / run / fork := true
+Test / parallelExecution := false
 run / envVars += "DB_PASSWORD" -> localConfig.value.fold("")(_.getString("DB_PASSWORD"))
 run / envVars += "DB_PORT" -> localConfig.value.fold("")(_.getString("DB_PORT"))
 val wkw = ExclusionRule()
 
+envFileName := "sandbox/.env"
+
 dependencyOverrides += "org.slf4j" % "slf4j-api" % "2.0.9"
 libraryDependencies ++= Seq(
   // Basic Utilities
+  // sl4j Core
+  Dependencies.Logging.logbackCore,
+  Dependencies.Logging.sl4jApi,
+  // Basic Log Implementation
+  // This needs to move to Test when ready for "production"
+  Dependencies.Logging.logbackClassic,
+
+
   // Cats Functional Types
   Dependencies.Cats.core,
   Dependencies.Cats.alley,
   Dependencies.Cats.kittens,
   Dependencies.Cats.algebra,
   // Dependencies.Cats.effect
+
+  // Circe
+  Dependencies.Circe.core,
+  Dependencies.Circe.generic,
+  Dependencies.Circe.parser,
 
   // Schema & Optics
   Dependencies.Zio.Ecosystem.optics,
@@ -54,14 +70,18 @@ libraryDependencies ++= Seq(
   // Persistence
   Dependencies.Persistence.postgres,
   Dependencies.Persistence.slick,
+  Dependencies.Persistence.slickPg,
+  Dependencies.Persistence.pgCirce,
   Dependencies.Persistence.slickHikari,
-//  Dependencies.Zio.Runtime.quill, Skip for now.
+  Dependencies.Persistence.flywayDb,
+  Dependencies.Zio.Runtime.quillCaliban,
+  Dependencies.Zio.Runtime.quillJdbcZio,
 
   // Actors
   Dependencies.Pekko.actor,
 
   // test
-  Dependencies.Logging.sl4jSimple % Test,
+  // Dependencies.Logging.sl4jSimple % Test,
   Dependencies.Zio.Testing.zio % Test,
   Dependencies.Zio.Testing.sbt % Test,
   Dependencies.Zio.Testing.junit % Test,

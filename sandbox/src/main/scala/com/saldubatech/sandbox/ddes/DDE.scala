@@ -23,24 +23,24 @@ object DDE:
     override val productArity: Int = 0
     override def productElement(n: Int): Any = None
 
-  class ROOT(using Clock) extends SimActor[NoMessage]:
+  class RootDP(getCtx: => ActorContext[?]) extends DomainProcessor[NoMessage]:
+    override def accept(at: Tick, ev: DomainEvent[NoMessage])(using env: SimEnvironment)
+    : ActionResult = Left(simError(at, getCtx, SimulationError(s"ROOT NODE DOES NOT RECEIVE EVENTS")))
+
+  final class ROOT(clock: Clock) extends SimActor[NoMessage](clock):
     override val name: String = "ROOT"
-    override val types: NodeType[NoMessage] = SimpleTypes[NoMessage]()
-    import types._
 
-    override def newAction[DM <: DOMAIN_MESSAGE : ClassTag]
-    (action: SimAction, from: SimActor[_], message: DM):
-    EVENT_ACTION = throw SimulationError(s"ROOT CANNOT CREATE ACTIONS")
-    
-    override def accept[DM <: types.DOMAIN_MESSAGE]
-    (
-      at: Tick, ctx: ActorContext[types.EVENT_ACTION],
-      ev: types.DOMAIN_EVENT
-    ): ActionResult =
-      Left(simError(at, ctx, SimulationError(s"ROOT NODE DOES NOT RECEIVE EVENTS")))
+    override val domainProcessor: DomainProcessor[NoMessage] = RootDP(ctx)
 
+    override def newAction
+    (action: SimAction, from: SimActor[_], message: NoMessage):
+    EventAction[NoMessage] = throw SimulationError(s"ROOT CANNOT CREATE ACTIONS")
+      
 
-    def send[PROTOCOL <: DomainMessage](target: SimActor[PROTOCOL])(forTime: Tick, msg: target.PROTOCOL): Unit =
-      schedule(target)(forTime, msg)
+    def rootSend[TARGET_DM <: DomainMessage](target: SimActor[TARGET_DM])(forTime: Tick, msg: TARGET_DM): Unit =
+      Env.schedule(target)(forTime, msg)
+
+    override def oam(msg: OAMMessage): ActionResult = 
+      Left(simError(currentTime, ctx, SimulationError(s"ROOT NODE DOES NOT RECEIVE EVENTS")))
 
 end DDE

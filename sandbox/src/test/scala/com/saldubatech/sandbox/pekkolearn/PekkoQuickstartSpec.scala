@@ -1,9 +1,8 @@
 //#full-example
 package com.saldubatech.sandbox.pekkolearn
 
+import com.saldubatech.sandbox.pekkolearn.Greeter.{Greet, Greeted}
 import org.apache.pekko.actor.testkit.typed.scaladsl.ScalaTestWithActorTestKit
-import com.saldubatech.sandbox.pekkolearn.Greeter.Greet
-import com.saldubatech.sandbox.pekkolearn.Greeter.Greeted
 import org.scalatest.wordspec.AnyWordSpecLike
 
 //#definition

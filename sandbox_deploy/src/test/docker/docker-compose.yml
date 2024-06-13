@@ -1,0 +1,35 @@
+# run with "docker compose up -d"
+version: '1.0'
+
+env_file:
+  - path: ./.env
+    required: true
+  - path: ./.other_env
+    required: false
+
+networks:
+  sandbox-network:
+    name: test-network
+    external: true
+
+services:
+  # docker run --hostname postgres --name postgres-epallet -v postgres-epallet-data:/Users/jmp/code/docker-shared/postgres-epallet-data -p 54321:5432 -e POSTGRES_PASSWORD=postgresEpalletLocal -d postgres:16
+  postgres_svc:
+    image: postgres:16
+    hostname: postgres-svc
+    restart: always
+    volumes:
+      - /Users/jmp/code/docker-shared/postgres-test-data:/var/lib/postgresql/sandbox-data
+    environment:
+      - POSTGRES_USER=${DB_ROOT_USER}
+      - POSTGRES_PASSWORD=${DB_ROOT_PASSWORD}
+      - POSTGRES_DB=postgres
+    ports:
+      - "${DB_PORT}:5432"
+    networks:
+      - test-network
+
+# TO ADD:
+# * Swagger UI test harness: https://articles.wesionary.team/swagger-ui-on-docker-for-testing-rest-apis-5b3d5fcdee7
+# * Insomnia API Test harness: https://hub.docker.com/r/kasmweb/insomnia
+#

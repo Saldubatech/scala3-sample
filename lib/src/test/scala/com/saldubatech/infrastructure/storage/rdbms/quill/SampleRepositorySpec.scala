@@ -1,8 +1,8 @@
 package com.saldubatech.infrastructure.storage.rdbms.quill
 
 import com.dimafeng.testcontainers.PostgreSQLContainer
-import com.saldubatech.infrastructure.storage.rdbms.Id
-import com.saldubatech.test.persistence.postgresql.{DataSourceBuilder, DataSourceBuilderLive, PostgresContainer}
+import com.saldubatech.infrastructure.storage.rdbms.{DataSourceBuilder, Id}
+import com.saldubatech.test.persistence.postgresql.{TestPGDataSourceBuilder, PostgresContainer}
 import io.getquill.Literal
 import io.getquill.jdbczio.Quill
 import io.getquill.jdbczio.Quill.Postgres
@@ -66,7 +66,7 @@ object SampleRepositorySpec extends ZIOSpecDefault:
       }
     ).provideShared(
       containerLayer,
-      DataSourceBuilderLive.layer,
+      TestPGDataSourceBuilder.layer,
       dataSourceLayer,
       postgresLayer,
       repoLayer

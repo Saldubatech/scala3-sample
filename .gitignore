@@ -1,16 +1,22 @@
 # General
 
-*.class
-*.log
+# Secrets and environment
+.env
+
+# Scratch files
+/scratch/**
 
 # Mac
 .DS_Store
 
+# logs
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
+*.log
 
-# Build directories
+# Build Products
 
+*.class
 **/target
 **/.bloop
 **/.bsp
