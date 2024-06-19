@@ -39,7 +39,7 @@
     <retain-sticky-names value="false" />
   </component>
   <component name="DBNavigator.Project.FileConnectionMappingManager">
-    <mapping file-url="file://$PROJECT_DIR$/sandbox/src/main/resources/flyway/V001.1__schema.sql" connection-id="virtual-postgres-connection" session-id="" current-schema="" />
+    <mapping file-url="file://$PROJECT_DIR$/sandbox/src/main/resources/flyway/V001.1__schema.sql" connection-id="virtual-postgres-connection" session-id="MAIN" current-schema="" />
     <mapping file-url="file://$PROJECT_DIR$/scratch/scratch.sql" connection-id="c1bdfee5-0661-469d-ac4f-0bc8b897ca42" session-id="MAIN" current-schema="public" />
   </component>
   <component name="DBNavigator.Project.MethodExecutionManager">

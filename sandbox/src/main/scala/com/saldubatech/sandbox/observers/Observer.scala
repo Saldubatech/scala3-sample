@@ -6,7 +6,6 @@ import com.saldubatech.util.LogEnabled
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import org.apache.pekko.actor.typed.{ActorRef, Behavior}
 
-import scala.reflect.ClassTag
 
 object Observer:
   sealed trait ObserverOAM
@@ -20,7 +19,7 @@ object Observer:
 trait Observer extends LogEnabled:
   import Observer.*
   val name: String
-  
+
   def init(): Behavior[PROTOCOL] =
     Behaviors.setup{ ctx =>
       log.debug(s"Starting Observer $name")
@@ -28,7 +27,7 @@ trait Observer extends LogEnabled:
     }
 
   private val initialize: Behavior[PROTOCOL] = Behaviors.receiveMessage {
-    case Initialize => 
+    case Initialize =>
       initializeResource()
       inOperation
     case other =>

@@ -5,16 +5,16 @@ import com.saldubatech.sandbox.ddes.*
 import org.apache.pekko.actor.typed.ActorRef
 import zio.{RLayer, Tag, TaskLayer, ULayer, URLayer, ZIO, ZLayer}
 
-import scala.reflect.ClassTag
+import scala.reflect.Typeable
 
 object Layers:
   def startTimeLayer(at: Option[Tick]): ULayer[Option[Tick]] = ZLayer.succeed[Option[Tick]](at)
 
   val clockLayer: RLayer[Option[Tick], Clock] = ZLayer.fromFunction { (maxTime: Option[Tick]) => Clock(maxTime) }
-  
+
   val zeroStartClockLayer: TaskLayer[Clock] = startTimeLayer(None) >>> clockLayer
-    
-  def relayToActorLayer[DM <: DomainMessage : ClassTag : Tag]:
+
+  def relayToActorLayer[DM <: DomainMessage : Typeable : Tag]:
   RLayer[
     Clock &
       ActorRef[DomainEvent[DM]],
@@ -28,22 +28,35 @@ object Layers:
       }
     )
 
-  def sourceLayer[DM <: DomainMessage : ClassTag : Tag]
-  (distribution: Distributions.LongRVar): 
+
+  def absorptionSinkLayer[DM <: DomainMessage : Typeable : Tag](name: String): RLayer[Clock, AbsorptionSink[DM]] =
+    ZLayer(
+      for {
+        clk <- ZIO.service[Clock]
+      } yield {
+        AbsorptionSink[DM](name, clk)
+      }
+    )
+
+  def sourceLayer[DM <: DomainMessage : Typeable : Tag]
+  (name: String, distribution: Distributions.LongRVar):
   RLayer[
-    Clock & RelayToActor[DM],
-    Source[DM, RelayToActor[DM]]
+    Clock & SimActor[DM],
+    Source[DM]
   ] =
     ZLayer(
       for {
         clk <- ZIO.service[Clock]
-        sink <- ZIO.service[RelayToActor[DM]]
-      } yield Source(sink)("TheSource", distribution, clk)
+        target <- ZIO.service[SimActor[DM]]
+      } yield Source(target)(name, distribution, clk)
     )
 
-  val rootLayer: URLayer[Clock, DDE.ROOT] = ZLayer(
+  def simulationLayer(name: String, maxTime: Option[Tick]): TaskLayer[DDE] = ZLayer(
+    ZIO.attempt(DDE.dde(name, maxTime))
+  )
+  val rootLayer: URLayer[DDE, DDE.ROOT] = ZLayer(
     for {
-      clock <- ZIO.service[Clock]
-    } yield DDE.ROOT(clock)
+      dde <- ZIO.service[DDE]
+    } yield DDE.ROOT(dde.clock)
   )
 

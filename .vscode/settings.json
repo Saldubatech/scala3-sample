@@ -3,12 +3,75 @@
     "**/target": true
   },
   "cSpell.words": [
+    "DBIO",
+    "DBRS",
+    "Ddes",
+    "deleter",
+    "Hmmss",
+    "Rdbms",
+    "RFOLD",
     "scalafix",
     "scalafmt",
     "semanticdb",
+    "SRIO",
+    "SZIO",
     "tpolecat",
-    "Typesafe"
+    "TUPLIFY",
+    "Typesafe",
+    "URIO"
   ],
+  "metals": {
+    "inlayHints": {
+      "implicitArguments.enable": true,
+      "implicitConversions": true
+    },
+    "envFile": ".env"
+  },
   "metals.inlayHints.implicitArguments.enable": true,
-  "metals.inlayHints.implicitConversions.enable": true
+  "metals.inlayHints.implicitConversions.enable": true,
+  "code-runner.runInTerminal": true,
+  "code-runner.saveAllFilesBeforeRun": true,
+  "code-runner.languageIdToFileExtensionMap": {
+    "scala": ".scala",
+    "bat": ".bat",
+    "powershell": ".ps1",
+    "typescript": ".ts"
+  },
+  "terminal.integrated.cursorBlinking": true,
+  "terminal.integrated.tabStopWidth": 4,
+  "terminal.integrated.defaultProfile.osx": "zsh",
+  "terminal.integrated.automationProfile.osx": {
+    "path": "zsh"
+  },
+  "terminal.integrated.profiles.osx": {
+
+    "bash": {
+      "path": "bash",
+      "args": [
+        "-l"
+      ],
+      "icon": "terminal-bash"
+    },
+    "zsh": {
+      "path": "zsh",
+      "args": [
+        "-l"
+      ]
+    },
+    "fish": {
+      "path": "fish",
+      "args": [
+        "-l"
+      ]
+    },
+    "tmux": {
+      "path": "tmux",
+      "icon": "terminal-tmux"
+    },
+    "pwsh": {
+      "path": "pwsh",
+      "icon": "terminal-powershell"
+    }
+  },
+  "code-runner.ignoreSelection": true
 }

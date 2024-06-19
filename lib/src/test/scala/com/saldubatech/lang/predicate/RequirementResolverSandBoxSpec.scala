@@ -2,18 +2,22 @@ package com.saldubatech.lang.predicate
 
 import org.scalatest.wordspec.AnyWordSpec
 
-import scala.reflect.ClassTag
+import scala.reflect.{Typeable, ClassTag}
 
 object MockPlatform:
-  class Requirement[E]
-  abstract class UnknownRequirement[E] extends Requirement[E]
-  abstract class Classifier[E] extends Requirement[E]
-  abstract class Order[E] extends Classifier[E]
+  class Requirement[E : Typeable]
+  abstract class UnknownRequirement[E <: SuperClass : Typeable] extends Requirement[E]
+  abstract class Classifier[E <: SuperClass : Typeable] extends Requirement[E]
+  abstract class Order[E <: SuperClass : Typeable] extends Classifier[E]
 
 object MockRequirements:
   import MockPlatform._
+  import MockPlatform.given
 
+
+  val anyPlainRequirementCTag = summon[ClassTag[Requirement[Any]]]
   val anyPlainRequirementTag = summon[ClassTag[Requirement[Any]]]
+  val anyPlainStringRequirementTag = summon[ClassTag[Requirement[String]]]
   val plainSubClassRequirement = summon[ClassTag[Requirement[SubClass]]]
   val classifierSubClassRequirement = summon[ClassTag[Classifier[SubClass]]]
   val orderSubClassRequirement = summon[ClassTag[Order[SubClass]]]
@@ -26,8 +30,10 @@ object MockRequirements:
 class RequirementResolverSandBoxSpec extends AnyWordSpec:
   import MockPlatform._
   import MockRequirements._
+  import MockPlatform.given
 
-  type REQ_SANDBOX[E, P <: PR[E]] <: Requirement[E] = P match
+
+  type REQ_SANDBOX[E <: SuperClass, P <: PR[E]] <: Requirement[E] = P match
     case OR[E] => Order[E]
     case CL[E] => Classifier[E]
     case PL[E] => Requirement[E]
@@ -36,7 +42,7 @@ class RequirementResolverSandBoxSpec extends AnyWordSpec:
     case _ => UnknownRequirement[E]
 
   type __CMB__[L, R]
-  type RES_SANDBOX[E, L <: Requirement[E], R <: Requirement[E]] <: Requirement[E] =
+  type RES_SANDBOX[E <: SuperClass, L <: Requirement[E], R <: Requirement[E]] <: Requirement[E] =
     __CMB__[L, R] match
       case __CMB__[Order[E], _] => Order[E]
       case __CMB__[_, Order[E]] => Order[E]
@@ -49,7 +55,7 @@ class RequirementResolverSandBoxSpec extends AnyWordSpec:
     "It is a plain Predicate[Any]" should {
       class PROBE extends PL[Any] with PR[Any]
       "Resolve into a Plain Requirement" in {
-        type REQUIREMENT = REQ_SANDBOX[Any, PROBE]
+        type REQUIREMENT = REQ_SANDBOX[SuperClass, PROBE]
         val result = summon[ClassTag[REQUIREMENT]]
         assert(result == anyPlainRequirementTag)
       }
@@ -104,7 +110,7 @@ class RequirementResolverSandBoxSpec extends AnyWordSpec:
       }
     }
     "It is nothing known" should {
-      class PROBE extends BADONE[SubClass] with PR[SubClass]
+      class PROBE extends BAD_ONE[SubClass] with PR[SubClass]
       "Resolve into a Classifier Requirement" in {
         type REQUIREMENT = REQ_SANDBOX[SubClass, PROBE]
         val result = summon[ClassTag[REQUIREMENT]]

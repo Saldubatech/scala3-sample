@@ -11,7 +11,7 @@ class CL[-E]
 
 class OR[-E]
 
-class BADONE[-E]
+class BAD_ONE[-E]
 
 class UN[-E, P <: PR[E]]
 
@@ -23,6 +23,7 @@ class SubClass extends SuperClass
 
 object SampleRequirements:
   import com.saldubatech.lang.predicate.platforms.InMemoryPlatform._
+
   val plainSubClassRequirement = summon[ClassTag[Requirement[SubClass]]]
   val classifierSubClassRequirement = summon[ClassTag[Classifier[SubClass]]]
   val orderSubClassRequirement = summon[ClassTag[Sort[SubClass]]]

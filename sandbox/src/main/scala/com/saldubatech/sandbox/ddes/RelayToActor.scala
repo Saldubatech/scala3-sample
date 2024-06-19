@@ -5,30 +5,25 @@ import com.saldubatech.sandbox.observers.Subject.ObserverManagement
 import com.saldubatech.sandbox.observers.{CompleteJob, OperationEventNotification, Subject}
 import org.apache.pekko.actor.typed.ActorRef
 
-import scala.reflect.ClassTag
+import scala.reflect.Typeable
 
 object RelayToActor:
-  class RelayProcessor[DM <: DomainMessage]
+  class RelayProcessor[DM <: DomainMessage : Typeable]
   (
-    private val name: String,
-    private val target: ActorRef[DomainEvent[DM]],
-    private val notifier: OperationEventNotification => Unit
-  ) extends DomainProcessor[DM]:
+    name: String,
+    notifier: OperationEventNotification => Unit,
+    private val target: ActorRef[DomainEvent[DM]]
+  ) extends Sink.DP[DM](name, notifier):
     override def accept(at: Tick, ev: DomainEvent[DM])(using env: SimEnvironment)
-    : ActionResult = 
-      notifier(CompleteJob(at, ev.payload.id, name))
+    : ActionResult =
+      super.accept(at, ev)
       Right(target ! ev)
 
 
-class RelayToActor[DM <: DomainMessage : ClassTag]
-(override val name: Id, val target: ActorRef[DomainEvent[DM]], clock: Clock)
-  extends SimActor[DM](clock) with Subject:
+class RelayToActor[DM <: DomainMessage : Typeable]
+(name: Id, val target: ActorRef[DomainEvent[DM]], clock: Clock)
+  extends Sink(name, clock):
 
-  override val domainProcessor: DomainProcessor[DM] = 
-    RelayToActor.RelayProcessor[DM](name, target, opEv => notify(opEv))
-  
-  override def oam(msg: OAMMessage): ActionResult =
-    msg match
-      case obsMsg: ObserverManagement => observerManagement(obsMsg)
-      case _ => Right(())
+  override val domainProcessor: DomainProcessor[DM] =
+    RelayToActor.RelayProcessor[DM](name, opEv => notify(opEv), target)
 

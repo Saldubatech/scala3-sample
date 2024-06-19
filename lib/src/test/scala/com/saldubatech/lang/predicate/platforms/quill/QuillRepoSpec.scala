@@ -1,7 +1,7 @@
 package com.saldubatech.lang.predicate.platforms.quill
 
 import com.dimafeng.testcontainers.PostgreSQLContainer
-import com.saldubatech.infrastructure.storage.rdbms.{DataSourceBuilder, Id, PersistenceError, PersistenceIO}
+import com.saldubatech.infrastructure.storage.rdbms.{DataSourceBuilder, PersistenceError, PersistenceIO}
 import com.saldubatech.infrastructure.storage.rdbms.ziointerop.Layers as DBLayers
 import com.saldubatech.test.persistence.postgresql.{PostgresContainer, TestPGDataSourceBuilder}
 import com.saldubatech.lang.predicate.platforms.{QPlatformIO, QuillPlatform, QuillRepo}
@@ -16,7 +16,6 @@ import zio.test.TestAspect.*
 
 import java.sql.SQLException
 import javax.sql.DataSource
-import scala.reflect.ClassTag
 
 case class Animal(animal: String, size: Int, age: Double)
 

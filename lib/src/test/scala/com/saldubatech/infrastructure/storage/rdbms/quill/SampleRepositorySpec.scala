@@ -1,7 +1,8 @@
 package com.saldubatech.infrastructure.storage.rdbms.quill
 
 import com.dimafeng.testcontainers.PostgreSQLContainer
-import com.saldubatech.infrastructure.storage.rdbms.{DataSourceBuilder, Id}
+import com.saldubatech.lang.Id
+import com.saldubatech.infrastructure.storage.rdbms.DataSourceBuilder
 import com.saldubatech.test.persistence.postgresql.{TestPGDataSourceBuilder, PostgresContainer}
 import io.getquill.Literal
 import io.getquill.jdbczio.Quill
@@ -23,9 +24,9 @@ object SampleRepositorySpec extends ZIOSpecDefault:
 
   val repoLayer: ZLayer[Postgres[Literal], Nothing, RepoService.entity.EntityRepo] = RepoService.layer
 
-  val probeId1: Id = Id()
-  val probeId2: Id = Id()
-  val probeId3: Id = Id()
+  val probeId1: Id = Id
+  val probeId2: Id = Id
+  val probeId3: Id = Id
 
   override def spec: Spec[TestEnvironment & Scope, Throwable] =
     suite("item repository test with postgres test container")(

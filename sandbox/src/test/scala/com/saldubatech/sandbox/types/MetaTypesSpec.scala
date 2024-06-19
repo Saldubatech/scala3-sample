@@ -2,8 +2,6 @@ package com.saldubatech.sandbox.types
 
 import org.scalatest.wordspec.AnyWordSpec
 
-import scala.reflect.{ClassTag, TypeTest}
-
 
 object MockTypes:
   sealed class T1
@@ -71,8 +69,6 @@ class MetaTypeSpec extends AnyWordSpec:
   import Meta.*
   import MockTypes.*
 
-  def summonCT[T](using ct: ClassTag[T]): ClassTag[T] = ct
-
   "A CHECK" when {
     "it" should {
       "Tuple Extensions" in {
@@ -86,7 +82,7 @@ class MetaTypeSpec extends AnyWordSpec:
         summon[ORT[T1 *: T2 *: EmptyTuple] =:= ORT[T1 *: T2 *: EmptyTuple]]
         summon[ORT[T1] =:= T1]
       }
-      "Check Compiletime logic" in {
+      "Check Compile time logic" in {
         assertCompiles("summon[ORT[T1] =:= ORT[T1]]")
         assertDoesNotCompile("summon[ORT[T1] =:= ORT[T2]]")
       }

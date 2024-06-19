@@ -1,7 +1,7 @@
 package com.saldubatech.lang.predicate
 
 import com.dimafeng.testcontainers.PostgreSQLContainer
-import com.saldubatech.infrastructure.storage.rdbms.{DataSourceBuilder, Id, PersistenceError}
+import com.saldubatech.infrastructure.storage.rdbms.{DataSourceBuilder, PersistenceError}
 import com.saldubatech.test.persistence.postgresql.{TestPGDataSourceBuilder, PostgresContainer}
 import com.saldubatech.infrastructure.storage.rdbms.ziointerop.Layers as RdbmsLayers
 import com.saldubatech.lang.predicate.ziointerop.Layers as PredicateLayers
@@ -14,7 +14,7 @@ import zio.test.TestAspect.*
 
 import javax.sql.DataSource
 import scala.concurrent.ExecutionContext
-import scala.reflect.ClassTag
+import scala.reflect.Typeable
 
 case class Animal(animal: String, size: Int, age: Double)
 
@@ -29,18 +29,18 @@ class AnimalZioService
     def size: Rep[Int] = column[Int]("size")
     def age: Rep[Double] = column[Double]("age")
     def * = (name, size, age) <> (Animal.apply.tupled, Animal.unapply)
-    
+
   val _tq = TableQuery[AnimalTable]
 
   override val repo: Repo[Animal, DBIO] = new platform.BaseSlickRepo[Animal](10000) {
     protected type TBL = AnimalTable
-    lazy val tblTag = summon[ClassTag[AnimalTable]]
+    lazy val tblTag = summon[Typeable[AnimalTable]]
     lazy val tableQuery = _tq
   } // repoFor[Animal, AnimalTable](_tq, 10000)
 
 
 object AnimalZioService:
-  
+
   def zioLayer: URLayer[SlickPlatform & ExecutionContext, AnimalZioService] = ZLayer {
     for {
       platform <- ZIO.service[SlickPlatform]

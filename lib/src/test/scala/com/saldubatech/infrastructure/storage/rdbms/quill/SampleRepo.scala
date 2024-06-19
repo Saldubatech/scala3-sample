@@ -1,7 +1,8 @@
 package com.saldubatech.infrastructure.storage.rdbms.quill
 
+import com.saldubatech.lang.Id
 import com.saldubatech.infrastructure.storage.rdbms.quill.EntityPersistenceService
-import com.saldubatech.infrastructure.storage.rdbms.*
+import com.saldubatech.infrastructure.storage.rdbms._
 import io.getquill.*
 import io.getquill.jdbczio.Quill
 import zio.{IO, URLayer, ZIO, ZLayer}
@@ -27,7 +28,7 @@ given ItemEntity()
 class SampleRepoService(using val e: ItemEntity) extends EntityPersistenceService[ItemPayload, ItemEntity]:
   import entity.*
 
-  override def add(data: ItemPayload, overrideRId: Id = Id()): EIO[Id] =
+  override def add(data: ItemPayload, overrideRId: Id = Id): EIO[Id] =
     ZIO.serviceWithZIO[EntityRepo](_.add(data, overrideRId))
 
   override def delete(id: Id): EIO[Long] =
@@ -52,10 +53,10 @@ class SampleRepoService(using val e: ItemEntity) extends EntityPersistenceServic
 
   private inline def qSchema = quote {
       querySchema[Record]("items")
-      // _.recordId -> "recordid",
-      // _.entityId -> "entityid",
-      // _.coordinates.effectiveAt -> "effectiveat",
-      // _.coordinates.recordedAt -> "recordedat",
+      // _.recordId -> "record_id",
+      // _.entityId -> "entity_id",
+      // _.coordinates.effectiveAt -> "effective_at",
+      // _.coordinates.recordedAt -> "recorded_at",
       // _.payload.name -> "name",
       // _.payload.price -> "price")
     }
@@ -82,7 +83,7 @@ class SampleRepoService(using val e: ItemEntity) extends EntityPersistenceServic
         _.payload.price -> lift(data.price)
       )
     }
-  
+
 
 
   private class _Repo(q: Quill.Postgres[Literal]) extends BaseRepo(q):

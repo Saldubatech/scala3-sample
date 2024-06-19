@@ -1,7 +1,7 @@
 package com.saldubatech.infrastructure.storage.rdbms.quill
 
-
-import com.saldubatech.infrastructure.storage.rdbms.*
+import com.saldubatech.lang.Id
+import com.saldubatech.infrastructure.storage.rdbms._
 import io.getquill.*
 import io.getquill.jdbczio.Quill
 import zio.ZIO
@@ -12,7 +12,7 @@ trait EntityPersistenceService[P <: Payload, E <: EntityType[P]](using val entit
 
   import entity.*
 
-  def add(data: P, overrideRId: Id = Id()): EIO[Id]
+  def add(data: P, overrideRId: Id = Id): EIO[Id]
 
   def delete(id: Id): EIO[Long]
 
@@ -32,7 +32,7 @@ trait EntityPersistenceService[P <: Payload, E <: EntityType[P]](using val entit
     protected inline def addG(inline qSchema: Quoted[EntityQuery[Record]] ): (P, Id) => ZIO[Any, RepositoryError, Id] = (d: P, overrideRId: Id) => run {
       quote {
         qSchema
-          .insertValue(lift(record(overrideRId, Id(), TimeCoordinates.now, d)))
+          .insertValue(lift(record(overrideRId, Id, TimeCoordinates.now, d)))
           .returning(_.recordId)
       }
       }.either.resurrect
@@ -44,7 +44,7 @@ trait EntityPersistenceService[P <: Payload, E <: EntityType[P]](using val entit
           case Right(itemId: Id) => ZIO.succeed(itemId)
         }
 
-    override def add(data: P, overrideRId: Id = Id()): EIO[Id] = adder(data, overrideRId)
+    override def add(data: P, overrideRId: Id = Id): EIO[Id] = adder(data, overrideRId)
 
     protected val deleter : Id => EIO[Long]
 

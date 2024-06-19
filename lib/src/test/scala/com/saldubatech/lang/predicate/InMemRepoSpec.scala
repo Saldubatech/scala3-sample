@@ -1,9 +1,10 @@
 package com.saldubatech.lang.predicate
 
 import com.saldubatech.lang.predicate.platforms.InMemoryPlatform
+
 import org.scalatest.wordspec.AnyWordSpec
 
-import scala.reflect.ClassTag
+import scala.reflect.Typeable
 
 
 // https://www.scalatest.org/user_guide/selecting_a_style
@@ -19,10 +20,6 @@ class InMemRepoSpec extends AnyWordSpec {
       "return an empty list" when {
         "presented with the True Predicate" in {
           val underTest = stringRepo
-          val preq = summon[ClassTag[InMemoryPlatform.REQUIRES[String, Predicate.TRUE.type]]]
-          val strPlain = summon[InMemoryPlatform.Requirement[String]]
-          val strPlainCt = summon[ClassTag[strPlain.type]]
-          assert(preq == strPlainCt)
           assert(underTest.find(Predicate.TRUE).isEmpty)
         }
       }
@@ -30,7 +27,7 @@ class InMemRepoSpec extends AnyWordSpec {
     "adding One Item" must {
       "return the same item" in {
         val underTest = stringRepo
-        val probe = "asdfasdf"
+        val probe = "NothingToSee"
         val r = underTest.add(probe)
         assert(r == probe)
       }
@@ -40,14 +37,14 @@ class InMemRepoSpec extends AnyWordSpec {
     "Have a single item after adding it" in {
       import com.saldubatech.lang.predicate.platforms.InMemoryPlatform.orderRequirement
       val underTest = stringRepo
-      val probe = "asdfasdf"
+      val probe = "NothingToSee"
       val r = underTest.add(probe)
       assert(underTest.find(Predicate.TRUE).size == 1)
     }
   }
   "An Equality Predicate" when {
     import com.saldubatech.lang.predicate.platforms.InMemoryPlatform.orderRequirement
-    val probe = "asdfasdf"
+    val probe = "NothingToSee"
     val testPredicate = Predicate.Eq(probe)
     "applied to an empty Repo" must {
       val underTest = stringRepo

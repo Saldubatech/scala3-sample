@@ -1,5 +1,6 @@
 package com.saldubatech.infrastructure.storage.rdbms
 
+import com.saldubatech.lang.Id
 import zio.{IO, URLayer, ZIO, ZLayer}
 
 trait EntityType[P <: Payload] :
@@ -14,7 +15,7 @@ trait EntityType[P <: Payload] :
   type EIO[A] = ZIO[EntityRepo, PersistenceError, A]
 
   trait EntityRepo:
-    def add(data: P, overrideRId: Id = Id()): EIO[Id]
+    def add(data: P, overrideRId: Id = Id): EIO[Id]
 
     def delete(id: Id): EIO[Long]
 

@@ -5,14 +5,13 @@ import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
 import org.apache.pekko.actor.typed.{ActorRef, Behavior}
 
 import scala.collection.mutable.ListBuffer
-import scala.reflect.ClassTag
 
   // To approximate requiring a case class short of creating a macro.
 
 object Clock:
   import DDE.*
   sealed trait ClockMessage extends DdesMessage
-  
+
   case class ActionComplete(action: SimAction, by: SimActor[?]) extends ClockMessage
 
 
@@ -37,7 +36,7 @@ class Clock(
   private val commandQueue:
     collection.mutable.SortedMap[Tick, collection.mutable.ListBuffer[Command]] =
     collection.mutable.SortedMap()
-    
+
   private def updateCommandQueue(cmd: Command): Unit =
     commandQueue.getOrElseUpdate(cmd.forEpoch, collection.mutable.ListBuffer()) += cmd
 
@@ -58,9 +57,9 @@ class Clock(
         if openActions.isEmpty && (now < commandQueue.head._1) then advanceClock(ctx)
       case past =>
         simError(now, ctx, FatalError(s"Event Received for the past: now: ${now}, forTime: ${past}"))
-  
+
   private def doCompleteAction(action: SimAction, withCtx: ActorContext[PROTOCOL]): Unit =
-    if openActions.remove(action) then 
+    if openActions.remove(action) then
       if openActions.isEmpty then advanceClock(withCtx)
       else log.debug(s"Closing action: $action with ${openActions.size} remaining open")
     else simError(now, withCtx, FatalError(s"Closing a non existing action: ${action}"))

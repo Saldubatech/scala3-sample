@@ -1,6 +1,7 @@
-package com.saldubatech.sandbox.ddes
+package com.saldubatech.sandbox.ddes.node
 
 import com.saldubatech.lang.Id
+import com.saldubatech.sandbox.ddes.{DomainMessage, Clock, RelayToActor, DomainEvent, Source, DDE, SimActor}
 import com.saldubatech.math.randomvariables.Distributions
 import com.saldubatech.sandbox.ddes.Source.Trigger
 import com.saldubatech.util.LogEnabled
@@ -13,48 +14,33 @@ import scala.concurrent.duration.*
 import scala.language.postfixOps
 
 
-object ClockSpec:
+object GgmSpec:
   case class ProbeMessage(number: Int, override val job: Id, override val id: Id = Id) extends DomainMessage
   case class NotAProbeMessage(number: Int, override val job: Id, override val id: Id = Id) extends DomainMessage
 
-class ClockSpec extends ScalaTestWithActorTestKit
+class GgmSpec extends ScalaTestWithActorTestKit
   with Matchers
   with AnyWordSpecLike
   with BeforeAndAfterAll
   with LogEnabled:
-  import ClockSpec.*
+  import GgmSpec.*
 
-  "A Source" must {
-    "Match the type" in {
-      val probes = 0 to 1 map {n => ProbeMessage(n, s"Job[$n]") }
-      val trigger1: Trigger[?] = Trigger[ProbeMessage]("Job1", probes)
-      val trigger2: Trigger[?] = Trigger[NotAProbeMessage]("Job2", 0 to 1 map {n => NotAProbeMessage(n, s"Job[$n]")})
-
-      trigger1 match
-        case t@Trigger(_, _, supply, _) =>
-          supply match
-            case (last: ProbeMessage) +: _ =>
-              log.info(s"Success: It matched.....")
-              succeed
-            case other => fail(s"Did not match the type of ${ProbeMessage}")
-      trigger2 match
-        case t@Trigger(_, _, supply, _) =>
-          supply match
-            case (last: ProbeMessage) +: _ =>
-              fail(s"It should not have matched")
-            case other =>
-              log.info(s"Success: It did not match.....")
-              succeed
-    }
-    "Send all the messages it is provided" in {
+  "An MM1 Station" must {
+    // 80% utilization
+    val tau: Distributions.LongRVar = Distributions.discreteExponential(100.0)
+    val lambda: Distributions.LongRVar = Distributions.discreteExponential(80.0)
+    "Process all messages through Source->mm1->Sink" in {
       val termProbe = createTestProbe[DomainEvent[ProbeMessage]]()
       given clock: Clock = Clock(None)
       val clkRef = spawn(clock.start())
       val probes = 0 to 10 map {n => ProbeMessage(n, s"Job[$n]") }
       val sink = RelayToActor[ProbeMessage]("TheSink", termProbe.ref, clock)
       val sinkRef = spawn(sink.init())
+      val mm1Processor = SimpleNProcessor[ProbeMessage]("MM1 Processor", tau, 1)
+      val mm1: Ggm[ProbeMessage] = Ggm(sink)("MM1 Station", mm1Processor, clock)
+      val mm1Ref = spawn(mm1.init())
       val source =
-        Source(sink)(
+        Source[ProbeMessage](mm1)(
           "TheSource",
           Distributions.toLong(Distributions.exponential(500.0)),
           clock
@@ -63,7 +49,6 @@ class ClockSpec extends ScalaTestWithActorTestKit
 
       val root = DDE.ROOT(clock)
       log.debug("Root Sending message for time: 3 (InstallTarget)")
-      //root.send[InstallTarget[ProbeMessage]](source)(3, InstallTarget(sink, Some(10)))
       val jobId = Id
       val trigger = Trigger[ProbeMessage](jobId, probes)
       root.rootSend[Trigger[ProbeMessage]](source)(3, trigger)

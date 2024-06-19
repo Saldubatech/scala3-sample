@@ -2,7 +2,7 @@ package com.saldubatech.lang.types
 
 import zio.{Layer, Task, ZIO, ZLayer}
 
-abstract class AppError(val msg: String, val cause: Option[Throwable] = None)
+class AppError(val msg: String, val cause: Option[Throwable] = None)
   extends Throwable(msg,
     {
       cause match
@@ -25,8 +25,12 @@ object Result:
   val wkw: Either[String, Int] = Left("asdf")
 
 // For now just an alias for Either...
-type Result[+ER <: AppError, R] = Either[ER, R]
+type Result[+ER <: AppError, +R] = Either[ER, R]
 type AppResult[R] = Result[AppError, R]
+type AppSuccess[+ER <: AppError, +R] = Right[ER, R]
+inline def AppSuccess[ER <: AppError, R](r: R) = Right[ER, R](r)
+type AppFail[+ER <: AppError, +R] = Left[ER, R]
+inline def AppFail[ER <: AppError, R](e: ER) = Left[ER, R](e)
 
 
 // Specialized ZIO Effects with the "S" to signify "Salduba"

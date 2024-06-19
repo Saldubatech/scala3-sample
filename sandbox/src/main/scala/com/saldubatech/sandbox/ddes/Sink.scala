@@ -3,19 +3,33 @@ package com.saldubatech.sandbox.ddes
 import com.saldubatech.util.LogEnabled
 import org.apache.pekko.actor.typed.scaladsl.ActorContext
 
-import scala.reflect.ClassTag
+import scala.reflect.Typeable
+import com.saldubatech.sandbox.observers.OperationEventNotification
+import com.saldubatech.sandbox.observers.{CompleteJob, Arrival}
+import com.saldubatech.sandbox.observers.Subject.ObserverManagement
+import com.saldubatech.sandbox.observers.Subject
 
 object Sink:
-  class DP[DM <: DomainMessage] extends DomainProcessor[DM] with LogEnabled:
+  class DP[DM <: DomainMessage : Typeable](
+    private val name: String,
+    private val notifier: OperationEventNotification => Unit
+  ) extends DomainProcessor[DM] with LogEnabled:
     override def accept(at: Tick, ev: DomainEvent[DM])(using env: SimEnvironment)
-    : ActionResult = Right(log.info(s"Accepted ${ev} at ${at}"))
-    
+    : ActionResult =
+      notifier(Arrival(at, ev.payload.job, name, ev.from.name))
+      notifier(CompleteJob(at, ev.payload.job, name))
+      Right(log.info(s"Accepted ${ev} at ${at}"))
 
-class Sink[DM <: DomainMessage : ClassTag]
-(override val name: String, clock: Clock)
-  extends SimActor[DM](clock):
 
-  override val domainProcessor: DomainProcessor[DM] = Sink.DP[DM]
-  override def oam(msg: OAMMessage): ActionResult = Right(())
+abstract class Sink[DM <: DomainMessage : Typeable]
+(name: String, clock: Clock)
+  extends SimActorBehavior[DM](name, clock) with Subject:
+
+//  override val domainProcessor: DomainProcessor[DM] = Sink.DP[DM](name, opEv => notify(opEv))
+  override def oam(msg: OAMMessage): ActionResult =
+    msg match
+      case obsMsg: ObserverManagement => observerManagement(obsMsg)
+      case _ => Right(())
+
 
 

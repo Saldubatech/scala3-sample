@@ -12,7 +12,7 @@ import zio.{IO, RLayer, URLayer, ZEnvironment, ZIO, ZLayer}
 
 import java.sql.SQLException
 import javax.sql.DataSource
-import scala.reflect.ClassTag
+import scala.reflect.Typeable
 
 type CASE_LIKE = Product & Serializable
 type QPlatformIO[A] = ZIO[QuillPlatform, PersistenceError, A]
@@ -34,7 +34,7 @@ class QuillPlatform
 
   given bool: Bool[Boolean] = boolean.booleanAlgebra
 
-  abstract class BaseQuillRepo[E <: CASE_LIKE : ClassTag](val maxRecords: Int = 10000)
+  abstract class BaseQuillRepo[E <: CASE_LIKE : Typeable](val maxRecords: Int = 10000)
     extends Repo[E, QPlatformIO]:
     override val platform: QuillPlatform = selfQuillPlatform
     import quill.*
@@ -74,14 +74,14 @@ trait QuillRepo[T]:
           bq.insertValue(lift(t))
         }
       )
-      
+
     inline def allRecordCounterTemplate(inline bq: EntityQuery[T]): IO[SQLException, Long] =
       platform.quill.run(
         quote {
           bq.size
         }
       )
-    
+
     inline def recordFinder(): Quoted[Query[T]] => IO[SQLException, List[T]] = (q: Quoted[Query[T]]) => platform.quill.run(q)
 
     // Precursor to handling more general predicates...

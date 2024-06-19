@@ -1,14 +1,14 @@
 package com.saldubatech.sandbox.movement
 
-import com.saldubatech.infrastructure.storage.rdbms.Id
-import com.saldubatech.sandbox.ddes.{DomainEvent, DomainMessage, EventAction}
+import com.saldubatech.lang.Id
+import com.saldubatech.sandbox.ddes.{DomainEvent, DomainMessage}
 
-import scala.reflect.ClassTag
 
-case class Load[+C] private (c: C, override val id: Id) extends DomainMessage
+case class Load[+C] private (c: C, override val id: Id, override val job: Id) extends DomainMessage
 
 object Load:
-  def apply[C](c: C): Load[C] = Load(c, Id())
+  def apply[C](c: C, job: Id): Load[C] = Load(c, Id, job)
+  def withId[C](id: Id, c: C, job: Id): Load[C] = Load(c, id, job)
 
 class Intake[-C](private val process: Load[C] => Unit):
    def arrival(c: Load[C]): Unit = process(c)
@@ -35,9 +35,9 @@ object _Hidden:
 
   case class Cargo(weight: Double)
 
-  def doIt(): Unit =
+  def doIt(job: Id): Unit =
     val c = Cargo((10.0))
-    val l = Load(c)
+    val l = Load(c, job)
 
     val i: Intake[Cargo] = Intake{l => print(s"###### Cargo arrived: $l")}
 

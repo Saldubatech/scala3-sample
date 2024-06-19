@@ -47,7 +47,7 @@ object QuillObserverSpec extends  ZIOSpecDefault
 
 
   val rootForTime: Tick = 3
-  val messages: Seq[SimulationLayers.ProbeMessage] = 0 to 10 map { n => SimulationLayers.ProbeMessage(n) }
+  val messages: Seq[SimulationLayers.ProbeMessage] = 0 to 10 map { n => SimulationLayers.ProbeMessage(n, s"TriggerJob[$n]") }
   val fixtureLayer: ULayer[ActorTestKit] = ZLayer.succeed(ActorTestKit())
 
   val probeLayer: URLayer[
@@ -87,11 +87,12 @@ object QuillObserverSpec extends  ZIOSpecDefault
           fixture <- ZIO.service[ActorTestKit]
           observerProbe <- ZIO.service[TestProbe[Observer.PROTOCOL]]
           termProbe <- ZIO.service[TestProbe[DomainEvent[SimulationLayers.ProbeMessage]]]
-          source <- ZIO.service[Source[SimulationLayers.ProbeMessage, RelayToActor[SimulationLayers.ProbeMessage]]]
+          source <- ZIO.service[Source[SimulationLayers.ProbeMessage]]
           root <- ZIO.service[DDE.ROOT]
           _ <- SimulationLayers.initializeShopFloor
         } yield {
-          root.rootSend(source)(rootForTime, Source.Trigger(messages))
+          val jobId = Id
+          root.rootSend(source)(rootForTime, Source.Trigger(jobId, messages))
 
           val expectedTerminalJobs = messages.size
           var termFound = 0
@@ -103,7 +104,7 @@ object QuillObserverSpec extends  ZIOSpecDefault
               case other => FishingOutcomes.fail(s"Incorrect message received: $other")
           }
           assertTrue(r.size == expectedTerminalJobs)
-          val expectedNotifications = messages.size * 2
+          val expectedNotifications = messages.size * 4
           var obsFound = 0
           val obs = observerProbe.fishForMessage(1 second) { ev =>
             obsFound += 1
@@ -120,7 +121,7 @@ object QuillObserverSpec extends  ZIOSpecDefault
         }
       },
       test("Resulting in a number of records in the DB for each Notification") {
-        val expectedNotifications = messages.size * 2L
+        val expectedNotifications = messages.size * 4L
         for {
           recorder <- ZIO.service[QuillRecorder]
           count <- recorder.Events.countAll
@@ -133,7 +134,7 @@ object QuillObserverSpec extends  ZIOSpecDefault
       probeRefLayer[DomainEvent[SimulationLayers.ProbeMessage]],
       recorderStack,
       ObserverLayers.observerLayer,
-      shopFloorLayer,
+      simpleShopFloorLayer,
       DdesLayers.rootLayer
     ) @@ sequential
   }

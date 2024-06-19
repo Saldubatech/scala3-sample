@@ -3,12 +3,12 @@ package com.saldubatech.lang.predicate
 import algebra.lattice.Bool
 import com.saldubatech.util.LogEnabled
 
-import scala.reflect.ClassTag
+import scala.reflect.Typeable
 
 /**
 * An abstract class representing a platform that can evaluate Predicates
 *
-* Concrete Platforms (InMemory, Slick, ...) need to provide the bindings through Classiriers
+* Concrete Platforms (InMemory, Slick, ...) need to provide the bindings through Classifiers
 * and Sorts as well as the mapping to the physical storage used.
 *
 * This Class will be enhance with other capabilities like Sorting queries, Projections and
@@ -16,31 +16,26 @@ import scala.reflect.ClassTag
 */
 abstract class Platform:
   selfPlatform =>
-  // To be called when no longer needeed.
+  // To be called when no longer needed.
   def shutdown(): Unit
-  
+
   type LIFTED[A]
   type B = LIFTED[Boolean]
   given bool: Bool[B]
 
-  class Requirement[E]
+  class Requirement[E : Typeable]
 
-  abstract class UnknownRequirement[E] extends Requirement[E]
+  abstract class UnknownRequirement[E: Typeable] extends Requirement[E]
 
-  abstract class Classifier[E] extends Requirement[E]:
+  abstract class Classifier[E: Typeable] extends Requirement[E]:
     def eql(l: E, r: E): B
 
     def neq(l: E, r: E): B
   end Classifier
 
-  abstract class Sort[E] extends Classifier[E]:
+  abstract class Sort[E: Typeable] extends Classifier[E]:
     def lt(l: E, r: E): B
   end Sort
-  
-//  type EREQUIRES[E, P <: Predicate[E]] =
-//    P match
-//      case ProjectionPredicate[E, t, proj] => REQUIRES[t, proj]
-//      case p => REQUIRES[E, p]
 
   // Cannot be made final or it won't work, the compiler does funny things.
   type REQUIRES[E, P <: Predicate[E]] <: Requirement[E] =
@@ -69,7 +64,7 @@ abstract class Platform:
 
   // These things need to be in this file, otherwise the type logic does not work
   def resolve[E, P <: Predicate[E]]
-  (using ect: ClassTag[E], prj: REQUIRES[E, P])
+  (using ect: Typeable[E], prj: REQUIRES[E, P])
   (p: P): E => B = {
     prj match
       case o: Sort[E] =>  resolveOrdered(ect, o)(p)
@@ -80,7 +75,7 @@ abstract class Platform:
 
 
   private def resolvePlain[E, P <: Predicate[E]]
-  (using ect: ClassTag[E], prj: Requirement[E]): PartialFunction[P, E => B] = {
+  (using ect: Typeable[E], prj: Requirement[E]): PartialFunction[P, E => B] = {
     case Predicate.FALSE => _ => bool.zero
     case Predicate.TRUE => _ => bool.one
     case Predicate.Not(p) => e => bool.complement(resolve(p)(e))
@@ -89,14 +84,14 @@ abstract class Platform:
   }
 
   private def resolveClassified[E, P <: Predicate[E]]
-  (ect: ClassTag[E], prj: Classifier[E]): PartialFunction[P, E => B] =
+  (ect: Typeable[E], prj: Classifier[E]): PartialFunction[P, E => B] =
     resolvePlain(using ect, prj) orElse {
       case Predicate.Eq(ref@ect(_: E)) => e => prj.eql(ref, e)
       case Predicate.Ne(ref @ ect(_: E)) => e => prj.neq(ref, e)
     }
 
   private def resolveOrdered[E, P <: Predicate[E]]
-  (ect: ClassTag[E], prj: Sort[E]): PartialFunction[P, E => B] =
+  (ect: Typeable[E], prj: Sort[E]): PartialFunction[P, E => B] =
     resolveClassified(ect, prj) orElse {
       case Predicate.Lt(ref @ ect(_: E)) => e => prj.lt(ref, e)
     }

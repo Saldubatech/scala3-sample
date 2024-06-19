@@ -13,16 +13,16 @@ import slick.interop.zio.DatabaseProvider
 import zio.{RLayer, Tag, TaskLayer, ULayer, URLayer, ZIO, ZLayer, Runtime as ZRuntime}
 
 import scala.concurrent.ExecutionContext
-import scala.reflect.ClassTag
 
 object Layers:
 
   def slickRecorderLayer(simulationBatch: String)(using ec: ExecutionContext): URLayer[SlickPlatform, SlickRecorder] =
     ZLayer(ZIO.serviceWith[SlickPlatform](implicit plt => SlickRecorder(simulationBatch)))
 
-  def slickPgRecorderStack(using ec: ExecutionContext)
-                               (dbConfig: PGDataSourceBuilder.Configuration)
-                               (simulationBatch: String): RLayer[Any, Recorder] =
+  def slickPgRecorderStack(
+    using ec: ExecutionContext)
+    (dbConfig: PGDataSourceBuilder.Configuration)
+    (simulationBatch: String): RLayer[Any, Recorder] =
     (DbLayers.slickPostgresProfileLayer ++ (DbLayers.pgDbBuilderFromConfig(dbConfig) >>>
       DbLayers.dataSourceLayer)) >>>
       DatabaseProvider.fromDataSource() >>>

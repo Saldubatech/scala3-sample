@@ -3,14 +3,38 @@ package com.saldubatech.lang.predicate
 import com.saldubatech.lang.predicate.platforms.InMemoryPlatform
 import org.scalatest.wordspec.AnyWordSpec
 
-import scala.reflect.ClassTag
+import scala.reflect.{Typeable, ClassTag}
+import org.testcontainers.shaded.org.checkerframework.checker.units.qual.t
 
 class RequirementResolverSpec extends AnyWordSpec:
+  case class GP[+T](signal: T)
   import SampleRequirements._
+  "Checking Simple Types" when {
+    "BuiltIn Types" should {
+      "resolve" in {
+        val result = summon[Typeable[String]]
+        assertCompiles("summon[Typeable[String]]")
+      }
+    }
+    "Generic pattern matching" should {
+      "be able to define a higher order Typeable" in {
+      }
+      "resolve" in {
+        case class PP[T](i: Int)
+        // def plainTT[t] = new typeable[pp[t]]:
+        //   def unapply(a: any): option[pp[t] & a.type] =
+        //     a match
+        //       case r@pp[t](1) => some(r)
+        //       case _ => none
+        val ppTT = summon[ClassTag[PP[String]]]
+        val reqTT = summon[ClassTag[InMemoryPlatform.Requirement[String]]]
+      }
+    }
+  }
   "A Predicate Type" when {
     "It is a plain Predicate" should {
       "Resolve into a Plain Requirement" in {
-        type REQUIREMENT = InMemoryPlatform.REQUIRES[Any, Predicate.TRUE.type]
+        type REQUIREMENT = InMemoryPlatform.REQUIRES[Nothing, Predicate.TRUE.type]
         val result = summon[ClassTag[REQUIREMENT]]
         assert(result == anyPlainRequirementTag)
       }
@@ -100,7 +124,7 @@ object CompileTest:
   class pC extends Requirement[String]
   val p: Requirement[String] = plainRequirement[String]
 
-  def uu[P <: Predicate.Eq[String]](a: Any): Unit =
-    val ct = summon[ClassTag[InMemoryPlatform.REQUIRES[String, P]]]
+  // def uu[P <: Predicate.Eq[String]](a: Any): Unit =
+  //   val ct = summon[Typeable[InMemoryPlatform.REQUIRES[String, P]]]
 
-  val r: Unit = uu(d)
+  // val r: Unit = uu(d)

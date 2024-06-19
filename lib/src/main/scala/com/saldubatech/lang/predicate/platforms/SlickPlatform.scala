@@ -14,7 +14,7 @@ import java.util.concurrent.{ExecutorService, Executors}
 import scala.concurrent.ExecutionContext
 import scala.language.postfixOps
 import scala.ref.{PhantomReference, ReferenceQueue}
-import scala.reflect.ClassTag
+import scala.reflect.Typeable
 
 class SlickPlatform(val dbP: DatabaseProvider) extends Platform:
   selfSlickPlatform =>
@@ -32,18 +32,9 @@ class SlickPlatform(val dbP: DatabaseProvider) extends Platform:
     override def or(l: Rep[Boolean], r: Rep[Boolean]): Rep[Boolean] = l || r
     override def complement(b: Rep[Boolean]): Rep[Boolean] = !b
 
-//  def repoFor[V, GIVEN_TABLE <: Table[V]]
-//  (tq: TableQuery[GIVEN_TABLE], maxRecords: Int = 10000)
-//  (using tableConstructor: Tag => GIVEN_TABLE, givenTblTag: ClassTag[GIVEN_TABLE]): BaseSlickRepo[V]
-//  = new BaseSlickRepo[V](maxRecords) {
-//    override type TBL = GIVEN_TABLE
-//    override lazy val tblTag: ClassTag[GIVEN_TABLE] = givenTblTag
-//    override lazy val tableQuery: TableQuery[GIVEN_TABLE] = tq
-//  }
-
   trait SlickRepoProfile[V]:
     protected type TBL <: Table[V]
-    protected lazy val tblTag: ClassTag[TBL]
+    protected lazy val tblTag: Typeable[TBL]
     lazy val tableQuery: TableQuery[TBL]
 
   abstract class BaseSlickRepo[V](val maxRecords: Int = 10000)
@@ -53,7 +44,7 @@ class SlickPlatform(val dbP: DatabaseProvider) extends Platform:
 
     final def universalQuery = tableQuery.take(maxRecords)
 
-    given ClassTag[TBL] = tblTag
+    given Typeable[TBL] = tblTag
 
     override def find[P <: Predicate[STORAGE]](p: P)(using prj: platform.REQUIRES[STORAGE, P])
     : DBIO[Seq[V]] =

@@ -15,9 +15,7 @@ import zio.{Exit, IO, RIO, Scope, Task, ULayer, URIO, URLayer, Unsafe, ZEnvironm
 
 import java.sql.SQLException
 import javax.sql.DataSource
-import scala.concurrent.duration.*
-import scala.reflect.{ClassTag, classTag}
-
+import scala.concurrent.duration._
 object QuillRecorder
 
 class QuillRecorder
@@ -33,7 +31,7 @@ class QuillRecorder
   object Events extends QuillRepo[OperationEventRecord]:
     override val platform: QuillPlatform = recorderPlatform
     import OperationEventNotification.*
-    
+
     private[QuillRecorder] def fromOpEvent(opEv: OperationEventNotification): OperationEventRecord =
       OperationEventRecord(simulationBatch, opEv.operation, opEv.id, opEv.at, opEv.job, opEv.station, opEv.fromStation)
 
@@ -53,18 +51,18 @@ class QuillRecorder
     override val allRecordsCounter: IO[SQLException, Long] = RepoHelper.allRecordCounterTemplate(baseQuery())
 
   case class OperationRecord(
-                              batch: String,
-                              operation: OperationType,
-                              id: Id,
-                              started: Tick,
-                              duration: Tick,
-                              job: Id,
-                              station: Id
-                            )
+    batch: String,
+    operation: OperationType,
+    id: Id,
+    started: Tick,
+    duration: Tick,
+    job: Id,
+    station: Id
+  )
 
   private object Operations extends QuillRepo[OperationRecord]:
     override val platform: QuillPlatform = recorderPlatform
-    
+
     inline def baseQuery(): EntityQuery[OperationRecord] = querySchema[OperationRecord](
       "event_record",
       _.id -> "rid"

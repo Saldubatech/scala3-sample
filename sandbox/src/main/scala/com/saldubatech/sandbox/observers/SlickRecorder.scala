@@ -19,7 +19,7 @@ import zio.{Exit, IO, RIO, Scope, Task, ULayer, URIO, URLayer, Unsafe, ZEnvironm
 import javax.sql.DataSource
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.*
-import scala.reflect.ClassTag
+import scala.reflect.Typeable
 
 object SlickRecorder
 
@@ -40,7 +40,7 @@ class SlickRecorder
 
     private[SlickRecorder] def fromOpEvent(opEv: OperationEventNotification): OperationEventRecord =
         OperationEventRecord(simulationBatch, opEv.operation, opEv.id, opEv.at, opEv.job, opEv.station, opEv.fromStation)
-    
+
     implicit class EventRecordTable(tag: Tag) extends Table[OperationEventRecord](tag, "event_record") {
 
       val batch: Rep[String] = column[String]("batch")
@@ -59,7 +59,7 @@ class SlickRecorder
     private[SlickRecorder] val _repo: recorderPlatform.BaseSlickRepo[OperationEventRecord] =
       new recorderPlatform.BaseSlickRepo[OperationEventRecord]() {
         protected type TBL = EventRecordTable
-        lazy val tblTag: ClassTag[EventRecordTable] = summon[ClassTag[EventRecordTable]]
+        lazy val tblTag: Typeable[EventRecordTable] = summon[Typeable[EventRecordTable]]
         lazy val tableQuery = _tblQ
       } // recorderPlatform.repoFor[OperationEventRecord, EventRecordTable](_tblQ, 10000)
 
@@ -74,7 +74,7 @@ class SlickRecorder
     (
       batch: String,
       operation: OperationType,
-      id: Id, 
+      id: Id,
       started: Tick,
       duration: Tick,
       job: Id,
@@ -102,7 +102,7 @@ class SlickRecorder
     private[SlickRecorder] val _repo: recorderPlatform.BaseSlickRepo[OperationRecord] =
       new recorderPlatform.BaseSlickRepo[OperationRecord]() {
         protected type TBL = OperationRecordTable
-        lazy val tblTag = summon[ClassTag[OperationRecordTable]]
+        lazy val tblTag = summon[Typeable[OperationRecordTable]]
         lazy val tableQuery = _tblQ
       } // recorderPlatform.repoFor[OperationRecord, OperationRecordTable](_tblQ,10000)
 
@@ -144,7 +144,7 @@ class SlickRecorder
         Operations.OperationRecord(ev.batch, opType.get, Id, evMatch.get.at, ev.at - evMatch.get.at, ev.job, ev.station))
       if evMatch.isDefined && opType.isDefined
     } yield addedOp
-  
+
   private def bracketOpRecord(ev: Events.OperationEventRecord)(using ec: ExecutionContext): DBIO[Operations.OperationRecord] =
     import Events.given
     val opType = OperationType.bracketTimeOperation(ev.operation)

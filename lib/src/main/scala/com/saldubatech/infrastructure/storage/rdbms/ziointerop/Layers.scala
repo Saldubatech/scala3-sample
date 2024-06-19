@@ -13,10 +13,9 @@ object Layers:
 
   val slickPostgresProfileLayer: ULayer[JdbcProfile] = ZLayer.succeed[JdbcProfile](slick.jdbc.PostgresProfile)
   val PGExtendedProfileLayer: ULayer[JdbcProfile] = ZLayer.succeed[JdbcProfile](PGExtendedProfile)
-  val dataSourceLayer: 
-    URLayer[DataSourceBuilder, DataSource] = ZLayer(ZIO.serviceWith[DataSourceBuilder](_.dataSource))
+  val dataSourceLayer: URLayer[DataSourceBuilder, DataSource] = ZLayer(ZIO.serviceWith[DataSourceBuilder](_.dataSource))
 
-  def pgDbBuilderFromConfig(dbConfig: PGDataSourceBuilder.Configuration): 
+  def pgDbBuilderFromConfig(dbConfig: PGDataSourceBuilder.Configuration):
   TaskLayer[DataSourceBuilder] =
     PGDataSourceBuilder.layerFromConfig(dbConfig)
 
