@@ -4,7 +4,7 @@ import com.saldubatech.infrastructure.storage.rdbms.ziointerop.Layers as DbLayer
 import com.saldubatech.lang.Id
 import com.saldubatech.lang.predicate.ziointerop.Layers as PredicateLayers
 import com.saldubatech.math.randomvariables.Distributions
-import com.saldubatech.sandbox.ddes.{Source, DDE, DomainMessage, AbsorptionSink}
+import com.saldubatech.sandbox.ddes.{Source, DDE, ActorSystemDDE, DomainMessage, AbsorptionSink}
 import com.saldubatech.sandbox.ddes.ziointerop.Layers as DdesLayers
 import com.saldubatech.sandbox.ddes.node.Ggm
 import com.saldubatech.sandbox.ddes.node.ziointerop.Layers as NodeLayers
@@ -74,8 +74,8 @@ object MM1Run extends ZIOAppDefault:
     simulation(nJobs).provide(
       dataSourceStack(pgConfig),
       recorderStack(simulationBatch),
-      DdesLayers.simulationLayer("MM1 Simulation", None),
-      DdesLayers.rootLayer,
+      ActorSystemDDE.simulationLayer("MM1 Simulation", None),
+      DDE.rootLayer,
       ObserverLayers.observerLayer,
       shopFloorLayer(lambda, tau)
     )

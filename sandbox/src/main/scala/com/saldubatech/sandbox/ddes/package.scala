@@ -30,9 +30,12 @@ package object ddes {
   trait DdesMessage extends Product with Serializable
 
   case class SimAction private(generatedAt: Tick, forEpoch: Tick, action: String)
-  object SimAction:
+  object SimAction extends LogEnabled:
     def apply(generatedAt: Tick, forEpoch: Tick): SimAction =
-      SimAction(generatedAt, forEpoch, UUID.randomUUID().toString)
+      val rs = SimAction(generatedAt, forEpoch, UUID.randomUUID().toString)
+      log.debug(s"Creating Action $rs")
+      rs
+
 
   trait SimMessage extends Product with Serializable
 

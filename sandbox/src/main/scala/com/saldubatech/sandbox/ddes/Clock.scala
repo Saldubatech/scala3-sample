@@ -9,7 +9,7 @@ import scala.collection.mutable.ListBuffer
   // To approximate requiring a case class short of creating a macro.
 
 object Clock:
-  import DDE.*
+  import DDE._
   sealed trait ClockMessage extends DdesMessage
 
   case class ActionComplete(action: SimAction, by: SimActor[?]) extends ClockMessage
@@ -26,8 +26,8 @@ class Clock(
            ) extends LogEnabled:
   selfClock =>
 
-  import Clock.*
-  import DDE.*
+  import Clock._
+  import DDE._
 
   private var now: Tick = startTime
   private var _ctx: Option[ActorContext[PROTOCOL]] = None
@@ -44,27 +44,37 @@ class Clock(
     commandQueue.headOption.map { t => commandQueue.remove(t._1); t }
 
   private val openActions: collection.mutable.Set[SimAction] = collection.mutable.Set()
+  private def openAction(a: SimAction): SimAction =
+    openActions += a
+    log.debug(s"Added $a to $openActions")
+    a
+
+  private def closeAction(a: SimAction): Boolean =
+    log.debug(s"Removing $a from $openActions")
+    openActions.remove(a)
+
   private def scheduleCommand(ctx: ActorContext[PROTOCOL], cmd: Command): Unit =
     cmd.forEpoch match
       case present if present == now =>
-        log.debug(s"\tPresent Command at [$now]: ${cmd}")
-        openActions += cmd.send
+        log.debug(s"\tPresent Command[${cmd.action}] at [$now]: ${cmd}")
+        openAction(cmd.send)
       case future if future > now =>
         log.debug(s"\tFuture Command at [$now] for [$future]: ${cmd}")
         updateCommandQueue(cmd)
         log.debug(s"\tWith Queue[${commandQueue.size}]: $commandQueue")
         log.debug(s"\t\tAnd OpenActions[${openActions.size}]: $openActions")
-        if openActions.isEmpty && (now < commandQueue.head._1) then advanceClock(ctx)
+        if openActions.isEmpty && (now < commandQueue.head._1) then advanceClock
       case past =>
         simError(now, ctx, FatalError(s"Event Received for the past: now: ${now}, forTime: ${past}"))
 
-  private def doCompleteAction(action: SimAction, withCtx: ActorContext[PROTOCOL]): Unit =
-    if openActions.remove(action) then
-      if openActions.isEmpty then advanceClock(withCtx)
-      else log.debug(s"Closing action: $action with ${openActions.size} remaining open")
-    else simError(now, withCtx, FatalError(s"Closing a non existing action: ${action}"))
+  private def doCompleteAction(action: SimAction): Unit =
+    if closeAction(action) then
+      if openActions.isEmpty then advanceClock
+    else
+      log.error(s"Action: $action is not registered in $openActions")
+      simError(now, ctx, FatalError(s"Closing a non existing action: ${action}"))
 
-  private def advanceClock(withCtx: ActorContext[PROTOCOL]): Unit =
+  private def advanceClock: Unit =
     log.debug(s"Advancing Clock")
     popNextCommands().fold(
       log.info("Nothing to do, waiting")
@@ -74,11 +84,11 @@ class Clock(
         log.debug(s"\tMaxTime: $mT, now: $now, advanceTo: $tick")
         if mT >= 0 && mT <= tick then
           log.debug(s"\tAdvanced Clock ==> Simulation End")
-          simEnd(now, withCtx)
+          simEnd(now, ctx)
         else
           log.debug(s"\tAdvanced Clock ==> From: ${now} to: ${tick}")
           now = tick
-          commands.foreach { cmd => openActions += cmd.send }
+          commands.foreach { cmd => openAction(cmd.send) }
     }
 
   def start(): Behavior[PROTOCOL] =
@@ -90,8 +100,9 @@ class Clock(
           log.debug(s"Clock Receiving ${cmd}")
           scheduleCommand(ctx, cmd)
           Behaviors.same
-        case ActionComplete(action, _) =>
-          doCompleteAction(action, ctx)
+        case ActionComplete(action, by) =>
+          log.debug(s"Complete Action $action received from ${by.name} with Open: $openActions")
+          doCompleteAction(action)
           Behaviors.same
       }
     }

@@ -7,7 +7,8 @@ import com.saldubatech.lang.Id
 import com.saldubatech.lang.predicate.{SlickPlatform, SlickRepoZioService}
 import com.saldubatech.lang.predicate.ziointerop.Layers as PredicateLayers
 import com.saldubatech.math.randomvariables.Distributions
-import com.saldubatech.sandbox.ddes.*
+import com.saldubatech.sandbox.ddes.{Tick, DomainEvent, Source, DDE}
+import com.saldubatech.sandbox.ddes.test.TestDDE
 import com.saldubatech.sandbox.ddes.ziointerop.Layers as DdesLayers
 import com.saldubatech.sandbox.observers.{Observer, Subject}
 import com.saldubatech.sandbox.observers.ziointerop.Layers as ObserverLayers
@@ -106,8 +107,9 @@ object SlickObserverSpec extends  ZIOSpecDefault
           }
           assertTrue(r.size == messages.size)
           var obsFound = 0
-          val expectedNotifications = messages.size * 2
+          val expectedNotifications = messages.size * 4
           val obs = observerProbe.fishForMessage(1 second) { ev =>
+            log.info(s"Observing: $ev")
             obsFound += 1
             if obsFound < expectedNotifications then
               FishingOutcomes.continue
@@ -122,7 +124,7 @@ object SlickObserverSpec extends  ZIOSpecDefault
         }
       },
       test("Check the Db for the recorded observations") {
-        val expectedNotifications = messages.size * 2L
+        val expectedNotifications = messages.size * 4L
         for {
           recorder <- ZIO.service[SlickRecorder]
           count <- recorder.Events.persistenceService.countAll
@@ -134,10 +136,11 @@ object SlickObserverSpec extends  ZIOSpecDefault
       probeRefLayer[Observer.PROTOCOL],
       probeRefLayer[DomainEvent[SimulationLayers.ProbeMessage]],
       slickPlatformStack,
+      TestDDE.layer("Slick Observer Test", None),
       ObserverLayers.slickRecorderLayer(simulationBatch),
       ObserverLayers.observerLayer,
       simpleShopFloorLayer,
-      DdesLayers.rootLayer
+      DDE.rootLayer
     ) @@ sequential
   }
 

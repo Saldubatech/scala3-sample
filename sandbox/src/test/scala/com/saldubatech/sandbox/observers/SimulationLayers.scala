@@ -27,41 +27,41 @@ object SimulationLayers:
 
   val sinkLayer:
     RLayer[
-      Clock &
+      DDE &
         ActorRef[DomainEvent[ProbeMessage]
         ],
       RelayToActor[ProbeMessage]] = DdesLayers.relayToActorLayer[ProbeMessage]
 
   def sourceProbeLayer(interval: LongRVar = Distributions.toLong(Distributions.exponential(500.0))):
     RLayer[
-      Clock & SimActor[ProbeMessage],
+      DDE & SimActor[ProbeMessage],
       Source[ProbeMessage]
     ]  = DdesLayers.sourceLayer[ProbeMessage]("TheSource", Distributions.toLong(Distributions.exponential(500.0)))
 
 
   def mm1Layer(processingTime: LongRVar): RLayer[
-    SimActor[ProbeMessage] & Clock,
+    SimActor[ProbeMessage] & DDE,
     Ggm[ProbeMessage]
   ] = NodeLayers.mm1ProcessorLayer[ProbeMessage]("MM1 Station", processingTime, 1) >>>
       NodeLayers.ggmLayer[ProbeMessage]("MM1 Station")
 
   val simpleShopFloorLayer: RLayer[
-  ActorRef[DomainEvent[ProbeMessage]],
-  Clock & RelayToActor[ProbeMessage] & Source[ProbeMessage]
-  ] = DdesLayers.zeroStartClockLayer >+> sinkLayer >+> sourceProbeLayer()
+  ActorRef[DomainEvent[ProbeMessage]] & DDE,
+  RelayToActor[ProbeMessage] & Source[ProbeMessage]
+  ] = sinkLayer >+> sourceProbeLayer()
 
   def mm1ShopFloorLayer(lambda: LongRVar, tau: LongRVar): RLayer[
-    ActorRef[DomainEvent[ProbeMessage]],
-    Clock & RelayToActor[ProbeMessage] & Source[ProbeMessage] & Ggm[ProbeMessage]
+    DDE & ActorRef[DomainEvent[ProbeMessage]],
+    RelayToActor[ProbeMessage] & Source[ProbeMessage] & Ggm[ProbeMessage]
   ] =
-    DdesLayers.zeroStartClockLayer
+    ZLayer(ZIO.serviceWith[DDE](_.clock))
      >+> (sinkLayer >+> mm1Layer(tau) >+> sourceProbeLayer(lambda))
 
   val initializeMM1ShopFloor:
     URIO[
       ActorTestKit &
         ActorRef[Observer.PROTOCOL] &
-        Clock &
+        DDE &
         RelayToActor[ProbeMessage] &
         Ggm[ProbeMessage] &
         Source[SimulationLayers.ProbeMessage] &
@@ -69,13 +69,12 @@ object SimulationLayers:
       , Unit] = for {
     fixture <- ZIO.service[ActorTestKit]
     observerProbeRef <- ZIO.service[ActorRef[Observer.PROTOCOL]]
-    clock <- ZIO.service[Clock]
+    dde <- ZIO.service[DDE]
     sink <- ZIO.service[RelayToActor[SimulationLayers.ProbeMessage]]
     mm1 <- ZIO.service[Ggm[SimulationLayers.ProbeMessage]]
     source <- ZIO.service[Source[SimulationLayers.ProbeMessage]]
     observer <- ZIO.service[RecordingObserver]
   } yield {
-    val clkRef = fixture.spawn(clock.start())
     val sinkRef = fixture.spawn(sink.init())
     val mm1Ref = fixture.spawn(mm1.init())
     val sourceRef = fixture.spawn(source.init())
@@ -95,22 +94,22 @@ object SimulationLayers:
     URIO[
       ActorTestKit &
         ActorRef[Observer.PROTOCOL] &
-        Clock &
+        DDE &
         RelayToActor[ProbeMessage] &
         Source[SimulationLayers.ProbeMessage] &
         RecordingObserver
       , Unit] = for {
     fixture <- ZIO.service[ActorTestKit]
     observerProbeRef <- ZIO.service[ActorRef[Observer.PROTOCOL]]
-    clock <- ZIO.service[Clock]
+    dde <- ZIO.service[DDE]
     sink <- ZIO.service[RelayToActor[SimulationLayers.ProbeMessage]]
     source <- ZIO.service[Source[SimulationLayers.ProbeMessage]]
     observer <- ZIO.service[RecordingObserver]
   } yield {
-    val clkRef = fixture.spawn(clock.start())
-    val sinkRef = fixture.spawn(sink.init())
-    val sourceRef = fixture.spawn(source.init())
-    val observerRef = fixture.spawn(observer.init())
+//    val clkRef = fixture.spawn(clock.start())
+    val sinkRef = dde.startNode(sink)
+    val sourceRef = dde.startNode(source)
+    val observerRef = dde.spawnObserver(observer)
 
     observerRef ! Observer.Initialize
 

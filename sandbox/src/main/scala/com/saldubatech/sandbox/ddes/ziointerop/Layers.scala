@@ -1,7 +1,7 @@
 package com.saldubatech.sandbox.ddes.ziointerop
 
 import com.saldubatech.math.randomvariables.Distributions
-import com.saldubatech.sandbox.ddes.*
+import com.saldubatech.sandbox.ddes.{DDE, Tick, Clock, DomainMessage, DomainEvent, RelayToActor, AbsorptionSink, SimActor, Source}
 import org.apache.pekko.actor.typed.ActorRef
 import zio.{RLayer, Tag, TaskLayer, ULayer, URLayer, ZIO, ZLayer}
 
@@ -16,15 +16,15 @@ object Layers:
 
   def relayToActorLayer[DM <: DomainMessage : Typeable : Tag]:
   RLayer[
-    Clock &
+    DDE &
       ActorRef[DomainEvent[DM]],
     RelayToActor[DM]] =
     ZLayer(
       for {
-        clk <- ZIO.service[Clock]
+        dde <- ZIO.service[DDE]
         termProbe <- ZIO.service[ActorRef[DomainEvent[DM]]]
       } yield {
-        RelayToActor[DM]("TheSink", termProbe.ref, clk)
+        RelayToActor[DM]("TheSink", termProbe.ref, dde.clock)
       }
     )
 
@@ -41,22 +41,14 @@ object Layers:
   def sourceLayer[DM <: DomainMessage : Typeable : Tag]
   (name: String, distribution: Distributions.LongRVar):
   RLayer[
-    Clock & SimActor[DM],
+    DDE & SimActor[DM],
     Source[DM]
   ] =
     ZLayer(
       for {
-        clk <- ZIO.service[Clock]
+        dde <- ZIO.service[DDE]
         target <- ZIO.service[SimActor[DM]]
-      } yield Source(target)(name, distribution, clk)
+      } yield Source(target)(name, distribution, dde.clock)
     )
 
-  def simulationLayer(name: String, maxTime: Option[Tick]): TaskLayer[DDE] = ZLayer(
-    ZIO.attempt(DDE.dde(name, maxTime))
-  )
-  val rootLayer: URLayer[DDE, DDE.ROOT] = ZLayer(
-    for {
-      dde <- ZIO.service[DDE]
-    } yield DDE.ROOT(dde.clock)
-  )
 

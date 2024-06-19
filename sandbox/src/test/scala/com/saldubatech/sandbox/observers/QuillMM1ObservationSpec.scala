@@ -33,6 +33,7 @@ import javax.sql.DataSource
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.*
 import scala.language.postfixOps
+import com.saldubatech.sandbox.ddes.test.TestDDE
 
 object QuillMM1ObservationSpec extends  ZIOSpecDefault
 //  with Matchers
@@ -145,9 +146,10 @@ object QuillMM1ObservationSpec extends  ZIOSpecDefault
       probeRefLayer[Observer.PROTOCOL],
       probeRefLayer[DomainEvent[SimulationLayers.ProbeMessage]],
       recorderStack,
+      TestDDE.layer("QuillMM1ObserverTest", None),
       ObserverLayers.observerLayer,
       mm1ShopFloorLayer(lambda, tau),
-      DdesLayers.rootLayer
+      DDE.rootLayer
     ) @@ sequential
   }
 

@@ -18,7 +18,7 @@ object Sink:
     : ActionResult =
       notifier(Arrival(at, ev.payload.job, name, ev.from.name))
       notifier(CompleteJob(at, ev.payload.job, name))
-      Right(log.info(s"Accepted ${ev} at ${at}"))
+      Right(log.debug(s"Accepted ${ev} at ${at}"))
 
 
 abstract class Sink[DM <: DomainMessage : Typeable]

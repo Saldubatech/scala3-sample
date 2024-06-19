@@ -7,7 +7,8 @@ import com.saldubatech.lang.Id
 import com.saldubatech.lang.predicate.SlickPlatform
 import com.saldubatech.lang.predicate.ziointerop.Layers as PredicateLayers
 import com.saldubatech.math.randomvariables.Distributions
-import com.saldubatech.sandbox.ddes.*
+import com.saldubatech.sandbox.ddes.{Tick, DomainEvent, Source, DDE}
+import com.saldubatech.sandbox.ddes.test.TestDDE
 import com.saldubatech.sandbox.ddes.ziointerop.Layers as DdesLayers
 import com.saldubatech.sandbox.observers.ziointerop.Layers as ObserverLayers
 import com.saldubatech.sandbox.observers.{Observer, Subject}
@@ -133,9 +134,10 @@ object QuillObserverSpec extends  ZIOSpecDefault
       probeRefLayer[Observer.PROTOCOL],
       probeRefLayer[DomainEvent[SimulationLayers.ProbeMessage]],
       recorderStack,
+      TestDDE.layer("QuillObserver Test", None),
       ObserverLayers.observerLayer,
       simpleShopFloorLayer,
-      DdesLayers.rootLayer
+      DDE.rootLayer
     ) @@ sequential
   }
 

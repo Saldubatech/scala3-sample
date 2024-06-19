@@ -1,20 +1,20 @@
 package com.saldubatech.sandbox.ddes
 
 
+
 import com.saldubatech.lang.Id
 import com.saldubatech.sandbox.observers.Observer
-import org.apache.pekko.actor.typed.{ActorSystem, Behavior, ActorRef}
+import org.apache.pekko.actor.typed.{Behavior, ActorRef}
 import org.apache.pekko.actor.typed.scaladsl.ActorContext
-import org.apache.pekko.actor.typed.scaladsl.Behaviors
+import zio.{ZIO, ZLayer, URLayer}
+
 
 object DDE:
-  private var _system: Option[ActorSystem[Nothing]] = None
-  lazy val system: ActorSystem[Nothing] = _system.get
-
-  def dde(name: String, maxTime: Option[Tick]): DDE =
-    val dde = DDE(name, maxTime)
-    _system = Some(ActorSystem(dde.start(), "name"))
-    dde
+  val rootLayer: URLayer[DDE, DDE.ROOT] = ZLayer(
+      for {
+        dde <- ZIO.service[DDE]
+      } yield ROOT(dde.clock)
+    )
 
   def simEnd(tick: Tick, ctx: ActorContext[?]): Unit =
     ctx.log.info(s"Simulation ended at $tick")
@@ -27,6 +27,7 @@ object DDE:
       case _ => ()
     err
   }
+
 
   class NoMessage extends DomainMessage:
     override val id: Id = ""
@@ -51,24 +52,9 @@ object DDE:
       Left(simError(currentTime, ctx, SimulationError(s"ROOT NODE DOES NOT RECEIVE EVENTS")))
 end DDE
 
+trait DDE:
+  val name: String
+  lazy val clock: Clock
+  def startNode[DM <: DomainMessage](node: SimActorBehavior[DM]): ActorRef[DomainAction[DM] | OAMMessage]
+  def spawnObserver(observer: Observer): ActorRef[Observer.PROTOCOL]
 
-class DDE(name: String, private val maxTime: Option[Tick]):
-  private var _ctx: Option[ActorContext[Nothing]] = None
-  private lazy val context: ActorContext[Nothing] = _ctx.get
-
-  private var _clk: Option[Clock] = None
-  lazy val clock: Clock = _clk.get
-  private var _clkRef: Option[ActorRef[Clock.PROTOCOL]] = None
-  private lazy val clockRef: ActorRef[Clock.PROTOCOL] = _clkRef.get
-
-  def start(): Behavior[Nothing] =
-    Behaviors.setup{
-      context =>
-        _ctx = Some(context)
-        _clk = Some(Clock(maxTime))
-        _clkRef = Some(context.spawn(clock.start(), "clock"))
-        Behaviors.empty[Nothing]
-    }
-
-  def startNode[DM <: DomainMessage](node: SimActorBehavior[DM]): ActorRef[DomainAction[DM] | OAMMessage] = context.spawn(node.init(), node.name)
-  def spawnObserver(observer: Observer): ActorRef[Observer.PROTOCOL] = context.spawn(observer.init(), observer.name)

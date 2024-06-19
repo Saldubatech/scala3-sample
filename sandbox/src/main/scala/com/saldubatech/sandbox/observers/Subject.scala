@@ -13,7 +13,7 @@ object Subject:
   case class InstallObserver(observerName: Id, observer: ObserverRef) extends ObserverManagement
   case class RemoveObserver(observerName: Id) extends ObserverManagement
 
-  case class ForceRemoveObserver(observername: Id) extends ObserverManagement
+  case class ForceRemoveObserver(observerName: Id) extends ObserverManagement
   case object RemoveAllObservers extends ObserverManagement
 
 trait Subject extends LogEnabled:
@@ -38,7 +38,7 @@ trait Subject extends LogEnabled:
         observers.clear()
     } andThen ( _ => Right(()))
 
-  protected def notify(ev: OperationEventNotification): Unit = 
+  protected def notify(ev: OperationEventNotification): Unit =
     log.debug(s"Notifying $ev to Observers [$observers]")
     observers.values.foreach( (_, ref) => ref ! ev)
 

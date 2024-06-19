@@ -91,7 +91,7 @@ libraryDependencies ++= Seq(
   Dependencies.Zio.Testing.magnolia % Test,
   Dependencies.Testing.scalatic % Test,
   Dependencies.Testing.scalaTest % Test,
-  Dependencies.Pekko.test % Test
+  Dependencies.Pekko.test// % Test Needed to provide library support for testing for other projects.
 )
 // publish / skip := false
 testFrameworks ++= Seq(new TestFramework("zio.test.sbt.ZTestFramework"))

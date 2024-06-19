@@ -17,14 +17,14 @@ object Layers:
   def ggmLayer[DM <: DomainMessage : ZTag : Typeable](name: String)
   (using Typeable[Ggm.DOMAIN_PROTOCOL[DM]]):
     RLayer[
-      Clock & SimActor[DM] & Processor[DM],
+      DDE & SimActor[DM] & Processor[DM],
       Ggm[DM]
     ] =
       ZLayer(
         for {
-          clk <- ZIO.service[Clock]
+          dde <- ZIO.service[DDE]
           target <- ZIO.service[SimActor[DM]]
           processor <- ZIO.service[Processor[DM]]
-        } yield {Ggm[DM](target)(name, processor, clk)}
+        } yield {Ggm[DM](target)(name, processor, dde.clock)}
       )
 

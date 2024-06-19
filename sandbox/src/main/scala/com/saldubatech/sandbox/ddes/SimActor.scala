@@ -58,7 +58,7 @@ extends SimActor[DM]:
             msg match
               case oamMsg: OAMMessage => oam(oamMsg)
               case ev@DomainAction(action, from, to, domainMsg) =>
-                log.info(s"$name receiving at ${action.forEpoch} : ${domainMsg}")
+                log.debug(s"$name receiving at ${action.forEpoch} : ${domainMsg}")
                 _currentTime = Some(action.forEpoch)
                 //from: SimActor[?, ?], payload: DM
                 domainMsg match
