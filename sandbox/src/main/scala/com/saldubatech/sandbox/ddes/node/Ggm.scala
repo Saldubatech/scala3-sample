@@ -3,7 +3,6 @@ package com.saldubatech.sandbox.ddes.node
 import com.saldubatech.math.randomvariables.Distributions
 import com.saldubatech.math.randomvariables.Distributions.LongRVar
 import com.saldubatech.lang.types.{AppResult, AppSuccess, AppFail, AppError}
-import com.saldubatech.sandbox.ddes.SimAction
 import com.saldubatech.sandbox.observers.Subject.ObserverManagement
 import com.saldubatech.sandbox.observers.{NewJob, OperationEventNotification, Subject}
 import com.saldubatech.util.LogEnabled
@@ -71,7 +70,7 @@ object Ggm:
     private val pendingWork = PendingQueue[DM]()
 
     // Lifecycle hooks
-    protected def arrive(action: SimAction, from: SimActor[?], msg: DM): AppResult[WorkPackage[DM]] // = AppSuccess(WorkPackage(action.forEpoch, action, from, msg))
+    protected def arrive(action: Id, at: Tick, from: SimActor[?], msg: DM): AppResult[WorkPackage[DM]] // = AppSuccess(WorkPackage(action.forEpoch, action, from, msg))
     protected def induct(wp: WorkPackage[DM]): AppResult[WorkPackage[DM]]//  = AppSuccess(wp)
     protected def process(wp: WorkPackage[DM]): AppResult[OUTBOUND]
     protected def discharge(at: Tick, outbound: OUTBOUND)(using env: SimEnvironment): AppResult[OUTBOUND]// =
@@ -97,21 +96,21 @@ object Ggm:
             completedWp <- processor.completedJob(job)
             outbound <- process(completedWp) // Virtual Execution is done at the time of completion. In Between, it is "in-limbo", In the future, the work package could track the "in progress state."
             _ <- {
-              notifier(OperationEventNotification(OperationEventType.END, Id, action.forEpoch, ecEv.id, host.name, from.name))
-              discharge(action.forEpoch, outbound)
+              notifier(OperationEventNotification(OperationEventType.END, Id, host.currentTime, ecEv.id, host.name, from.name))
+              discharge(host.currentTime, outbound)
             }
           } yield {
-            notifier(OperationEventNotification(OperationEventType.DEPART, Id, action.forEpoch, ecEv.id, host.name, from.name))
+            notifier(OperationEventNotification(OperationEventType.DEPART, Id, host.currentTime, ecEv.id, host.name, from.name))
           }
         case evFromUpstream@DomainEvent(action, from, dm: DM) =>
           for {
             workPackage <- {
               notifier(
                 OperationEventNotification(
-                  OperationEventType.ARRIVE, Id, action.forEpoch, evFromUpstream.payload.job, host.name, evFromUpstream.from.name
+                  OperationEventType.ARRIVE, Id, host.currentTime, evFromUpstream.payload.job, host.name, evFromUpstream.from.name
                 )
               )
-              arrive(action, from, dm)
+              arrive(action, host.currentTime, from, dm)
             }
             pending <- pendingWork.enqueueWorkPackage(workPackage)
           } yield ()
@@ -134,8 +133,8 @@ object Ggm:
 
   trait ArriveFromMessage[DM <: DomainMessage]:
     self: DP[DM, ?] =>
-      override protected def arrive(action: SimAction, from: SimActor[?], msg: DM) =
-        AppSuccess(WorkPackage(action.forEpoch, action, from, msg))
+      override protected def arrive(action: Id, at: Tick, from: SimActor[?], msg: DM) =
+        AppSuccess(WorkPackage(at, action, from, msg))
 
   trait NoOpInductor[DM <: DomainMessage]:
     self: DP[DM, ?] =>

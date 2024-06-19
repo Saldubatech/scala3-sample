@@ -2,13 +2,13 @@ package com.saldubatech.sandbox.ddes.node
 
 import com.saldubatech.lang.types.{AppResult, AppSuccess, AppFail}
 import com.saldubatech.lang.Id
-import com.saldubatech.sandbox.ddes.{Tick, DomainMessage, SimulationError, ActionResult, SimAction, SimActor}
+import com.saldubatech.sandbox.ddes.{Tick, DomainMessage, SimulationError, ActionResult, SimActor}
 import com.saldubatech.sandbox.observers.{OperationEventNotification, OperationEventType}
 import com.saldubatech.math.randomvariables.Distributions.LongRVar
 import com.saldubatech.sandbox.ddes.node.Ggm.ExecutionComplete
 
 object Processor:
-  case class WorkPackage[DM <: DomainMessage](at: Tick, action: SimAction, from: SimActor[?], task: DM)
+  case class WorkPackage[DM <: DomainMessage](at: Tick, action: Id, from: SimActor[?], task: DM)
 
 trait Processor[DM <: DomainMessage]:
   import Processor.WorkPackage

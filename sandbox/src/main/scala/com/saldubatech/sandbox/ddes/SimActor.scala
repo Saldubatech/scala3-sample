@@ -5,6 +5,7 @@ import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
 import org.apache.pekko.actor.typed.{ActorRef, Behavior}
 
 import scala.reflect.Typeable
+import com.saldubatech.lang.Id
 
 trait DomainProcessor[-DM <: DomainMessage : Typeable]:
   def accept(at: Tick, ev: DomainEvent[DM])(using env: SimEnvironment): ActionResult
@@ -17,15 +18,16 @@ trait SimActor[-DM <: DomainMessage : Typeable] extends LogEnabled:
 
     def command(forTime: Tick, from: SimActor[?], message: DM): Command =
       new Command:
+        override val issuedAt: Tick = currentTime
         override val forEpoch: Tick = forTime
-        override val action: SimAction = SimAction(currentTime, forEpoch)
+        override val id: Id = Id
 
         override def toString: String = super.toString + s" with Msg: $message"
 
-        override def send: SimAction =
+        override def send: Id =
           log.debug(s"Sending command at $currentTime from ${from.name} to $name")
-          ctx.self ! DomainAction(action, from, selfSimActor, message)
-          action
+          ctx.self ! DomainAction(id, forEpoch, from, selfSimActor, message)
+          id
 
 abstract class SimActorBehavior[DM <: DomainMessage : Typeable]
 (override val name: String, protected val clock: Clock)
@@ -57,9 +59,9 @@ extends SimActor[DM]:
           msg =>
             msg match
               case oamMsg: OAMMessage => oam(oamMsg)
-              case ev@DomainAction(action, from, to, domainMsg) =>
-                log.debug(s"$name receiving at ${action.forEpoch} : ${domainMsg}")
-                _currentTime = Some(action.forEpoch)
+              case ev@DomainAction(action, forEpoch, from, to, domainMsg) =>
+                log.debug(s"$name receiving at ${currentTime} : ${domainMsg}")
+                _currentTime = Some(forEpoch)
                 //from: SimActor[?, ?], payload: DM
                 domainMsg match
                   case dm: DM =>

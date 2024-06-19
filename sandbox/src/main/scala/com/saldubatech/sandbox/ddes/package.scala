@@ -29,14 +29,6 @@ package object ddes {
 
   trait DdesMessage extends Product with Serializable
 
-  case class SimAction private(generatedAt: Tick, forEpoch: Tick, action: String)
-  object SimAction extends LogEnabled:
-    def apply(generatedAt: Tick, forEpoch: Tick): SimAction =
-      val rs = SimAction(generatedAt, forEpoch, UUID.randomUUID().toString)
-      log.debug(s"Creating Action $rs")
-      rs
-
-
   trait SimMessage extends Product with Serializable
 
   type SimTypeable[SM <: SimMessage] = TypeTest[SimMessage, SM]
@@ -52,25 +44,27 @@ package object ddes {
 
   case class DomainEvent[+DM <: DomainMessage : DomainType]
   (
-    action: SimAction,
+    action: Id,
     val from: SimActor[?],
     val payload: DM
   )
 
   case class DomainAction[+DM <: DomainMessage : DomainType]
   (
-    action: SimAction,
+    action: Id,
+    forEpoch: Tick,
     val from: SimActor[?],
     val target: SimActor[? <: DM],
     val payload: DM
   )
 
   trait Command:
+    val issuedAt: Tick
     val forEpoch: Tick
-    val action: SimAction
-    def send: SimAction
+    val id: Id
+    def send: Id
 
-    override def toString: String = s"Command(${action.action} at time ${action.generatedAt} for time[$forEpoch]"
+    override def toString: String = s"Command($id from time ${issuedAt} for time[$forEpoch]"
 
   trait SimEnvironment:
     def currentTime: Tick

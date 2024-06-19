@@ -1,5 +1,6 @@
 package com.saldubatech.sandbox.ddes
 
+import com.saldubatech.lang.Id
 import com.saldubatech.util.LogEnabled
 import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
 import org.apache.pekko.actor.typed.{ActorRef, Behavior}
@@ -12,7 +13,7 @@ object Clock:
   import DDE._
   sealed trait ClockMessage extends DdesMessage
 
-  case class ActionComplete(action: SimAction, by: SimActor[?]) extends ClockMessage
+  case class ActionComplete(action: Id, by: SimActor[?]) extends ClockMessage
 
 
   type PROTOCOL = ClockMessage | Command
@@ -43,20 +44,20 @@ class Clock(
   private def popNextCommands(): Option[(Tick, ListBuffer[Command])] =
     commandQueue.headOption.map { t => commandQueue.remove(t._1); t }
 
-  private val openActions: collection.mutable.Set[SimAction] = collection.mutable.Set()
-  private def openAction(a: SimAction): SimAction =
+  private val openActions: collection.mutable.Set[Id] = collection.mutable.Set()
+  private def openAction(a: Id): Id =
     openActions += a
     log.debug(s"Added $a to $openActions")
     a
 
-  private def closeAction(a: SimAction): Boolean =
+  private def closeAction(a: Id): Boolean =
     log.debug(s"Removing $a from $openActions")
     openActions.remove(a)
 
   private def scheduleCommand(ctx: ActorContext[PROTOCOL], cmd: Command): Unit =
     cmd.forEpoch match
       case present if present == now =>
-        log.debug(s"\tPresent Command[${cmd.action}] at [$now]: ${cmd}")
+        log.debug(s"\tPresent Command[${cmd.id}] at [$now]: ${cmd}")
         openAction(cmd.send)
       case future if future > now =>
         log.debug(s"\tFuture Command at [$now] for [$future]: ${cmd}")
@@ -67,7 +68,7 @@ class Clock(
       case past =>
         simError(now, ctx, FatalError(s"Event Received for the past: now: ${now}, forTime: ${past}"))
 
-  private def doCompleteAction(action: SimAction): Unit =
+  private def doCompleteAction(action: Id): Unit =
     if closeAction(action) then
       if openActions.isEmpty then advanceClock
     else
@@ -108,4 +109,4 @@ class Clock(
     }
 
   def request(cmd: Command): Unit = this.ctx.self ! cmd
-  def complete(action: SimAction, by: SimActor[?]): Unit = this.ctx.self ! ActionComplete(action, by)
+  def complete(action: Id, by: SimActor[?]): Unit = this.ctx.self ! ActionComplete(action, by)
