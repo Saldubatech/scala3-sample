@@ -37,10 +37,24 @@ extends SimActor[DM]:
 
   private var _ctx: Option[ActorContext[DomainAction[DM] | OAMMessage]] = None
   private var _currentTime: Option[Tick] = Some(0)
+  private var _ref: Option[ActorRef[DomainAction[DM] | OAMMessage]] = None
+  lazy val ref: ActorRef[DomainAction[DM] | OAMMessage] = _ref.get
+
   override def currentTime: Tick = _currentTime.get
-  override protected lazy val ctx: ActorContext[DomainAction[DM] | OAMMessage] = _ctx.get
+  override protected lazy val ctx: ActorContext[DomainAction[DM] | OAMMessage] = _ctx match
+    case Some(c) => c
+    case None =>
+      log.error(s"Initializing: Accessing Context before Initialization for $name ($selfActorBehavior)")
+      _ctx.get
   protected val domainProcessor: DomainProcessor[DM]
 
+  final val simulationComponent: DDE.SimulationComponent =
+    new DDE.SimulationComponent {
+      override def initialize(ctx: ActorContext[Nothing]): Map[Id, ActorRef[?]] =
+        log.debug(s"Initializing: $name ($selfActorBehavior)")
+        _ref = Some(ctx.spawn[DomainAction[DM] | OAMMessage](selfActorBehavior.init(), name))
+        Map(name -> ref)
+    }
   object Env extends SimEnvironment:
     override def currentTime: Tick = selfActorBehavior.currentTime
 

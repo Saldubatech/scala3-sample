@@ -40,9 +40,6 @@
   "terminal.integrated.cursorBlinking": true,
   "terminal.integrated.tabStopWidth": 4,
   "terminal.integrated.defaultProfile.osx": "zsh",
-  "terminal.integrated.automationProfile.osx": {
-    "path": "zsh"
-  },
   "terminal.integrated.profiles.osx": {
 
     "bash": {

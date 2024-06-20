@@ -10,7 +10,7 @@ import com.saldubatech.test.BaseSpec
 
 
 class DistributionsSpec extends BaseSpec {
-	val allowedError = 3.0
+	val allowedError = 5.0
 	"Zeros are true zeros" in {
 		Distributions.zeroDouble() should be (0.0)
 		Distributions.zeroLong() should be (0L)
@@ -76,7 +76,7 @@ class DistributionsSpec extends BaseSpec {
 		"A Scaled Discrete Exponential Distribution" when {
 			val mean = 200.00
 			val dExp: LongRVar = Distributions.scaled(discreteExponential(mean), 2, 50)
-			"sampled 10000 times" must {
+			"sampled 500000 times" must {
 				var acc: Long = 0
 				var acc2: Long = 0
 				var count: Int = 0

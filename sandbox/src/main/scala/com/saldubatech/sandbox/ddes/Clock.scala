@@ -27,6 +27,8 @@ class Clock(
            ) extends LogEnabled:
   selfClock =>
 
+  log.debug(s"Creating Clock: $selfClock")
+
   import Clock._
   import DDE._
 

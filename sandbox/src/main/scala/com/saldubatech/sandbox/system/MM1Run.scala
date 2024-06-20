@@ -4,7 +4,7 @@ import com.saldubatech.infrastructure.storage.rdbms.ziointerop.Layers as DbLayer
 import com.saldubatech.lang.Id
 import com.saldubatech.lang.predicate.ziointerop.Layers as PredicateLayers
 import com.saldubatech.math.randomvariables.Distributions
-import com.saldubatech.sandbox.ddes.{Source, DDE, ActorSystemDDE, DomainMessage, AbsorptionSink}
+import com.saldubatech.sandbox.ddes.{Source, DDE, DomainMessage, AbsorptionSink}
 import com.saldubatech.sandbox.ddes.ziointerop.Layers as DdesLayers
 import com.saldubatech.sandbox.ddes.node.Ggm
 import com.saldubatech.sandbox.ddes.node.ziointerop.Layers as NodeLayers
@@ -13,7 +13,6 @@ import com.saldubatech.sandbox.observers.ziointerop.Layers as ObserverLayers
 import com.saldubatech.infrastructure.storage.rdbms.PGDataSourceBuilder
 import com.typesafe.config.{Config, ConfigFactory}
 import zio.{IO, Task, RIO, ZIO, ZIOAppDefault, ZLayer, RLayer, TaskLayer, Runtime as ZRuntime}
-import org.apache.pekko.actor.ActorSystem
 import com.saldubatech.sandbox.ddes.Clock
 import com.saldubatech.sandbox.ddes.SimActor
 import com.saldubatech.sandbox.observers.QuillRecorder
@@ -21,12 +20,15 @@ import io.getquill.jdbczio.Quill.DataSource
 import javax.sql.DataSource
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
+import org.apache.pekko.actor.typed.scaladsl.ActorContext
+import org.apache.pekko.actor.typed.{ActorRef, ActorSystem}
+import com.saldubatech.sandbox.ddes.SimulationSupervisor
 
 object MM1Run extends ZIOAppDefault:
   case class JobMessage(number: Int, override val job: Id, override val id: Id = Id) extends DomainMessage
 
   val simulationBatch: String = s"BATCH::${ZonedDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss.SSS"))}"
-  val nJobs: Int = 100
+  val nJobs: Int = 10
   // 80% utilization
   val tau: Distributions.LongRVar = Distributions.discreteExponential(100.0)
   val lambda: Distributions.LongRVar = Distributions.discreteExponential(80.0)
@@ -36,36 +38,43 @@ object MM1Run extends ZIOAppDefault:
   private val pgConfig = PGDataSourceBuilder.Configuration(dbConfig)
 
   private val initializeShopFloor: RIO[
-    DDE & AbsorptionSink[JobMessage] & Ggm[JobMessage] & Source[JobMessage] & RecordingObserver,
-    Unit
+    SimulationSupervisor & AbsorptionSink[JobMessage] & Ggm[JobMessage] & Source[JobMessage] & RecordingObserver,
+    ActorSystem[Nothing]
   ] =
     for {
-      dde <- ZIO.service[DDE]
+      supervisor <- ZIO.service[SimulationSupervisor]
       sink <- ZIO.service[AbsorptionSink[JobMessage]]
       mm1 <- ZIO.service[Ggm[JobMessage]]
       source <- ZIO.service[Source[JobMessage]]
       observer <- ZIO.service[RecordingObserver]
     } yield {
-      val sinkRef = dde.startNode(sink)
-      val mmqRef = dde.startNode(mm1)
-      val sourceRef = dde.startNode(source)
-      val observerRef = dde.spawnObserver(observer)
+      val simulation = new DDE.SimulationComponent {
+        def initialize(ctx: ActorContext[Nothing]): Map[Id, ActorRef[?]] =
+          val sinkEntry = sink.simulationComponent.initialize(ctx)
+          val mm1Entry = mm1.simulationComponent.initialize(ctx)
+          val sourceEntry = source.simulationComponent.initialize(ctx)
+          val observerEntry = observer.simulationComponent.initialize(ctx)
+          sinkEntry ++ mm1Entry ++ sourceEntry ++ observerEntry
+      }
+      val as = ActorSystem[Nothing](supervisor.start(Some(simulation)), supervisor.name)
 
-      observerRef ! Observer.Initialize
-      val installObserver = Subject.InstallObserver("Observer", observerRef)
-      Seq(sourceRef, mmqRef, sinkRef).foreach(r => r ! installObserver)
+      observer.ref ! Observer.Initialize
+
+      val installObserver = Subject.InstallObserver("Observer", observer.ref)
+      Seq(source, mm1, sink).foreach{ case s: Subject => s.ref ! installObserver }
+      as
     }
 
   private def simulation(nMessages: Int): RIO[
-    DDE & DDE.ROOT & AbsorptionSink[JobMessage] & Ggm[JobMessage] & Source[JobMessage] & RecordingObserver,
+    SimulationSupervisor & AbsorptionSink[JobMessage] & Ggm[JobMessage] & Source[JobMessage] & RecordingObserver,
     Int] = for {
-    source <- ZIO.service[Source[JobMessage]]
-    root <- ZIO.service[DDE.ROOT]
-    _ <- initializeShopFloor
+      supervisor <- ZIO.service[SimulationSupervisor]
+      source <- ZIO.service[Source[JobMessage]]
+      _ <- initializeShopFloor
   } yield {
     val jobId = Id
     val messages: Seq[JobMessage] = 0 to nMessages map { n => JobMessage(n, s"TriggerJob[$n]") }
-    root.rootSend(source)(0, Source.Trigger(jobId, messages))
+    supervisor.rootSend(source)(0, Source.Trigger(jobId, messages))
     messages.size
   }
 
@@ -74,18 +83,16 @@ object MM1Run extends ZIOAppDefault:
     simulation(nJobs).provide(
       dataSourceStack(pgConfig),
       recorderStack(simulationBatch),
-      ActorSystemDDE.simulationLayer("MM1 Simulation", None),
-      DDE.rootLayer,
+      DDE.simSupervisorLayer("MM1Run", None),
       ObserverLayers.observerLayer,
       shopFloorLayer(lambda, tau)
     )
   }
 
   def shopFloorLayer(lambda: Distributions.LongRVar, tau: Distributions.LongRVar):
-    RLayer[DDE, AbsorptionSink[JobMessage] & Source[JobMessage] & Ggm[JobMessage]] =
-    ZLayer(ZIO.serviceWith[DDE](_.clock)) >+>
+    RLayer[SimulationSupervisor, AbsorptionSink[JobMessage] & Source[JobMessage] & Ggm[JobMessage]] =
      (DdesLayers.absorptionSinkLayer[JobMessage]("AbsorptionSink") >+>
-        (NodeLayers.mm1ProcessorLayer[JobMessage]("MM1 Station", tau, 1) >>> NodeLayers.ggmLayer[JobMessage]("MM1 Station")) >+>
+        (NodeLayers.mm1ProcessorLayer[JobMessage]("MM1_Station", tau, 1) >>> NodeLayers.ggmLayer[JobMessage]("MM1_Station")) >+>
         DdesLayers.sourceLayer[JobMessage]("MM1 Source", lambda))
 
   def dataSourceStack(configuration: PGDataSourceBuilder.Configuration): TaskLayer[DataSource] =

@@ -48,25 +48,26 @@ class ClockSpec extends ScalaTestWithActorTestKit
     }
     "Send all the messages it is provided" in {
       val termProbe = createTestProbe[DomainEvent[ProbeMessage]]()
-      given clock: Clock = Clock(None)
-      val clkRef = spawn(clock.start())
       val probes = 0 to 10 map {n => ProbeMessage(n, s"Job[$n]") }
-      val sink = RelayToActor[ProbeMessage]("TheSink", termProbe.ref, clock)
+
+      val simSupervisor = SimulationSupervisor("ClockSpecSupervisor", None)
+      spawn(simSupervisor.start(None))
+
+      val sink = RelayToActor[ProbeMessage]("TheSink", termProbe.ref, simSupervisor.clock)
       val sinkRef = spawn(sink.init())
       val source =
         Source(sink)(
           "TheSource",
           Distributions.toLong(Distributions.exponential(500.0)),
-          clock
+          simSupervisor.clock
         )
       val sourceRef = spawn(source.init())
 
-      val root = DDE.ROOT(clock)
       log.debug("Root Sending message for time: 3 (InstallTarget)")
       //root.send[InstallTarget[ProbeMessage]](source)(3, InstallTarget(sink, Some(10)))
       val jobId = Id
       val trigger = Trigger[ProbeMessage](jobId, probes)
-      root.rootSend[Trigger[ProbeMessage]](source)(3, trigger)
+      simSupervisor.rootSend[Trigger[ProbeMessage]](source)(3, trigger)
       var found = 0
       val r = termProbe.fishForMessage(1 second){ de =>
         de.payload.number match

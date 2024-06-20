@@ -39,7 +39,6 @@ package object ddes {
 
   type DomainType[DM <: DomainMessage] = TypeTest[DomainMessage, DM]
 
-
   trait OAMMessage extends SimMessage
 
   case class DomainEvent[+DM <: DomainMessage : DomainType]

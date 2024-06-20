@@ -2,6 +2,7 @@
 
 # Secrets and environment
 .env
+.jvmopts
 
 # Scratch files
 /scratch/**

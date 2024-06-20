@@ -13,6 +13,7 @@ import org.apache.pekko.actor.typed.scaladsl.ActorContext
 import scala.reflect.Typeable
 import com.saldubatech.lang.types.AppError
 import scala.reflect.TypeTest
+import org.apache.pekko.actor.typed.ActorRef
 
 
 object Source:
@@ -74,6 +75,8 @@ object Source:
 class Source[SOURCED <: DomainMessage : Typeable]
 (val target: SimActor[SOURCED])(name: String, val interval: LongRVar, clock: Clock)
   extends SimActorBehavior[Source.Trigger[SOURCED]](name, clock) with Subject:
+  node =>
+
   import Source._
 
   override val domainProcessor: DomainProcessor[Source.Trigger[SOURCED]] =
@@ -83,3 +86,4 @@ class Source[SOURCED <: DomainMessage : Typeable]
     msg match
       case obsMsg: ObserverManagement => observerManagement(obsMsg)
       case _ => Right(())
+

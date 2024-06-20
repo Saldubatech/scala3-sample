@@ -7,8 +7,7 @@ import com.saldubatech.lang.Id
 import com.saldubatech.lang.predicate.SlickPlatform
 import com.saldubatech.lang.predicate.ziointerop.Layers as PredicateLayers
 import com.saldubatech.math.randomvariables.Distributions
-import com.saldubatech.sandbox.ddes.{Tick, DomainEvent, Source, DDE}
-import com.saldubatech.sandbox.ddes.test.TestDDE
+import com.saldubatech.sandbox.ddes.{Tick, DomainEvent, Source, DDE, SimulationSupervisor}
 import com.saldubatech.sandbox.ddes.ziointerop.Layers as DdesLayers
 import com.saldubatech.sandbox.observers.ziointerop.Layers as ObserverLayers
 import com.saldubatech.sandbox.observers.{Observer, Subject}
@@ -48,15 +47,15 @@ object QuillObserverSpec extends  ZIOSpecDefault
 
 
   val rootForTime: Tick = 3
-  val messages: Seq[SimulationLayers.ProbeMessage] = 0 to 10 map { n => SimulationLayers.ProbeMessage(n, s"TriggerJob[$n]") }
+  val messages: Seq[TestSimulationLayers.ProbeMessage] = 0 to 10 map { n => TestSimulationLayers.ProbeMessage(n, s"TriggerJob[$n]") }
   val fixtureLayer: ULayer[ActorTestKit] = ZLayer.succeed(ActorTestKit())
 
   val probeLayer: URLayer[
     ActorTestKit,
-    TestProbe[DomainEvent[SimulationLayers.ProbeMessage]]
+    TestProbe[DomainEvent[TestSimulationLayers.ProbeMessage]]
       with TestProbe[Observer.PROTOCOL]] = ZLayer(
     ZIO.serviceWith[ActorTestKit]{
-      _.createTestProbe[DomainEvent[SimulationLayers.ProbeMessage]]("TermProbe")}
+      _.createTestProbe[DomainEvent[TestSimulationLayers.ProbeMessage]]("TermProbe")}
   ) ++ ZLayer(
     ZIO.serviceWith[ActorTestKit]{
       _.createTestProbe[Observer.PROTOCOL]("observerProbe")}
@@ -66,7 +65,7 @@ object QuillObserverSpec extends  ZIOSpecDefault
   val dataSourceBuilderLayer: URLayer[PostgreSQLContainer, DataSourceBuilder] = TestPGDataSourceBuilder.layer
   val dataSourceLayer: URLayer[DataSourceBuilder, DataSource] = ZLayer(ZIO.serviceWith[DataSourceBuilder](_.dataSource))
 
-  val recorderStack: TaskLayer[QuillRecorder] =
+  def recorderStack: TaskLayer[QuillRecorder] =
     containerLayer >>>
       dataSourceBuilderLayer >>>
       dataSourceLayer >>>
@@ -80,20 +79,21 @@ object QuillObserverSpec extends  ZIOSpecDefault
     ZLayer(ZIO.serviceWith[TestProbe[ACTOR_PROTOCOL]](_.ref))
 
   override def spec: Spec[TestEnvironment & Scope, Throwable] = {
-    import SimulationLayers.*
+    import TestSimulationLayers.*
     given ExecutionContext = ExecutionContext.global
     suite("With Quill Observers, a source")(
       test("Will send all the messages it is provided in the constructor") {
         for {
           fixture <- ZIO.service[ActorTestKit]
           observerProbe <- ZIO.service[TestProbe[Observer.PROTOCOL]]
-          termProbe <- ZIO.service[TestProbe[DomainEvent[SimulationLayers.ProbeMessage]]]
-          source <- ZIO.service[Source[SimulationLayers.ProbeMessage]]
-          root <- ZIO.service[DDE.ROOT]
-          _ <- SimulationLayers.initializeShopFloor
+          termProbe <- ZIO.service[TestProbe[DomainEvent[TestSimulationLayers.ProbeMessage]]]
+          source <- ZIO.service[Source[TestSimulationLayers.ProbeMessage]]
+          supervisor <- ZIO.service[SimulationSupervisor]
+          _ <- TestSimulationLayers.initializeShopFloor
         } yield {
           val jobId = Id
-          root.rootSend(source)(rootForTime, Source.Trigger(jobId, messages))
+          Thread.sleep(1000)
+          supervisor.rootSend(source)(rootForTime, Source.Trigger(jobId, messages))
 
           val expectedTerminalJobs = messages.size
           var termFound = 0
@@ -132,12 +132,11 @@ object QuillObserverSpec extends  ZIOSpecDefault
       fixtureLayer,
       probeLayer,
       probeRefLayer[Observer.PROTOCOL],
-      probeRefLayer[DomainEvent[SimulationLayers.ProbeMessage]],
+      probeRefLayer[DomainEvent[TestSimulationLayers.ProbeMessage]],
       recorderStack,
-      TestDDE.layer("QuillObserver Test", None),
+      DDE.simSupervisorLayer("QuillObserver_Test", None),
       ObserverLayers.observerLayer,
       simpleShopFloorLayer,
-      DDE.rootLayer
     ) @@ sequential
   }
 

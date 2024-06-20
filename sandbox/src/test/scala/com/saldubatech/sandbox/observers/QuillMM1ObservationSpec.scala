@@ -33,7 +33,6 @@ import javax.sql.DataSource
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.*
 import scala.language.postfixOps
-import com.saldubatech.sandbox.ddes.test.TestDDE
 
 object QuillMM1ObservationSpec extends  ZIOSpecDefault
 //  with Matchers
@@ -47,15 +46,15 @@ object QuillMM1ObservationSpec extends  ZIOSpecDefault
 
 
   val rootForTime: Tick = 3
-  val messages: Seq[SimulationLayers.ProbeMessage] = 0 to 1 map { n => SimulationLayers.ProbeMessage(n, s"TriggerJob[$n]") }
+  val messages: Seq[TestSimulationLayers.ProbeMessage] = 0 to 1 map { n => TestSimulationLayers.ProbeMessage(n, s"TriggerJob[$n]") }
   val fixtureLayer: ULayer[ActorTestKit] = ZLayer.succeed(ActorTestKit())
 
   val probeLayer: URLayer[
     ActorTestKit,
-    TestProbe[DomainEvent[SimulationLayers.ProbeMessage]]
+    TestProbe[DomainEvent[TestSimulationLayers.ProbeMessage]]
       with TestProbe[Observer.PROTOCOL]] = ZLayer(
     ZIO.serviceWith[ActorTestKit]{
-      _.createTestProbe[DomainEvent[SimulationLayers.ProbeMessage]]("TermProbe")}
+      _.createTestProbe[DomainEvent[TestSimulationLayers.ProbeMessage]]("TermProbe")}
   ) ++ ZLayer(
     ZIO.serviceWith[ActorTestKit]{
       _.createTestProbe[Observer.PROTOCOL]("observerProbe")}
@@ -82,31 +81,23 @@ object QuillMM1ObservationSpec extends  ZIOSpecDefault
     ZLayer(ZIO.serviceWith[TestProbe[ACTOR_PROTOCOL]](_.ref))
 
   override def spec: Spec[TestEnvironment & Scope, Throwable] = {
-    import SimulationLayers.*
+    import TestSimulationLayers.*
     given ExecutionContext = ExecutionContext.global
     // 80% utilization
     val tau: Distributions.LongRVar = Distributions.discreteExponential(100.0)
     val lambda: Distributions.LongRVar = Distributions.discreteExponential(80.0)
     suite("With Quill Observers, a source")(
       test("Will send all the messages it is provided in the constructor") {
-        val wkw = for {
-          fixture <- ZIO.service[ActorTestKit]
-          observerProbe <- ZIO.service[TestProbe[Observer.PROTOCOL]]
-          termProbe <- ZIO.service[TestProbe[DomainEvent[SimulationLayers.ProbeMessage]]]
-          source <- ZIO.service[Source[SimulationLayers.ProbeMessage]]
-          root <- ZIO.service[DDE.ROOT]
-          _ <- SimulationLayers.initializeMM1ShopFloor
-        } yield ()
         for {
           fixture <- ZIO.service[ActorTestKit]
           observerProbe <- ZIO.service[TestProbe[Observer.PROTOCOL]]
-          termProbe <- ZIO.service[TestProbe[DomainEvent[SimulationLayers.ProbeMessage]]]
-          source <- ZIO.service[Source[SimulationLayers.ProbeMessage]]
-          root <- ZIO.service[DDE.ROOT]
-          _ <- SimulationLayers.initializeMM1ShopFloor
+          termProbe <- ZIO.service[TestProbe[DomainEvent[TestSimulationLayers.ProbeMessage]]]
+          source <- ZIO.service[Source[TestSimulationLayers.ProbeMessage]]
+          supervisor <- ZIO.service[SimulationSupervisor]
+          _ <- TestSimulationLayers.initializeMM1ShopFloor
         } yield {
           val jobId = Id
-          root.rootSend(source)(rootForTime, Source.Trigger(jobId, messages))
+          supervisor.rootSend(source)(rootForTime, Source.Trigger(jobId, messages))
 
           val expectedTerminalJobs = messages.size
           var termFound = 0
@@ -144,12 +135,11 @@ object QuillMM1ObservationSpec extends  ZIOSpecDefault
       fixtureLayer,
       probeLayer,
       probeRefLayer[Observer.PROTOCOL],
-      probeRefLayer[DomainEvent[SimulationLayers.ProbeMessage]],
+      probeRefLayer[DomainEvent[TestSimulationLayers.ProbeMessage]],
       recorderStack,
-      TestDDE.layer("QuillMM1ObserverTest", None),
+      DDE.simSupervisorLayer("QuillMM1ObserverTest", None),
       ObserverLayers.observerLayer,
-      mm1ShopFloorLayer(lambda, tau),
-      DDE.rootLayer
+      mm1ShopFloorLayer(lambda, tau)
     ) @@ sequential
   }
 

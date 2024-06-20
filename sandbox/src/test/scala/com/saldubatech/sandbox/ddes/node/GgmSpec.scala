@@ -1,7 +1,7 @@
 package com.saldubatech.sandbox.ddes.node
 
 import com.saldubatech.lang.Id
-import com.saldubatech.sandbox.ddes.{DomainMessage, DDE, Clock, RelayToActor, DomainEvent, Source, SimActor}
+import com.saldubatech.sandbox.ddes.{DomainMessage, DDE, SimulationSupervisor, Clock, RelayToActor, DomainEvent, Source, SimActor}
 import com.saldubatech.math.randomvariables.Distributions
 import com.saldubatech.sandbox.ddes.Source.Trigger
 import com.saldubatech.util.LogEnabled
@@ -31,27 +31,28 @@ class GgmSpec extends ScalaTestWithActorTestKit
     val lambda: Distributions.LongRVar = Distributions.discreteExponential(80.0)
     "Process all messages through Source->mm1->Sink" in {
       val termProbe = createTestProbe[DomainEvent[ProbeMessage]]()
-      given clock: Clock = Clock(None)
-      val clkRef = spawn(clock.start())
       val probes = 0 to 10 map {n => ProbeMessage(n, s"Job[$n]") }
-      val sink = RelayToActor[ProbeMessage]("TheSink", termProbe.ref, clock)
+
+      val simSupervisor = SimulationSupervisor("ClockSpecSupervisor", None)
+      spawn(simSupervisor.start(None))
+
+      val sink = RelayToActor[ProbeMessage]("TheSink", termProbe.ref, simSupervisor.clock)
       val sinkRef = spawn(sink.init())
       val mm1Processor = SimpleNProcessor[ProbeMessage]("MM1 Processor", tau, 1)
-      val mm1: Ggm[ProbeMessage] = Ggm(sink)("MM1 Station", mm1Processor, clock)
+      val mm1: Ggm[ProbeMessage] = Ggm(sink)("MM1_Station", mm1Processor, simSupervisor.clock)
       val mm1Ref = spawn(mm1.init())
       val source =
         Source[ProbeMessage](mm1)(
           "TheSource",
           Distributions.toLong(Distributions.exponential(500.0)),
-          clock
+          simSupervisor.clock
         )
       val sourceRef = spawn(source.init())
 
-      val root = DDE.ROOT(clock)
       log.debug("Root Sending message for time: 3 (InstallTarget)")
       val jobId = Id
       val trigger = Trigger[ProbeMessage](jobId, probes)
-      root.rootSend[Trigger[ProbeMessage]](source)(3, trigger)
+      simSupervisor.rootSend[Trigger[ProbeMessage]](source)(3, trigger)
       var found = 0
       val r = termProbe.fishForMessage(1 second){ de =>
         de.payload.number match

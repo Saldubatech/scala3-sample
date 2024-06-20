@@ -1,7 +1,7 @@
 package com.saldubatech.sandbox.ddes.ziointerop
 
 import com.saldubatech.math.randomvariables.Distributions
-import com.saldubatech.sandbox.ddes.{DDE, Tick, Clock, DomainMessage, DomainEvent, RelayToActor, AbsorptionSink, SimActor, Source}
+import com.saldubatech.sandbox.ddes.{DDE, SimulationSupervisor, Tick, Clock, DomainMessage, DomainEvent, RelayToActor, AbsorptionSink, SimActor, Source}
 import org.apache.pekko.actor.typed.ActorRef
 import zio.{RLayer, Tag, TaskLayer, ULayer, URLayer, ZIO, ZLayer}
 
@@ -16,39 +16,40 @@ object Layers:
 
   def relayToActorLayer[DM <: DomainMessage : Typeable : Tag]:
   RLayer[
-    DDE &
+    SimulationSupervisor &
       ActorRef[DomainEvent[DM]],
     RelayToActor[DM]] =
     ZLayer(
       for {
-        dde <- ZIO.service[DDE]
+        supervisor <- ZIO.service[SimulationSupervisor]
         termProbe <- ZIO.service[ActorRef[DomainEvent[DM]]]
       } yield {
-        RelayToActor[DM]("TheSink", termProbe.ref, dde.clock)
+        RelayToActor[DM]("TheSink", termProbe.ref, supervisor.clock)
       }
     )
 
 
-  def absorptionSinkLayer[DM <: DomainMessage : Typeable : Tag](name: String): RLayer[Clock, AbsorptionSink[DM]] =
+  def absorptionSinkLayer[DM <: DomainMessage : Typeable : Tag](name: String):
+    RLayer[SimulationSupervisor, AbsorptionSink[DM]] =
     ZLayer(
       for {
-        clk <- ZIO.service[Clock]
+        supervisor <- ZIO.service[SimulationSupervisor]
       } yield {
-        AbsorptionSink[DM](name, clk)
+        AbsorptionSink[DM](name, supervisor.clock)
       }
     )
 
   def sourceLayer[DM <: DomainMessage : Typeable : Tag]
   (name: String, distribution: Distributions.LongRVar):
   RLayer[
-    DDE & SimActor[DM],
+    SimulationSupervisor & SimActor[DM],
     Source[DM]
   ] =
     ZLayer(
       for {
-        dde <- ZIO.service[DDE]
+        supervisor <- ZIO.service[SimulationSupervisor]
         target <- ZIO.service[SimActor[DM]]
-      } yield Source(target)(name, distribution, dde.clock)
+      } yield Source(target)(name, distribution, supervisor.clock)
     )
 
 
