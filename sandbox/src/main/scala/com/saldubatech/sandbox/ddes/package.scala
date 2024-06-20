@@ -40,6 +40,17 @@ package object ddes {
   type DomainType[DM <: DomainMessage] = TypeTest[DomainMessage, DM]
 
   trait OAMMessage extends SimMessage
+  abstract class OAMRequest(val from: ActorRef[? >: OAMMessage]) extends OAMMessage
+  object OAMRequest:
+    def unapply(r: OAMRequest): Option[ActorRef[? >: OAMMessage]] = Some(r.from)
+  case class Ping(override val from: ActorRef[? >: OAMMessage]) extends OAMRequest(from)
+  case class FinalizeInit(override val from: ActorRef[? >: OAMMessage]) extends OAMRequest(from)
+
+  sealed abstract class OAMResponse extends OAMMessage
+  case object DoneOK extends OAMResponse
+  case class Result[R](result: AppResult[R]) extends OAMResponse
+  case class Fail(error: AppError) extends OAMResponse
+
 
   case class DomainEvent[+DM <: DomainMessage : DomainType]
   (

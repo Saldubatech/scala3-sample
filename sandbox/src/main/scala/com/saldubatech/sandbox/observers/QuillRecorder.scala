@@ -81,7 +81,7 @@ class QuillRecorder
 
 
   override def record(ev: OperationEventNotification): REPO_IO[OperationEventNotification] =
-    log.error(s"\tIntent to record $ev")
+    log.info(s"\tIntent to record $ev")
     val r = Events.fromOpEvent(ev)
-    log.error(s"\tFor Record: $r")
+    log.debug(s"\tFor Record: $r")
     Events.add(r).map(_.opEvent)

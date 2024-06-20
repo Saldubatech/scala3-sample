@@ -4,7 +4,7 @@ import com.saldubatech.infrastructure.storage.rdbms.ziointerop.Layers as DbLayer
 import com.saldubatech.lang.Id
 import com.saldubatech.lang.predicate.ziointerop.Layers as PredicateLayers
 import com.saldubatech.math.randomvariables.Distributions
-import com.saldubatech.sandbox.ddes.{Source, DDE, DomainMessage, AbsorptionSink}
+import com.saldubatech.sandbox.ddes.{Source, DDE, DomainMessage, AbsorptionSink, DoneOK}
 import com.saldubatech.sandbox.ddes.ziointerop.Layers as DdesLayers
 import com.saldubatech.sandbox.ddes.node.Ggm
 import com.saldubatech.sandbox.ddes.node.ziointerop.Layers as NodeLayers
@@ -23,6 +23,10 @@ import java.time.format.DateTimeFormatter
 import org.apache.pekko.actor.typed.scaladsl.ActorContext
 import org.apache.pekko.actor.typed.{ActorRef, ActorSystem}
 import com.saldubatech.sandbox.ddes.SimulationSupervisor
+import org.apache.pekko.util.Timeout
+import org.apache.pekko.Done
+import scala.concurrent.duration._
+import com.saldubatech.lang.types.AppError
 
 object MM1Run extends ZIOAppDefault:
   case class JobMessage(number: Int, override val job: Id, override val id: Id = Id) extends DomainMessage
@@ -39,7 +43,7 @@ object MM1Run extends ZIOAppDefault:
 
   private val initializeShopFloor: RIO[
     SimulationSupervisor & AbsorptionSink[JobMessage] & Ggm[JobMessage] & Source[JobMessage] & RecordingObserver,
-    ActorSystem[Nothing]
+    ActorSystem[DDE.SupervisorProtocol]
   ] =
     for {
       supervisor <- ZIO.service[SimulationSupervisor]
@@ -47,49 +51,70 @@ object MM1Run extends ZIOAppDefault:
       mm1 <- ZIO.service[Ggm[JobMessage]]
       source <- ZIO.service[Source[JobMessage]]
       observer <- ZIO.service[RecordingObserver]
-    } yield {
-      val simulation = new DDE.SimulationComponent {
-        def initialize(ctx: ActorContext[Nothing]): Map[Id, ActorRef[?]] =
-          val sinkEntry = sink.simulationComponent.initialize(ctx)
-          val mm1Entry = mm1.simulationComponent.initialize(ctx)
-          val sourceEntry = source.simulationComponent.initialize(ctx)
-          val observerEntry = observer.simulationComponent.initialize(ctx)
+      as <- {
+        val simulation = new DDE.SimulationComponent {
+          def initialize(ctx: ActorContext[DDE.SupervisorProtocol]): Map[Id, ActorRef[?]] =
+            val sinkEntry = sink.simulationComponent.initialize(ctx)
+            val mm1Entry = mm1.simulationComponent.initialize(ctx)
+            val sourceEntry = source.simulationComponent.initialize(ctx)
+            val observerEntry = observer.simulationComponent.initialize(ctx)
 
-          observer.ref ! Observer.Initialize
+            observer.ref ! Observer.Initialize
 
-          val installObserver = Subject.InstallObserver("Observer", observer.ref)
-          Seq(source, mm1, sink).foreach{ case s: Subject => s.ref ! installObserver }
-          sinkEntry ++ mm1Entry ++ sourceEntry ++ observerEntry
+            val installObserver = Subject.InstallObserver("Observer", observer.ref)
+            Seq(source, mm1, sink).foreach{ case s: Subject => s.ref ! installObserver }
+            sinkEntry ++ mm1Entry ++ sourceEntry ++ observerEntry
+        }
+        ZIO.succeed(ActorSystem[DDE.SupervisorProtocol](supervisor.start(Some(simulation)), supervisor.name))
       }
-      ActorSystem[Nothing](supervisor.start(Some(simulation)), supervisor.name)
-    }
+      supPing <- {
+        given ActorSystem[DDE.SupervisorProtocol] = as
+        given Timeout = 1.seconds
+        supervisor.ping
+        // import org.apache.pekko.actor.typed.scaladsl.AskPattern._
+        // ZIO.fromFuture(ec => as.ask[DDE.SupervisorResponse](ref => DDE.Ping(ref)))
+      }
+      rs <- if supPing == DDE.AOK then ZIO.succeed(as) else ZIO.fail(AppError("Supervisor did not initialize O.K."))
+    } yield rs
 
   private def simulation(nMessages: Int): RIO[
     SimulationSupervisor & AbsorptionSink[JobMessage] & Ggm[JobMessage] & Source[JobMessage] & RecordingObserver,
-    Int] = for {
+    ActorSystem[Nothing]] = for {
       supervisor <- ZIO.service[SimulationSupervisor]
       source <- ZIO.service[Source[JobMessage]]
-      _ <- initializeShopFloor
-  } yield {
-    val jobId = Id
-    val messages: Seq[JobMessage] = 0 to nMessages map { n => JobMessage(n, s"TriggerJob[$n]") }
-    Thread.sleep(1000)
-    supervisor.rootSend(source)(0, Source.Trigger(jobId, messages))
-    Thread.sleep(60000)
-    messages.size
-  }
+      actorSystem <- initializeShopFloor
+      supPing <- {
+        given ActorSystem[DDE.SupervisorProtocol] = actorSystem
+        given Timeout = 1.seconds
+        supervisor.ping
+        // import org.apache.pekko.actor.typed.scaladsl.AskPattern._
+        // ZIO.fromFuture(ec => actorSystem.ask[DDE.SupervisorResponse](ref => DDE.Ping(ref)))
+      }
+      rootCheck <- {
+        if supPing == DDE.AOK then
+          given ActorSystem[DDE.SupervisorProtocol] = actorSystem
+          given Timeout = 1.seconds
+          val jobId = Id
+          val messages: Seq[JobMessage] = 0 to nMessages map { n => JobMessage(n, s"TriggerJob[$n]") }
+          supervisor.rootSend(source)(0, Source.Trigger(jobId, messages))
+        else ZIO.fail(AppError("Supervisor did not initialize O.K."))
+      }
+      rs <- if rootCheck == DoneOK then ZIO.succeed(actorSystem) else ZIO.fail(AppError("Root Node did not initialize O.K."))
+  } yield rs
 
-  override val run: Task[Int] = {
+  override val run: Task[Done] = {
     given ZRuntime[Any] = this.runtime
     for {
-      nMessages <- simulation(nJobs).provide(
+      actorSystem <- simulation(nJobs).provide(
                       dataSourceStack(pgConfig),
                       recorderStack(simulationBatch),
                       DDE.simSupervisorLayer("MM1Run", None),
                       ObserverLayers.observerLayer,
                       shopFloorLayer(lambda, tau))
-      _ <- ZConsole.printLine(s"Processed $nMessages messages")
-     } yield nMessages
+      _ <- ZConsole.printLine(s"##### Waiting for Actor System to finish")
+      done <- ZIO.fromFuture(implicit ec => actorSystem.whenTerminated)
+      _ <- ZConsole.printLine(s"##### Actor System is Done")
+     } yield done
   }
 
   def shopFloorLayer(lambda: Distributions.LongRVar, tau: Distributions.LongRVar):

@@ -14,12 +14,14 @@ import com.saldubatech.sandbox.ddes.node.ziointerop.Layers as NodeLayers
 import com.saldubatech.sandbox.observers.ziointerop.Layers as ObserverLayers
 import com.saldubatech.sandbox.observers.{Observer, Subject}
 import org.apache.pekko.actor.testkit.typed.scaladsl.{ActorTestKit, TestProbe}
-import org.apache.pekko.actor.typed.ActorRef
+import org.apache.pekko.actor.typed.{ActorRef, ActorSystem}
+import org.apache.pekko.util.Timeout
 import zio.{RIO, RLayer, TaskLayer, ULayer, URIO, URLayer, ZEnvironment, ZIO, ZLayer, Runtime as ZRuntime}
 
 import javax.sql.DataSource
-import scala.concurrent.ExecutionContext
+import scala.concurrent.duration._
 import org.apache.pekko.actor.typed.scaladsl.ActorContext
+import com.saldubatech.lang.types.AppError
 
 
 object TestSimulationLayers:
@@ -57,7 +59,7 @@ object TestSimulationLayers:
   ] = (sinkLayer >+> mm1Layer(tau) >+> sourceProbeLayer(lambda))
 
   def initializeMM1ShopFloor:
-    URIO[
+    RIO[
       ActorTestKit &
         SimulationSupervisor &
         RelayToActor[ProbeMessage] &
@@ -65,7 +67,7 @@ object TestSimulationLayers:
         Source[TestSimulationLayers.ProbeMessage] &
         RecordingObserver &
         ActorRef[Observer.PROTOCOL]
-      , Unit] = for {
+      , OAMMessage] = for {
     fixture <- ZIO.service[ActorTestKit]
     supervisor <- ZIO.service[SimulationSupervisor]
     sink <- ZIO.service[RelayToActor[TestSimulationLayers.ProbeMessage]]
@@ -73,61 +75,80 @@ object TestSimulationLayers:
     source <- ZIO.service[Source[TestSimulationLayers.ProbeMessage]]
     observer <- ZIO.service[RecordingObserver]
     observerProbeRef <- ZIO.service[ActorRef[Observer.PROTOCOL]]
-  } yield {
-    val simulation = new DDE.SimulationComponent {
-      def initialize(ctx: ActorContext[Nothing]): Map[Id, ActorRef[?]] =
-        val sinkEntry = sink.simulationComponent.initialize(ctx)
-        val mm1Entry = mm1.simulationComponent.initialize(ctx)
-        val sourceEntry = source.simulationComponent.initialize(ctx)
-        val observerEntry = observer.simulationComponent.initialize(ctx)
+    supPing <- {
+      val simulation = new DDE.SimulationComponent {
+        def initialize(ctx: ActorContext[DDE.SupervisorProtocol]): Map[Id, ActorRef[?]] =
+          val sinkEntry = sink.simulationComponent.initialize(ctx)
+          val mm1Entry = mm1.simulationComponent.initialize(ctx)
+          val sourceEntry = source.simulationComponent.initialize(ctx)
+          val observerEntry = observer.simulationComponent.initialize(ctx)
 
-        observer.ref ! Observer.Initialize
+          observer.ref ! Observer.Initialize
 
-        val tap = Tap(Seq(observer.ref, observerProbeRef))
-        val tapRef = ctx.spawn(tap, "tap")
+          val tap = Tap(Seq(observer.ref, observerProbeRef))
+          val tapRef = ctx.spawn(tap, "tap")
 
-        source.ref ! Subject.InstallObserver("observerTap", tapRef)
-        mm1.ref !  Subject.InstallObserver("observerTap", tapRef)
-        sink.ref ! Subject.InstallObserver("observerTap", tapRef)
-        sinkEntry ++ mm1Entry ++ sourceEntry ++ observerEntry
+          source.ref ! Subject.InstallObserver("observerTap", tapRef)
+          mm1.ref !  Subject.InstallObserver("observerTap", tapRef)
+          sink.ref ! Subject.InstallObserver("observerTap", tapRef)
+          sinkEntry ++ mm1Entry ++ sourceEntry ++ observerEntry
+      }
+      val supervisorRef = fixture.spawn(supervisor.start(Some(simulation)))
+      given ActorSystem[?] = fixture.internalSystem
+      given Timeout = 1.second
+      supervisor.ping
     }
-    fixture.spawn(supervisor.start(Some(simulation)))
-    Thread.sleep(1000) // Just needed in testing to give time before sendRoot
-  }
+    rootInitRs <- {
+      if supPing == DDE.AOK then
+        given ActorSystem[?] = fixture.internalSystem
+        given Timeout = 1.second
+        supervisor.rootCheck
+      else ZIO.fail(AppError(s"Supervisor failed to initialize $supPing"))
+    }
+  } yield rootInitRs
+
 
   def initializeShopFloor:
-    URIO[
+    RIO[
       ActorTestKit &
         SimulationSupervisor &
         RelayToActor[ProbeMessage] &
         Source[TestSimulationLayers.ProbeMessage] &
         RecordingObserver &
         ActorRef[Observer.PROTOCOL]
-      , Unit] = for {
-    fixture <- ZIO.service[ActorTestKit]
-    supervisor <- ZIO.service[SimulationSupervisor]
-    sink <- ZIO.service[RelayToActor[TestSimulationLayers.ProbeMessage]]
-    source <- ZIO.service[Source[TestSimulationLayers.ProbeMessage]]
-    observer <- ZIO.service[RecordingObserver]
-    observerProbeRef <- ZIO.service[ActorRef[Observer.PROTOCOL]]
-  } yield {
-//    val clkRef = fixture.spawn(clock.start())
-    val simulation = new DDE.SimulationComponent {
-      def initialize(ctx: ActorContext[Nothing]): Map[Id, ActorRef[?]] =
-        val sinkEntry = sink.simulationComponent.initialize(ctx)
-        val sourceEntry = source.simulationComponent.initialize(ctx)
-        val observerEntry = observer.simulationComponent.initialize(ctx)
+      , OAMMessage] =
+    for {
+      fixture <- ZIO.service[ActorTestKit]
+      supervisor <- ZIO.service[SimulationSupervisor]
+      sink <- ZIO.service[RelayToActor[TestSimulationLayers.ProbeMessage]]
+      source <- ZIO.service[Source[TestSimulationLayers.ProbeMessage]]
+      observer <- ZIO.service[RecordingObserver]
+      observerProbeRef <- ZIO.service[ActorRef[Observer.PROTOCOL]]
+      supPing <- {
+        val simulation = new DDE.SimulationComponent {
+          def initialize(ctx: ActorContext[DDE.SupervisorProtocol]): Map[Id, ActorRef[?]] =
+            val sinkEntry = sink.simulationComponent.initialize(ctx)
+            val sourceEntry = source.simulationComponent.initialize(ctx)
+            val observerEntry = observer.simulationComponent.initialize(ctx)
 
-        observer.ref ! Observer.Initialize
+            observer.ref ! Observer.Initialize
+            val tap = Tap(Seq(observer.ref, observerProbeRef))
+            val tapRef = fixture.spawn(tap)
+            source.ref ! Subject.InstallObserver("observerTap", tapRef)
+            sink.ref ! Subject.InstallObserver("observerTap", tapRef)
 
-        val tap = Tap(Seq(observer.ref, observerProbeRef))
-        val tapRef = fixture.spawn(tap)
-
-        source.ref ! Subject.InstallObserver("observerTap", tapRef)
-        sink.ref ! Subject.InstallObserver("observerTap", tapRef)
-
-        sinkEntry ++ sourceEntry ++ observerEntry
-    }
-    fixture.spawn(supervisor.start(Some(simulation)))
-    Thread.sleep(1000) // Just needed in testing to give time before sendRoot
-  }
+            sinkEntry ++ sourceEntry ++ observerEntry
+        }
+        val supervisorRef = fixture.spawn(supervisor.start(Some(simulation)))
+        given ActorSystem[?] = fixture.internalSystem
+        given Timeout = 10.second
+        supervisor.ping
+      }
+      rootInitRs <- {
+        if supPing == DDE.AOK then
+          given ActorSystem[?] = fixture.internalSystem
+          given Timeout = 10.second
+          supervisor.rootCheck
+        else ZIO.fail(AppError(s"Supervisor failed to initialize $supPing"))
+      }
+  } yield rootInitRs

@@ -7,7 +7,7 @@ import com.saldubatech.lang.Id
 import com.saldubatech.lang.predicate.{SlickPlatform, SlickRepoZioService}
 import com.saldubatech.lang.predicate.ziointerop.Layers as PredicateLayers
 import com.saldubatech.math.randomvariables.Distributions
-import com.saldubatech.sandbox.ddes.{Tick, DomainEvent, Source, DDE, SimulationSupervisor}
+import com.saldubatech.sandbox.ddes.{Tick, DomainEvent, Source, DDE, SimulationSupervisor, DoneOK}
 import com.saldubatech.sandbox.ddes.ziointerop.Layers as DdesLayers
 import com.saldubatech.sandbox.observers.{Observer, Subject}
 import com.saldubatech.sandbox.observers.ziointerop.Layers as ObserverLayers
@@ -15,7 +15,8 @@ import com.saldubatech.test.persistence.postgresql.{PostgresContainer, TestPGDat
 import com.saldubatech.util.LogEnabled
 import com.typesafe.config.ConfigFactory
 import org.apache.pekko.actor.testkit.typed.scaladsl.{ActorTestKit, FishingOutcomes, TestProbe}
-import org.apache.pekko.actor.typed.ActorRef
+import org.apache.pekko.actor.typed.{ActorRef, ActorSystem}
+import org.apache.pekko.util.Timeout
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 import org.scalatest.{BeforeAndAfterAll, Tag}
@@ -92,9 +93,14 @@ object SlickObserverSpec extends  ZIOSpecDefault
           source <- ZIO.service[Source[TestSimulationLayers.ProbeMessage]]
           supervisor <- ZIO.service[SimulationSupervisor]
           _ <- TestSimulationLayers.initializeShopFloor
-        } yield {
-          supervisor.rootSend(source)(rootForTime, Source.Trigger("triggerJob", messages))
+          rootResponse <- {
+            given ActorSystem[?] = fixture.internalSystem
+            given Timeout = 1.second
 
+            supervisor.rootSend(source)(rootForTime, Source.Trigger("triggerJob", messages))
+          }
+        } yield {
+          assertTrue(rootResponse == DoneOK)
           var termFound = 0
           val r = termProbe.fishForMessage(1 second) { de =>
             de.payload.number match

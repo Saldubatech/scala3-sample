@@ -52,7 +52,7 @@ class GgmSpec extends ScalaTestWithActorTestKit
       log.debug("Root Sending message for time: 3 (InstallTarget)")
       val jobId = Id
       val trigger = Trigger[ProbeMessage](jobId, probes)
-      simSupervisor.rootSend[Trigger[ProbeMessage]](source)(3, trigger)
+      simSupervisor.directRootSend[Trigger[ProbeMessage]](source)(3, trigger)
       var found = 0
       val r = termProbe.fishForMessage(1 second){ de =>
         de.payload.number match

@@ -14,7 +14,8 @@ import com.saldubatech.test.persistence.postgresql.{PostgresContainer, TestPGDat
 import com.saldubatech.util.LogEnabled
 import com.typesafe.config.ConfigFactory
 import org.apache.pekko.actor.testkit.typed.scaladsl.{ActorTestKit, FishingOutcomes, TestProbe}
-import org.apache.pekko.actor.typed.ActorRef
+import org.apache.pekko.actor.typed.{ActorRef, ActorSystem}
+import org.apache.pekko.util.Timeout
 import org.scalatest.matchers.should.Matchers
 import org.scalatest.wordspec.AnyWordSpecLike
 import org.scalatest.{BeforeAndAfterAll, Tag}
@@ -95,8 +96,17 @@ object QuillMM1ObservationSpec extends  ZIOSpecDefault
           source <- ZIO.service[Source[TestSimulationLayers.ProbeMessage]]
           supervisor <- ZIO.service[SimulationSupervisor]
           _ <- TestSimulationLayers.initializeMM1ShopFloor
+          rootResponse <- {
+            given ActorSystem[?] = fixture.internalSystem
+            given Timeout = 1.second
+
+            supervisor.rootSend(source)(rootForTime, Source.Trigger("triggerJob", messages))
+          }
         } yield {
+          assertTrue(rootResponse == DoneOK)
           val jobId = Id
+          given ActorSystem[?] = fixture.internalSystem
+          given Timeout = 1.second
           supervisor.rootSend(source)(rootForTime, Source.Trigger(jobId, messages))
 
           val expectedTerminalJobs = messages.size

@@ -13,9 +13,12 @@ trait DomainProcessor[-DM <: DomainMessage : Typeable]:
 trait SimActor[-DM <: DomainMessage : Typeable] extends LogEnabled:
   selfSimActor =>
     val name: String
-    def currentTime: Tick
     protected lazy val ctx: ActorContext[? >: DomainAction[DM] | OAMMessage]
-    lazy val ref: ActorRef[DomainAction[DM] | OAMMessage]
+    final lazy val ref: ActorRef[DomainAction[DM] | OAMMessage] = ctx.self
+
+    private var _currentTime: Option[Tick] = Some(0)
+    protected def setTime(t: Tick): Unit = _currentTime = Some(t)
+    def currentTime: Tick = _currentTime.get
 
     def command(forTime: Tick, from: SimActor[?], message: DM): Command =
       new Command:
@@ -30,30 +33,28 @@ trait SimActor[-DM <: DomainMessage : Typeable] extends LogEnabled:
           ctx.self ! DomainAction(id, forEpoch, from, selfSimActor, message)
           id
 
-abstract class SimActorBehavior[DM <: DomainMessage : Typeable]
-(override val name: String, protected val clock: Clock)
-extends SimActor[DM]:
-  selfActorBehavior =>
-
-
-  private var _ctx: Option[ActorContext[DomainAction[DM] | OAMMessage]] = None
-  private var _currentTime: Option[Tick] = Some(0)
-  private var _ref: Option[ActorRef[DomainAction[DM] | OAMMessage]] = None
-  lazy val ref: ActorRef[DomainAction[DM] | OAMMessage] = _ref.get
-
-  override def currentTime: Tick = _currentTime.get
+// Separate to allow contravariance in the main interface
+trait SimActorContext[DM <: DomainMessage : Typeable]:
+ selfSimActor: SimActor[DM] =>
+  protected var _ctx: Option[ActorContext[DomainAction[DM] | OAMMessage]] = None
+  protected def initContext(ctx: ActorContext[DomainAction[DM] | OAMMessage]): Unit = _ctx = Some(ctx)
   override protected lazy val ctx: ActorContext[DomainAction[DM] | OAMMessage] = _ctx match
     case Some(c) => c
     case None =>
-      log.error(s"Initializing: Accessing Context before Initialization for $name ($selfActorBehavior)")
+      log.error(s"Initializing: Accessing Context before Initialization for $name ($selfSimActor)")
       _ctx.get
+
+abstract class SimActorBehavior[DM <: DomainMessage : Typeable]
+(override val name: String, protected val clock: Clock)
+extends SimActor[DM] with SimActorContext[DM]:
+  selfActorBehavior =>
+
   protected val domainProcessor: DomainProcessor[DM]
 
   final val simulationComponent: DDE.SimulationComponent =
     new DDE.SimulationComponent {
-      override def initialize(ctx: ActorContext[Nothing]): Map[Id, ActorRef[?]] =
-        _ref = Some(ctx.spawn[DomainAction[DM] | OAMMessage](selfActorBehavior.init(), name))
-        Map(name -> ref)
+      override def initialize(ctx: ActorContext[DDE.SupervisorProtocol]): Map[Id, ActorRef[?]] =
+        Map(name -> ctx.spawn[DomainAction[DM] | OAMMessage](selfActorBehavior.init(), name))
     }
   object Env extends SimEnvironment:
     override def currentTime: Tick = selfActorBehavior.currentTime
@@ -68,14 +69,14 @@ extends SimActor[DM]:
     Behaviors.setup {
       ctx =>
         log.debug(s"Initializing $name ($selfActorBehavior)")
-        _ctx = Some(ctx)
+        initContext(ctx)
         Behaviors.receiveMessage {
           msg =>
             msg match
               case oamMsg: OAMMessage => oam(oamMsg)
               case ev@DomainAction(action, forEpoch, from, to, domainMsg) =>
                 log.debug(s"$name receiving at ${currentTime} : ${domainMsg}")
-                _currentTime = Some(forEpoch)
+                setTime(forEpoch)
                 //from: SimActor[?, ?], payload: DM
                 domainMsg match
                   case dm: DM =>

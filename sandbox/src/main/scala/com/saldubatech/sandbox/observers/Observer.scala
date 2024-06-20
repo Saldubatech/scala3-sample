@@ -29,7 +29,7 @@ trait Observer extends LogEnabled:
 
   final val simulationComponent: DDE.SimulationComponent =
     new DDE.SimulationComponent {
-      def initialize(ctx: ActorContext[Nothing]): Map[Id, ActorRef[?]] =
+      def initialize(ctx: ActorContext[DDE.SupervisorProtocol]): Map[Id, ActorRef[?]] =
         observer._ref = Some(ctx.spawn[PROTOCOL](observer.init(), name))
         log.debug(s"Initialize Observer Component for $observer with ${observer.ref}")
         Map(name -> observer.ref)
