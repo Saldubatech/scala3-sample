@@ -6,7 +6,7 @@ import zio.{Unsafe, Runtime as ZRuntime}
 class RecordingObserver(override val name: String, val recorder: Recorder)
                        (using private val rt: ZRuntime[Any]) extends Observer {
   override def record(ev: OperationEventNotification): Unit = {
-    log.debug(s"Recording Event: $ev")
+    log.debug(s"Recording Event: $ev with recorder: $recorder")
     val io: PersistenceIO[OperationEventNotification] = recorder.record(ev)
     Unsafe.unsafe(implicit u => rt.unsafe.run(io).getOrThrowFiberFailure())
     log.debug(s"\tRecorder Accepted Event")

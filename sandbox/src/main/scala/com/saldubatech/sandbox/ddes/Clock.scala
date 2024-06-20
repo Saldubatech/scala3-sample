@@ -49,23 +49,23 @@ class Clock(
   private val openActions: collection.mutable.Set[Id] = collection.mutable.Set()
   private def openAction(a: Id): Id =
     openActions += a
-    log.debug(s"Added $a to $openActions")
+    log.debug(s"Added $a to openActions")
     a
 
   private def closeAction(a: Id): Boolean =
-    log.debug(s"Removing $a from $openActions")
+    log.debug(s"Removing $a from openActions")
     openActions.remove(a)
 
   private def scheduleCommand(ctx: ActorContext[PROTOCOL], cmd: Command): Unit =
     cmd.forEpoch match
       case present if present == now =>
-        log.debug(s"\tPresent Command[${cmd.id}] at [$now]: ${cmd}")
+        log.debug(s"\tPresent ${cmd}")
         openAction(cmd.send)
       case future if future > now =>
-        log.debug(s"\tFuture Command at [$now] for [$future]: ${cmd}")
+        log.debug(s"\tFuture ${cmd}")
         updateCommandQueue(cmd)
-        log.debug(s"\tWith Queue[${commandQueue.size}]: $commandQueue")
-        log.debug(s"\t\tAnd OpenActions[${openActions.size}]: $openActions")
+        log.trace(s"\tWith Queue[${commandQueue.size}]: $commandQueue")
+        log.trace(s"\t\tAnd OpenActions[${openActions.size}]: $openActions")
         if openActions.isEmpty && (now < commandQueue.head._1) then advanceClock
       case past =>
         simError(now, ctx, FatalError(s"Event Received for the past: now: ${now}, forTime: ${past}"))
@@ -100,11 +100,11 @@ class Clock(
       _ctx = Some(ctx)
       Behaviors.receiveMessage {
         case cmd: Command =>
-          log.debug(s"Clock Receiving ${cmd}")
+          log.debug(s"Clock Receiving")
           scheduleCommand(ctx, cmd)
           Behaviors.same
         case ActionComplete(action, by) =>
-          log.debug(s"Complete Action $action received from ${by.name} with Open: $openActions")
+          log.debug(s"Complete Action $action received from ${by.name}")
           doCompleteAction(action)
           Behaviors.same
       }

@@ -9,7 +9,7 @@ import com.saldubatech.lang.types.{AppError, AppResult}
 import com.saldubatech.sandbox
 import com.saldubatech.sandbox.ddes.Tick
 import com.saldubatech.sandbox.observers
-import io.getquill.*
+import io.getquill._
 import zio.Exit.{Failure, Success}
 import zio.{Exit, IO, RIO, Scope, Task, ULayer, URIO, URLayer, Unsafe, ZEnvironment, ZIO, ZLayer, Runtime as ZRuntime}
 
@@ -22,7 +22,7 @@ class QuillRecorder
 (val simulationBatch: String)
 (using val recorderPlatform: QuillPlatform) extends Recorder:
   import OperationEventNotification.*
-  import recorderPlatform.quill.*
+  import recorderPlatform.quill._
 
   case class OperationEventRecord(batch: String, operation: OperationEventType, id: Id, at: Tick, job: Id, station: Id, fromStation: Id):
     lazy val opEvent: OperationEventNotification = OperationEventNotification.apply(operation, id, at, job, station, fromStation)
@@ -30,7 +30,7 @@ class QuillRecorder
 
   object Events extends QuillRepo[OperationEventRecord]:
     override val platform: QuillPlatform = recorderPlatform
-    import OperationEventNotification.*
+    import OperationEventNotification._
 
     private[QuillRecorder] def fromOpEvent(opEv: OperationEventNotification): OperationEventRecord =
       OperationEventRecord(simulationBatch, opEv.operation, opEv.id, opEv.at, opEv.job, opEv.station, opEv.fromStation)
@@ -81,59 +81,7 @@ class QuillRecorder
 
 
   override def record(ev: OperationEventNotification): REPO_IO[OperationEventNotification] =
+    log.error(s"\tIntent to record $ev")
     val r = Events.fromOpEvent(ev)
-    log.debug(s"\tIntent to record: $r")
+    log.error(s"\tFor Record: $r")
     Events.add(r).map(_.opEvent)
-
-//  def record2(ev: OperationEventNotification): DBIO[OperationEventNotification] =
-//    val evRecord = Events.fromOpEvent(ev)
-//    evRecord.operation match
-//      case OperationEventType.NEW | OperationEventType.START | OperationEventType.ARRIVE =>
-//        Events._repo.add(evRecord).map(_.opEvent)
-//      case op@(OperationEventType.END | OperationEventType.DEPART | OperationEventType.COMPLETE) =>
-//        (for {
-//          nInserts <- Events._repo.tableQuery += evRecord
-//          partialTimeOp <- partialTimeOpRecord(evRecord)
-//          bracketOp <- bracketOpRecord(evRecord)
-//        } yield evRecord.opEvent).transactionally
-//
-//  private def partialTimeOpRecord(ev: Events.OperationEventRecord)(using ec: ExecutionContext): DBIO[Operations.OperationRecord] =
-//    import Events.given
-//    val previousType = OperationEventType.previous(ev.operation)
-//    val opType = OperationType.partialTimeOperation(ev.operation)
-//    for {
-//      evMatch <- Events._tblQ.filter {
-//        r =>
-//          (r.batch === ev.batch) &&
-//            (r.station === ev.station) &&
-//            (r.job === ev.job) &&
-//            (r.operation === previousType.get)
-//      }.take(1).result.headOption if previousType.isDefined
-//      addedOp <- Operations._repo.add(
-//        Operations.OperationRecord(ev.batch, opType.get, Id, evMatch.get.at, ev.at - evMatch.get.at, ev.job, ev.station))
-//      if evMatch.isDefined && opType.isDefined
-//    } yield addedOp
-//
-//  private def bracketOpRecord(ev: Events.OperationEventRecord)(using ec: ExecutionContext): DBIO[Operations.OperationRecord] =
-//    import Events.given
-//    val opType = OperationType.bracketTimeOperation(ev.operation)
-//    for {
-//      evMatch <- Events._tblQ.filter {
-//        r =>
-//          (r.batch === ev.batch) &&
-//            (r.station === ev.station) &&
-//            (r.job === ev.job) &&
-//            (r.operation === OperationEventType.bracket(ev.operation))
-//      }.take(1).result.headOption
-//      opResult <- Operations._repo.add(
-//        Operations.OperationRecord(
-//          ev.batch, opType.get, Id, evMatch.get.at, ev.at - evMatch.get.at, ev.job, ev.station
-//        )
-//      ) if evMatch.isDefined && opType.isDefined
-//    } yield (opResult)
-//
-//
-
-
-
-

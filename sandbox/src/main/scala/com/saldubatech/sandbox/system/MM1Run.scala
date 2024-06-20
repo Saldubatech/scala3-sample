@@ -12,7 +12,7 @@ import com.saldubatech.sandbox.observers.{RecordingObserver, Observer, Subject}
 import com.saldubatech.sandbox.observers.ziointerop.Layers as ObserverLayers
 import com.saldubatech.infrastructure.storage.rdbms.PGDataSourceBuilder
 import com.typesafe.config.{Config, ConfigFactory}
-import zio.{IO, Task, RIO, ZIO, ZIOAppDefault, ZLayer, RLayer, TaskLayer, Runtime as ZRuntime}
+import zio.{IO, Task, RIO, ZIO, ZIOAppDefault, ZLayer, RLayer, TaskLayer, Runtime as ZRuntime, Console as ZConsole}
 import com.saldubatech.sandbox.ddes.Clock
 import com.saldubatech.sandbox.ddes.SimActor
 import com.saldubatech.sandbox.observers.QuillRecorder
@@ -54,15 +54,14 @@ object MM1Run extends ZIOAppDefault:
           val mm1Entry = mm1.simulationComponent.initialize(ctx)
           val sourceEntry = source.simulationComponent.initialize(ctx)
           val observerEntry = observer.simulationComponent.initialize(ctx)
+
+          observer.ref ! Observer.Initialize
+
+          val installObserver = Subject.InstallObserver("Observer", observer.ref)
+          Seq(source, mm1, sink).foreach{ case s: Subject => s.ref ! installObserver }
           sinkEntry ++ mm1Entry ++ sourceEntry ++ observerEntry
       }
-      val as = ActorSystem[Nothing](supervisor.start(Some(simulation)), supervisor.name)
-
-      observer.ref ! Observer.Initialize
-
-      val installObserver = Subject.InstallObserver("Observer", observer.ref)
-      Seq(source, mm1, sink).foreach{ case s: Subject => s.ref ! installObserver }
-      as
+      ActorSystem[Nothing](supervisor.start(Some(simulation)), supervisor.name)
     }
 
   private def simulation(nMessages: Int): RIO[
@@ -74,26 +73,30 @@ object MM1Run extends ZIOAppDefault:
   } yield {
     val jobId = Id
     val messages: Seq[JobMessage] = 0 to nMessages map { n => JobMessage(n, s"TriggerJob[$n]") }
+    Thread.sleep(1000)
     supervisor.rootSend(source)(0, Source.Trigger(jobId, messages))
+    Thread.sleep(60000)
     messages.size
   }
 
   override val run: Task[Int] = {
     given ZRuntime[Any] = this.runtime
-    simulation(nJobs).provide(
-      dataSourceStack(pgConfig),
-      recorderStack(simulationBatch),
-      DDE.simSupervisorLayer("MM1Run", None),
-      ObserverLayers.observerLayer,
-      shopFloorLayer(lambda, tau)
-    )
+    for {
+      nMessages <- simulation(nJobs).provide(
+                      dataSourceStack(pgConfig),
+                      recorderStack(simulationBatch),
+                      DDE.simSupervisorLayer("MM1Run", None),
+                      ObserverLayers.observerLayer,
+                      shopFloorLayer(lambda, tau))
+      _ <- ZConsole.printLine(s"Processed $nMessages messages")
+     } yield nMessages
   }
 
   def shopFloorLayer(lambda: Distributions.LongRVar, tau: Distributions.LongRVar):
     RLayer[SimulationSupervisor, AbsorptionSink[JobMessage] & Source[JobMessage] & Ggm[JobMessage]] =
      (DdesLayers.absorptionSinkLayer[JobMessage]("AbsorptionSink") >+>
         (NodeLayers.mm1ProcessorLayer[JobMessage]("MM1_Station", tau, 1) >>> NodeLayers.ggmLayer[JobMessage]("MM1_Station")) >+>
-        DdesLayers.sourceLayer[JobMessage]("MM1 Source", lambda))
+        DdesLayers.sourceLayer[JobMessage]("MM1_Source", lambda))
 
   def dataSourceStack(configuration: PGDataSourceBuilder.Configuration): TaskLayer[DataSource] =
       DbLayers.pgDbBuilderFromConfig(configuration) >>>

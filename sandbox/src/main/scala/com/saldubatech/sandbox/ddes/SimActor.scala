@@ -15,6 +15,7 @@ trait SimActor[-DM <: DomainMessage : Typeable] extends LogEnabled:
     val name: String
     def currentTime: Tick
     protected lazy val ctx: ActorContext[? >: DomainAction[DM] | OAMMessage]
+    lazy val ref: ActorRef[DomainAction[DM] | OAMMessage]
 
     def command(forTime: Tick, from: SimActor[?], message: DM): Command =
       new Command:
@@ -22,7 +23,7 @@ trait SimActor[-DM <: DomainMessage : Typeable] extends LogEnabled:
         override val forEpoch: Tick = forTime
         override val id: Id = Id
 
-        override def toString: String = super.toString + s" with Msg: $message"
+        override def toString: String = s"${selfSimActor.name}@Command(At[$currentTime], For[$forTime], Msg:${message.getClass().getName()})"
 
         override def send: Id =
           log.debug(s"Sending command at $currentTime from ${from.name} to $name")
@@ -51,7 +52,6 @@ extends SimActor[DM]:
   final val simulationComponent: DDE.SimulationComponent =
     new DDE.SimulationComponent {
       override def initialize(ctx: ActorContext[Nothing]): Map[Id, ActorRef[?]] =
-        log.debug(s"Initializing: $name ($selfActorBehavior)")
         _ref = Some(ctx.spawn[DomainAction[DM] | OAMMessage](selfActorBehavior.init(), name))
         Map(name -> ref)
     }
@@ -67,7 +67,7 @@ extends SimActor[DM]:
   def init(): Behavior[DomainAction[DM] | OAMMessage] =
     Behaviors.setup {
       ctx =>
-        log.debug(s"Initializing Simulation Actor: $selfActorBehavior")
+        log.debug(s"Initializing $name ($selfActorBehavior)")
         _ctx = Some(ctx)
         Behaviors.receiveMessage {
           msg =>

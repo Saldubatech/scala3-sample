@@ -96,11 +96,11 @@ object Ggm:
             completedWp <- processor.completedJob(job)
             outbound <- process(completedWp) // Virtual Execution is done at the time of completion. In Between, it is "in-limbo", In the future, the work package could track the "in progress state."
             _ <- {
-              notifier(OperationEventNotification(OperationEventType.END, Id, host.currentTime, ecEv.id, host.name, from.name))
+              notifier(OperationEventNotification(OperationEventType.END, Id, host.currentTime, ecEv.job, host.name, from.name))
               discharge(host.currentTime, outbound)
             }
           } yield {
-            notifier(OperationEventNotification(OperationEventType.DEPART, Id, host.currentTime, ecEv.id, host.name, from.name))
+            notifier(OperationEventNotification(OperationEventType.DEPART, Id, host.currentTime, ecEv.job, host.name, from.name))
           }
         case evFromUpstream@DomainEvent(action, from, dm: DM) =>
           for {
