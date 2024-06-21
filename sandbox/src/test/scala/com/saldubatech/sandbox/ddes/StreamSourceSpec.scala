@@ -10,7 +10,7 @@ import org.scalatest.wordspec.AnyWordSpecLike
 
 import scala.concurrent.duration.*
 import scala.language.postfixOps
-import zio.Runtime as ZRuntime
+import zio.{ZIO, Runtime as ZRuntime, IO}
 import zio.stream.{ZStream, UStream}
 
 
