@@ -52,6 +52,7 @@ trait Observer extends LogEnabled:
 
   private val inOperation: Behavior[PROTOCOL] = Behaviors.receiveMessage {
     case opEv: OperationEventNotification =>
+      log.info(s"Notification: $opEv")
       record(opEv)
       Behaviors.same
     case Close =>

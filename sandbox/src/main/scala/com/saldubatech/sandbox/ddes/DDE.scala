@@ -13,14 +13,15 @@ import cats.syntax.contravariantMonoidal
 import scala.concurrent.duration._
 import scala.concurrent.Future
 import com.saldubatech.lang.types.AppError
+import com.saldubatech.util.LogEnabled
 
 
-object DDE:
+object DDE extends LogEnabled:
   def simSupervisorLayer(name: String, maxTime: Option[Tick]): ULayer[SimulationSupervisor] =
     ZLayer.succeed(SimulationSupervisor(name, maxTime))
 
   def simEnd(tick: Tick, ctx: ActorContext[?]): Unit =
-    println(s"###### Calling for termination at $tick")
+    log.info(s"Calling for termination at Virtual Time: $tick")
     ctx.log.warn(s"Simulation ended at $tick")
     ctx.system.terminate()
 
@@ -89,8 +90,9 @@ class SimulationSupervisor(val name: String, private val maxTime: Option[Tick]):
           }
       }
 
-    def rootCheck(using Timeout, ActorSystem[?]): Task[OAMMessage] =
+    def rootCheck(using Timeout): Task[OAMMessage] =
       import AskPattern._
+      given ActorSystem[?] = this.ctx.system
       ZIO.fromFuture(implicit ec => this.ctx.self.ask[OAMMessage](ref => FinalizeInit(ref)))
       // this._ctx match
       //   case None => ZIO.succeed(Fail(AppError(s"ROOT SimNode Not Initialized"))) //ZIO.fail(AppError(s"ROOT SimNode Not Initialized"))
@@ -107,7 +109,7 @@ class SimulationSupervisor(val name: String, private val maxTime: Option[Tick]):
     def rootSend[TARGET_DM <: DomainMessage]
       (target: SimActor[TARGET_DM])
       (forTime: Tick, msg: TARGET_DM)
-      (using Timeout, ActorSystem[?]): Task[OAMMessage] =
+      (using Timeout): Task[OAMMessage] =
         for {
           rs <- rootCheck
         } yield {
@@ -122,19 +124,19 @@ class SimulationSupervisor(val name: String, private val maxTime: Option[Tick]):
   def rootSend[TARGET_DM <: DomainMessage]
     (target: SimActor[TARGET_DM])
     (forTime: Tick, msg: TARGET_DM)
-    (using Timeout, ActorSystem[?]): Task[OAMMessage] =
+    (using Timeout): Task[OAMMessage] =
       root.rootSend(target)(forTime, msg)
 
   def directRootSend[TARGET_DM <: DomainMessage]
     (target: SimActor[TARGET_DM])
     (forTime: Tick, msg: TARGET_DM)
-    (using Timeout, ActorSystem[?]): Unit =
+    (using Timeout): Unit =
       root.directRootSend(target)(forTime, msg)
 
-  def rootCheck(using Timeout, ActorSystem[?]): Task[OAMMessage] = root.rootCheck
-  def ping(using to: Timeout, ac: ActorSystem[DDE.SupervisorProtocol]): Task[SupervisorResponse] =
+  def rootCheck(using Timeout): Task[OAMMessage] = root.rootCheck
+  def ping(using to: Timeout, ac: ActorSystem[SupervisorProtocol]): Task[SupervisorResponse] =
     import AskPattern._
-    ZIO.fromFuture(implicit ec => ac.ask[DDE.SupervisorResponse](ref => DDE.Ping(ref)))
+    ZIO.fromFuture(implicit ec => ac.ask[SupervisorResponse](ref => DDE.Ping(ref)))
 
 
   def start(simulation: Option[DDE.SimulationComponent]): Behavior[DDE.SupervisorProtocol] =

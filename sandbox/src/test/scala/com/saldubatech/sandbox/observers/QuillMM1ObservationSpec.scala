@@ -48,7 +48,6 @@ object QuillMM1ObservationSpec extends  ZIOSpecDefault
 
   val rootForTime: Tick = 3
   val messages: Seq[TestSimulationLayers.ProbeMessage] = 0 to 1 map { n => TestSimulationLayers.ProbeMessage(n, s"TriggerJob[$n]") }
-  val fixtureLayer: ULayer[ActorTestKit] = ZLayer.succeed(ActorTestKit())
 
   val probeLayer: URLayer[
     ActorTestKit,
@@ -142,7 +141,7 @@ object QuillMM1ObservationSpec extends  ZIOSpecDefault
         } yield assertTrue(count == expectedNotifications)
       }
     ).provideShared(
-      fixtureLayer,
+      fixtureStack,
       probeLayer,
       probeRefLayer[Observer.PROTOCOL],
       probeRefLayer[DomainEvent[TestSimulationLayers.ProbeMessage]],

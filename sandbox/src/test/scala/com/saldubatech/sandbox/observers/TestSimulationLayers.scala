@@ -28,6 +28,17 @@ object TestSimulationLayers:
 
   case class ProbeMessage(number: Int, override val job: Id, override val id: Id = Id) extends DomainMessage
 
+  val testActorSystemLayer: URLayer[SimulationSupervisor, ActorSystem[DDE.SupervisorProtocol]] = ZLayer(
+      ZIO.serviceWith[SimulationSupervisor](ss => ActorSystem[DDE.SupervisorProtocol](ss.start(None), "TestActorSystem"))
+    )
+
+  val fixtureLayer: URLayer[ActorSystem[DDE.SupervisorProtocol], ActorTestKit] =  ZLayer(
+      ZIO.serviceWith[ActorSystem[DDE.SupervisorProtocol]](as => ActorTestKit(as))
+    )
+
+  val fixtureStack: URLayer[SimulationSupervisor, ActorSystem[DDE.SupervisorProtocol] & ActorTestKit] =
+    testActorSystemLayer >+> fixtureLayer
+
   def sinkLayer:
     RLayer[
       SimulationSupervisor &
@@ -62,48 +73,49 @@ object TestSimulationLayers:
     RIO[
       ActorTestKit &
         SimulationSupervisor &
+        ActorSystem[DDE.SupervisorProtocol] &
         RelayToActor[ProbeMessage] &
         Ggm[ProbeMessage] &
         Source[TestSimulationLayers.ProbeMessage] &
         RecordingObserver &
         ActorRef[Observer.PROTOCOL]
       , OAMMessage] = for {
-    fixture <- ZIO.service[ActorTestKit]
-    supervisor <- ZIO.service[SimulationSupervisor]
-    sink <- ZIO.service[RelayToActor[TestSimulationLayers.ProbeMessage]]
-    mm1 <- ZIO.service[Ggm[TestSimulationLayers.ProbeMessage]]
-    source <- ZIO.service[Source[TestSimulationLayers.ProbeMessage]]
-    observer <- ZIO.service[RecordingObserver]
-    observerProbeRef <- ZIO.service[ActorRef[Observer.PROTOCOL]]
-    supPing <- {
-      val simulation = new DDE.SimulationComponent {
-        def initialize(ctx: ActorContext[DDE.SupervisorProtocol]): Map[Id, ActorRef[?]] =
-          val sinkEntry = sink.simulationComponent.initialize(ctx)
-          val mm1Entry = mm1.simulationComponent.initialize(ctx)
-          val sourceEntry = source.simulationComponent.initialize(ctx)
-          val observerEntry = observer.simulationComponent.initialize(ctx)
+        as <- ZIO.service[ActorSystem[DDE.SupervisorProtocol]]
+        fixture <- ZIO.service[ActorTestKit]
+        supervisor <- ZIO.service[SimulationSupervisor]
+        sink <- ZIO.service[RelayToActor[TestSimulationLayers.ProbeMessage]]
+        mm1 <- ZIO.service[Ggm[TestSimulationLayers.ProbeMessage]]
+        source <- ZIO.service[Source[TestSimulationLayers.ProbeMessage]]
+        observer <- ZIO.service[RecordingObserver]
+        observerProbeRef <- ZIO.service[ActorRef[Observer.PROTOCOL]]
+        supPing <- {
+          val simulation = new DDE.SimulationComponent {
+            def initialize(ctx: ActorContext[DDE.SupervisorProtocol]): Map[Id, ActorRef[?]] =
+              val sinkEntry = sink.simulationComponent.initialize(ctx)
+              val mm1Entry = mm1.simulationComponent.initialize(ctx)
+              val sourceEntry = source.simulationComponent.initialize(ctx)
+              val observerEntry = observer.simulationComponent.initialize(ctx)
 
-          observer.ref ! Observer.Initialize
+              observer.ref ! Observer.Initialize
 
-          val tap = Tap(Seq(observer.ref, observerProbeRef))
-          val tapRef = ctx.spawn(tap, "tap")
+              val tap = Tap(Seq(observer.ref, observerProbeRef))
+              val tapRef = ctx.spawn(tap, "tap")
 
-          source.ref ! Subject.InstallObserver("observerTap", tapRef)
-          mm1.ref !  Subject.InstallObserver("observerTap", tapRef)
-          sink.ref ! Subject.InstallObserver("observerTap", tapRef)
-          sinkEntry ++ mm1Entry ++ sourceEntry ++ observerEntry
-      }
-      val supervisorRef = fixture.spawn(supervisor.start(Some(simulation)))
-      given ActorSystem[?] = fixture.internalSystem
-      given Timeout = 1.second
-      supervisor.ping
-    }
-    rootInitRs <- {
-      if supPing == DDE.AOK then
-        given ActorSystem[?] = fixture.internalSystem
-        given Timeout = 1.second
-        supervisor.rootCheck
-      else ZIO.fail(AppError(s"Supervisor failed to initialize $supPing"))
+              source.ref ! Subject.InstallObserver("observerTap", tapRef)
+              mm1.ref !  Subject.InstallObserver("observerTap", tapRef)
+              sink.ref ! Subject.InstallObserver("observerTap", tapRef)
+              sinkEntry ++ mm1Entry ++ sourceEntry ++ observerEntry
+            }
+          val supervisorRef = fixture.spawn(supervisor.start(Some(simulation)))
+          given ActorSystem[DDE.SupervisorProtocol] = as
+          given Timeout = 1.second
+          supervisor.ping
+        }
+        rootInitRs <- {
+          if supPing == DDE.AOK then
+            given Timeout = 1.second
+            supervisor.rootCheck
+          else ZIO.fail(AppError(s"Supervisor failed to initialize $supPing"))
     }
   } yield rootInitRs
 
@@ -112,12 +124,14 @@ object TestSimulationLayers:
     RIO[
       ActorTestKit &
         SimulationSupervisor &
+        ActorSystem[DDE.SupervisorProtocol] &
         RelayToActor[ProbeMessage] &
         Source[TestSimulationLayers.ProbeMessage] &
         RecordingObserver &
         ActorRef[Observer.PROTOCOL]
       , OAMMessage] =
     for {
+      as <- ZIO.service[ActorSystem[DDE.SupervisorProtocol]]
       fixture <- ZIO.service[ActorTestKit]
       supervisor <- ZIO.service[SimulationSupervisor]
       sink <- ZIO.service[RelayToActor[TestSimulationLayers.ProbeMessage]]
@@ -140,13 +154,12 @@ object TestSimulationLayers:
             sinkEntry ++ sourceEntry ++ observerEntry
         }
         val supervisorRef = fixture.spawn(supervisor.start(Some(simulation)))
-        given ActorSystem[?] = fixture.internalSystem
+        given ActorSystem[DDE.SupervisorProtocol] = as
         given Timeout = 10.second
         supervisor.ping
       }
       rootInitRs <- {
         if supPing == DDE.AOK then
-          given ActorSystem[?] = fixture.internalSystem
           given Timeout = 10.second
           supervisor.rootCheck
         else ZIO.fail(AppError(s"Supervisor failed to initialize $supPing"))

@@ -28,12 +28,14 @@
   <logger name="slick.interop.zio" level="info"/>
   <logger name="com.saldubatech.sandbox.ddes" level="info"/>
   <logger name="com.saldubatech.sandbox.ddes.Clock" level="info"/>
+  <!--
   <logger name="com.saldubatech.sandbox.ddes.AbsorptionSink" level="debug"/>
   <logger name="com.saldubatech.sandbox.ddes.Source" level="debug"/>
   <logger name="com.saldubatech.sandbox.ddes.node" level="debug"/>
   <logger name="com.saldubatech.sandbox.ddes.SimAction" level="info"/>
   <logger name="com.saldubatech.sandbox.observers" level="debug"/>
   <logger name="com.saldubatech.sandbox.ddes.node" level="info"/>
+  -->
 
 
 

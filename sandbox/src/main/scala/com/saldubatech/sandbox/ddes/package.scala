@@ -13,7 +13,7 @@ import com.saldubatech.lang.types.AppResult
 package object ddes {
   sealed class SimulationError(msg: String, cause: Option[Throwable] = None) extends AppError(msg, cause)
 
-  case class CollectedError(errors: Seq[SimulationError], override val msg: String = "") extends SimulationError(msg)
+  case class CollectedError(errors: Seq[Throwable], override val msg: String = "") extends SimulationError(msg)
 
   case class FatalError(override val msg: String, override val cause: Option[Throwable] = None)
     extends SimulationError(msg, cause)

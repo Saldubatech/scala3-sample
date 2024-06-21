@@ -27,8 +27,9 @@ import org.apache.pekko.util.Timeout
 import org.apache.pekko.Done
 import scala.concurrent.duration._
 import com.saldubatech.lang.types.AppError
+import com.saldubatech.util.LogEnabled
 
-object MM1Run extends ZIOAppDefault:
+object MM1Run extends ZIOAppDefault with LogEnabled:
   case class JobMessage(number: Int, override val job: Id, override val id: Id = Id) extends DomainMessage
 
   val simulationBatch: String = s"BATCH::${ZonedDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss.SSS"))}"
@@ -111,9 +112,9 @@ object MM1Run extends ZIOAppDefault:
                       DDE.simSupervisorLayer("MM1Run", None),
                       ObserverLayers.observerLayer,
                       shopFloorLayer(lambda, tau))
-      _ <- ZConsole.printLine(s"##### Waiting for Actor System to finish")
+      _ <- ZConsole.printLine(s">> Waiting for Actor System to finish")
       done <- ZIO.fromFuture(implicit ec => actorSystem.whenTerminated)
-      _ <- ZConsole.printLine(s"##### Actor System is Done")
+      _ <- ZConsole.printLine(s">> Actor System is Done[$Done]")
      } yield done
   }
 
