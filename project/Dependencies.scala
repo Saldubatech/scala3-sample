@@ -79,6 +79,10 @@ object Dependencies {
       val slf4j = "dev.zio" %% "zio-logging-slf4j2" % zioLoggingVersion
     }
     object Ecosystem {
+      // https://mvnrepository.com/artifact/dev.zio/zio-prelude
+      // https://zio.dev/zio-prelude/
+      val preludeVersion = "1.0.0-RC27"
+      val prelude = "dev.zio" %% "zio-prelude" % preludeVersion
       val schemaVersion = "1.2.0" // "0.4.15"
       val schema = "dev.zio" %% "zio-schema" % schemaVersion
       val schemaAvro = "dev.zio" %% "zio-schema-avro" % schemaVersion

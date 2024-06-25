@@ -82,5 +82,20 @@
       "database": "sandbox",
       "username": "test_user"
     }
+  ],
+  "python.testing.pytestEnabled": true,
+  "python.analysis.autoFormatStrings": true,
+  "python.analysis.autoImportCompletions": true,
+  "python.analysis.completeFunctionParens": true,
+  "python.analysis.diagnosticMode": "workspace",
+  "python.analysis.typeCheckingMode": "strict",
+  "python.analysis.ignore": [
+    "${workspaceFolder}/analysis/src"
+  ],
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}/analysis/src"
+  ],
+  "python.autoComplete.extraPaths": [
+    "${workspaceFolder}/analysis/src"
   ]
 }

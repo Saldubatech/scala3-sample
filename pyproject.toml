@@ -1,0 +1,91 @@
+[tool.poetry]
+name = "ddes_analysis"
+version = "0.1.0"
+description = ""
+authors = ["Miguel Pinilla <miguel.pinilla@saldubatech.com>"]
+readme = "README.md"
+classifiers = [
+  "Development Status :: 2 - Pre-Alpha",
+  "Typing :: Typed"
+]
+packages = [{include = "salduba", from = "analysis/src"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+numpy = "^2.0.0"
+pandas = "^2.2.2"
+ipykernel = "^6.29.4"
+matplotlib = "^3.9.0"
+psycopg2 = "^2.9.9"
+sqlalchemy = "^2.0.31"
+ipython-sql = "^0.5.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.2.0"
+mypy = "^1.10.0"
+pytest-cov = "^5.0.0"
+pre-commit = "^3.7.1"
+flake8 = "^7.0.0"
+nb-mypy = "^1.0.5"
+
+[tool.poetry.group.docs.dependencies]
+
+
+# https://github.com/jvllmr/poetry-types
+isort = "^5.13.2"
+black = "^24.4.2"
+
+[tool.poetry.group.types.dependencies]
+types-flake8 = "^7.0.0.20240511"
+
+types-pyyaml = "^6.0.12.20240311"
+pandas-stubs = "^2.2.2.240514"
+types-sqlalchemy = "^1.4.53.38"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.mypy]
+strict=true
+python_version = "3.11"
+exclude = "ib_src"
+
+[[tool.mypy.overrides]]
+module = 'ibapi.*'
+ignore_missing_imports = true
+
+[tool.isort]
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+line_length = 130
+skip_gitignore = true
+# skip_glob = ["tests/data", "profiling"]
+# known_first_party = ["black", "blib2to3", "blackd", "_black_version"]
+
+[tool.black]
+line-length = 130
+target-version = ['py311']
+include = '\.pyi?$'
+exclude = '''
+(
+  /(
+      \.eggs         # exclude a few common directories in the
+    | \.git          # root of the project
+    | \.hg
+    | \.mypy_cache
+    | \.tox
+    | \.venv
+    | _build
+    | buck-out
+    | build
+    | dist
+  )/
+  | foo.py           # also separately exclude a file named foo.py in
+                     # the root of the project
+)
+'''
+
+# Configuring Credentials: https://python-poetry.org/docs/repositories/#configuring-credentials

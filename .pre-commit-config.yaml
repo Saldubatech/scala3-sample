@@ -1,0 +1,76 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+# See https://mitelman.engineering/blog/python-best-practice/automating-python-best-practices-for-a-new-project
+default_language_version:
+  python: python3.11
+exclude: ^(ib_src|.idea|data)/
+
+repos:
+  -   repo: https://github.com/pre-commit/pre-commit-hooks
+      rev: v4.5.0
+      hooks:
+        -   id: check-yaml
+        -   id: check-json
+        -   id: check-toml
+        -   id: check-merge-conflict
+        -   id: debug-statements
+        -   id: end-of-file-fixer
+        -   id: trailing-whitespace
+            exclude: ^tests/fixtures/
+#  -   repo: https://github.com/asottile/setup-cfg-fmt
+#      rev: v2.5.0
+#      hooks:
+#        -   id: setup-cfg-fmt
+#  -   repo: https://github.com/asottile/reorder-python-imports
+#      rev: v3.12.0
+#      hooks:
+#        -   id: reorder-python-imports
+#            args: [
+#              --application-directories, '.:src',
+#              --py38-plus,
+#              --add-import, 'from __future__ import annotations',
+#            ]
+#  -   repo: https://github.com/asottile/pyupgrade
+#      rev: v3.15.0
+#      hooks:
+#        -   id: pyupgrade
+#            args: [--py38-plus]
+  -   repo: https://github.com/PyCQA/isort
+      rev: 5.13.2
+      hooks:
+        -   id: isort
+#  -   repo: https://github.com/psf/black
+#      rev: 23.12.1
+#      hooks:
+#        -   id: black
+  -   repo: https://github.com/PyCQA/flake8
+      rev: 7.0.0
+      hooks:
+        -   id: flake8
+#  -   repo: https://github.com/pre-commit/mirrors-mypy
+#      rev: v1.8.0
+#      hooks:
+#        -   id: mypy
+#            args: [--strict]
+##            exclude: ^(docs/|example-plugin/)
+  - repo: local
+    # We do not use pre-commit/mirrors-mypy,
+    # as it comes with opinionated defaults
+    # (like --ignore-missing-imports)
+    # and is difficult to configure to run
+    # with the dependencies correctly installed.
+    hooks:
+      - id: mypy
+        name: mypy
+#        entry: "pre-commit-local/run-mypy.sh"
+        entry: "poetry run mypy"
+        language: system
+        # use your preferred Python version
+        # language_version: python3.7
+        # additional_dependencies: ["mypy==0.790"]
+        types: [python]
+        # use require_serial so that script
+        # is only called once per commit
+        require_serial: true
+        # Print the number of files as a sanity-check
+        # verbose: true

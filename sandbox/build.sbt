@@ -36,6 +36,10 @@ libraryDependencies ++= Seq(
   Dependencies.Cats.algebra,
   // Dependencies.Cats.effect
 
+  // ZIO Prelude (Algebraic Structures)
+  // https://zio.dev/zio-prelude/
+  Dependencies.Zio.Ecosystem.prelude,
+
   // Circe
   Dependencies.Circe.core,
   Dependencies.Circe.generic,
