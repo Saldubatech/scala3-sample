@@ -12,6 +12,11 @@
   * [Actions](https://github.com/features/actions)
   * [Packages](https://github.com/features/packages)
 
+## Snippets copied from 3rd parties
+
+* [Spark Histogram Functions](https://github.com/LucaCanali/Miscellaneous/blob/master/Spark_Notes/Spark_DataFrame_Histograms.md)
+* [Slick/ZIO Interop from ZIO](https://github.com/ScalaConsultants/zio-slick-interop)
+
 ## Structure
 
 Project
