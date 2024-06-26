@@ -44,19 +44,19 @@ object Source:
     def withId[SOURCED <: DomainMessage : Typeable](id: Id, job: Id, supply: Seq[SOURCED], startDelay: Option[Tick] = None)
     : Trigger[SOURCED] = Trigger(id, job, supply, startDelay)
 
-  class DP[SOURCED <: DomainMessage : Typeable]
-  (private val target: SimActor[SOURCED],
+  class DP[SOURCED <: DomainMessage : Typeable, TARGETED <: DomainMessage : Typeable]
+  (private val target: SimActor[TARGETED],
+   private val transform: (Tick, SOURCED) => TARGETED,
    private val name: String,
    private val interval: LongRVar,
    private val notifier: OperationEventNotification => Unit)
     extends DomainProcessor[Trigger[SOURCED]] with LogEnabled:
 
-    private def scheduleSend(at: Tick, forTime: Tick, targetMsg: SOURCED, target: SimActor[SOURCED], interval: Tick)(using env: SimEnvironment): Tick =
+    private def scheduleSend(at: Tick, forTime: Tick, targetMsg: TARGETED, target: SimActor[TARGETED])(using env: SimEnvironment): Unit =
       log.debug(s"Source[$name] at ${at}, Scheduling message for $forTime : $targetMsg with Target ${target.name}")
       env.schedule(target)(forTime, targetMsg)
       notifier(NewJob(forTime, targetMsg.job, name))
       notifier(Departure(forTime, targetMsg.job, name))
-      forTime + interval
 
 
     override def accept(at: Tick, ev: DomainEvent[Trigger[SOURCED]])(using env: SimEnvironment): ActionResult =
@@ -67,20 +67,21 @@ object Source:
         ev.payload.supply.foreach {
           msg =>
             log.debug(s"Source Sending: $msg for time $forTime")
-            forTime += scheduleSend(at, forTime, msg, target, interval())
+            scheduleSend(at, forTime, transform(forTime, msg), target)
+            forTime += interval()
           }
         Right(())
 
 
-class Source[SOURCED <: DomainMessage : Typeable]
-(val target: SimActor[SOURCED])(name: String, val interval: LongRVar, clock: Clock)
+class Source[SOURCED <: DomainMessage : Typeable, TARGETED <: DomainMessage : Typeable]
+(val target: SimActor[TARGETED], transformation: (Tick, SOURCED) => TARGETED)(name: String, val interval: LongRVar, clock: Clock)
   extends SimActorBehavior[Source.Trigger[SOURCED]](name, clock) with Subject:
   node =>
 
   import Source._
 
   override val domainProcessor: DomainProcessor[Source.Trigger[SOURCED]] =
-    Source.DP(target, name, interval, opEv => notify(opEv))
+    Source.DP(target, transformation, name, interval, opEv => notify(opEv))
 
   override def oam(msg: OAMMessage): ActionResult =
     msg match

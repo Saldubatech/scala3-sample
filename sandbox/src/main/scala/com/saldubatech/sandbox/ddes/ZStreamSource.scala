@@ -50,20 +50,20 @@ object ZStreamSource:
     def withId[SOURCED <: DomainMessage : Typeable : ClassTag](id: Id, job: Id, supply: UStream[SOURCED], startDelay: Option[Tick] = None)
     : StreamTrigger[SOURCED] = StreamTrigger(id, job, supply, startDelay)
 
-  class DP[SOURCED <: DomainMessage : Typeable : ClassTag]
-  (private val target: SimActor[SOURCED],
+  class DP[SOURCED <: DomainMessage : Typeable : ClassTag, TARGETED <: DomainMessage : Typeable]
+  (private val target: SimActor[TARGETED],
+   private val transformation: (Tick, SOURCED) => TARGETED,
    private val name: String,
    private val interval: LongRVar,
    private val notifier: OperationEventNotification => Unit)
    (using rt: ZRuntime[Any])
     extends DomainProcessor[StreamTrigger[SOURCED]] with LogEnabled:
 
-    private def scheduleSend(at: Tick, forTime: Tick, targetMsg: SOURCED, target: SimActor[SOURCED], interval: Tick)(using env: SimEnvironment): Tick =
+    private def scheduleSend(at: Tick, forTime: Tick, targetMsg: TARGETED, target: SimActor[TARGETED])(using env: SimEnvironment): Unit =
       log.debug(s"Source[$name] at ${at}, Scheduling message for $forTime : $targetMsg with Target ${target.name}")
       env.schedule(target)(forTime, targetMsg)
       notifier(NewJob(forTime, targetMsg.job, name))
       notifier(Departure(forTime, targetMsg.job, name))
-      forTime + interval
 
 
     override def accept(at: Tick, ev: DomainEvent[StreamTrigger[SOURCED]])(using env: SimEnvironment): ActionResult =
@@ -75,7 +75,8 @@ object ZStreamSource:
         (msg : SOURCED) =>
           ZIO.succeed{
             log.debug(s"Source Sending: $msg for time $forTime")
-            forTime += scheduleSend(at, forTime, msg, target, interval())
+            scheduleSend(at, forTime, transformation(forTime, msg), target)
+            forTime += interval()
           }
         }
       Unsafe.unsafe{implicit u =>
@@ -85,8 +86,8 @@ object ZStreamSource:
       }
 
 
-class ZStreamSource[SOURCED <: DomainMessage : Typeable : ClassTag]
-(val target: SimActor[SOURCED])(name: String, val interval: LongRVar, clock: Clock)
+class ZStreamSource[SOURCED <: DomainMessage : Typeable : ClassTag, TARGETED <: DomainMessage : Typeable]
+(val target: SimActor[TARGETED], transformation: (Tick, SOURCED) => TARGETED)(name: String, val interval: LongRVar, clock: Clock)
 (using ZRuntime[Any])
   extends SimActorBehavior[ZStreamSource.StreamTrigger[SOURCED]](name, clock) with Subject:
   node =>
@@ -94,7 +95,7 @@ class ZStreamSource[SOURCED <: DomainMessage : Typeable : ClassTag]
   import ZStreamSource._
 
   override val domainProcessor: DomainProcessor[ZStreamSource.StreamTrigger[SOURCED]] =
-    ZStreamSource.DP(target, name, interval, opEv => notify(opEv))
+    ZStreamSource.DP(target, transformation, name, interval, opEv => notify(opEv))
 
   override def oam(msg: OAMMessage): ActionResult =
     msg match

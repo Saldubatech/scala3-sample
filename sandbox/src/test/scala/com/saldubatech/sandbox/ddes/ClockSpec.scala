@@ -56,7 +56,7 @@ class ClockSpec extends ScalaTestWithActorTestKit
       val sink = RelayToActor[ProbeMessage]("TheSink", termProbe.ref, simSupervisor.clock)
       val sinkRef = spawn(sink.init())
       val source =
-        Source(sink)(
+        Source(sink, (t: Tick, s: ProbeMessage) => s)(
           "TheSource",
           Distributions.toLong(Distributions.exponential(500.0)),
           simSupervisor.clock

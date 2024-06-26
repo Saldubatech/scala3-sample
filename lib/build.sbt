@@ -42,6 +42,9 @@ libraryDependencies ++= Seq(
   Dependencies.Circe.generic,
   Dependencies.Circe.parser,
 
+  // Math, etc...
+  Dependencies.Spark.mlLib,
+
   // ZIO Runtime
   Dependencies.Zio.Runtime.zio,
   // Needed to access the "Chunk" type.

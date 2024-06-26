@@ -28,7 +28,7 @@ class AnimalZioService(override val platform: QuillPlatform) extends QuillRepo[A
 
   // The elements required to work through the generic super trait
 
-  override val recordFinder: Quoted[Query[Animal]] => IO[SQLException, List[Animal]] = RepoHelper.recordFinder()
+  override val recordFinder: Quoted[Query[Animal]] => IO[SQLException, List[Animal]] = RepoHelper.findByQuery
   override val inserter: Animal => IO[SQLException, Long] = RepoHelper.inserterTemplate(baseQuery())
   override val allRecordsCounter: IO[SQLException, Long] = RepoHelper.allRecordCounterTemplate(baseQuery())
   // Specific to this service

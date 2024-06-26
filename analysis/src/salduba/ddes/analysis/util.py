@@ -160,3 +160,22 @@ def plotStation(station_name: str, db_engine: Engine, batch: Optional[str] = Non
     wipPlot.sharey(plots[1, 1])
 
   plt.show()
+
+
+def plotThroughput(station_name: str, n_slots: int, db_engine: Engine) -> None:
+  df: pd.DataFrame = pd.read_sql_query(f"select * from event_record where op_type = 'END' and station = '{station_name}' order by batch, at asc", con=db_engine)
+  t_max: int = int(df['at'].max()) # type: ignore
+  t_min: int = int(df['at'].min()) # type: ignore
+  window_length = int(float(t_max - t_min)/float(n_slots))
+
+  def window_index(at: int) -> int:
+    return int(float(n_slots*(at - t_min))/float(window_length))
+
+  df.loc[:, 'time period'] = df['at'].apply(window_index)
+
+  th = df.groupby('time period')['job'].count()
+
+  plt.title(f"{station_name} Throughput per period")
+  plt.xlabel(f"period = {window_length}")
+  plt.ylabel('Jobs per period')
+  th.plot.bar(rot=45)

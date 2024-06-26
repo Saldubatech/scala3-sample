@@ -6,7 +6,7 @@ import com.saldubatech.infrastructure.storage.rdbms.ziointerop.Layers as DbLayer
 import com.saldubatech.infrastructure.storage.rdbms.{PersistenceError, PersistenceIO}
 import InMemoryPlatform.B
 import com.saldubatech.lang.predicate.{Platform, Predicate, Repo}
-import io.getquill.*
+import io.getquill._
 import io.getquill.jdbczio.Quill
 import zio.{IO, RLayer, URLayer, ZEnvironment, ZIO, ZLayer}
 
@@ -68,6 +68,7 @@ trait QuillRepo[T]:
   import platform.quill.*
 
   object RepoHelper {
+
     inline def inserterTemplate(inline bq: EntityQuery[T]): T => IO[SQLException, Long] =
       (t: T) => platform.quill.run(
         quote {
@@ -82,12 +83,17 @@ trait QuillRepo[T]:
         }
       )
 
-    inline def recordFinder(): Quoted[Query[T]] => IO[SQLException, List[T]] = (q: Quoted[Query[T]]) => platform.quill.run(q)
+    // Must be a def b/c of inlining.
+    inline def findByQuery: Quoted[Query[T]] => IO[SQLException, List[T]] =
+      (q: Quoted[Query[T]]) => platform.quill.run(q)
 
     // Precursor to handling more general predicates...
     inline def finderBy[PROPERTY: Encoder](inline bq: EntityQuery[T], inline selector: T => PROPERTY):
     PROPERTY => Quoted[Query[T]] =
       (p: PROPERTY) => bq.filter { host => selector(host) == lift(p) }.take(1)
+
+    inline def finderByKeys(inline bq: EntityQuery[T], inline values: Map[String, Any]): Query[T] =
+      bq.filterByKeys(values)
 
   }
 

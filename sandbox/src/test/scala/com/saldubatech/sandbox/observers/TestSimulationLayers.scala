@@ -49,7 +49,7 @@ object TestSimulationLayers:
   def sourceProbeLayer(interval: LongRVar = Distributions.toLong(Distributions.exponential(500.0))):
     RLayer[
       SimulationSupervisor & SimActor[ProbeMessage],
-      Source[ProbeMessage]
+      Source[ProbeMessage, ProbeMessage]
     ]  = DdesLayers.sourceLayer[ProbeMessage]("TheSource", Distributions.toLong(Distributions.exponential(500.0)))
 
 
@@ -61,12 +61,12 @@ object TestSimulationLayers:
 
   def simpleShopFloorLayer: RLayer[
   ActorRef[DomainEvent[ProbeMessage]] & SimulationSupervisor,
-  RelayToActor[ProbeMessage] & Source[ProbeMessage]
+  RelayToActor[ProbeMessage] & Source[ProbeMessage, ProbeMessage]
   ] = sinkLayer >+> sourceProbeLayer()
 
   def mm1ShopFloorLayer(lambda: LongRVar, tau: LongRVar): RLayer[
     SimulationSupervisor & ActorRef[DomainEvent[ProbeMessage]],
-    RelayToActor[ProbeMessage] & Source[ProbeMessage] & Ggm[ProbeMessage]
+    RelayToActor[ProbeMessage] & Source[ProbeMessage, ProbeMessage] & Ggm[ProbeMessage]
   ] = (sinkLayer >+> mm1Layer(tau) >+> sourceProbeLayer(lambda))
 
   def initializeMM1ShopFloor:
@@ -76,7 +76,7 @@ object TestSimulationLayers:
         ActorSystem[DDE.SupervisorProtocol] &
         RelayToActor[ProbeMessage] &
         Ggm[ProbeMessage] &
-        Source[TestSimulationLayers.ProbeMessage] &
+        Source[TestSimulationLayers.ProbeMessage, TestSimulationLayers.ProbeMessage] &
         RecordingObserver &
         ActorRef[Observer.PROTOCOL]
       , OAMMessage] = for {
@@ -85,7 +85,7 @@ object TestSimulationLayers:
         supervisor <- ZIO.service[SimulationSupervisor]
         sink <- ZIO.service[RelayToActor[TestSimulationLayers.ProbeMessage]]
         mm1 <- ZIO.service[Ggm[TestSimulationLayers.ProbeMessage]]
-        source <- ZIO.service[Source[TestSimulationLayers.ProbeMessage]]
+        source <- ZIO.service[Source[TestSimulationLayers.ProbeMessage, TestSimulationLayers.ProbeMessage]]
         observer <- ZIO.service[RecordingObserver]
         observerProbeRef <- ZIO.service[ActorRef[Observer.PROTOCOL]]
         supPing <- {
@@ -126,7 +126,7 @@ object TestSimulationLayers:
         SimulationSupervisor &
         ActorSystem[DDE.SupervisorProtocol] &
         RelayToActor[ProbeMessage] &
-        Source[TestSimulationLayers.ProbeMessage] &
+        Source[TestSimulationLayers.ProbeMessage, TestSimulationLayers.ProbeMessage] &
         RecordingObserver &
         ActorRef[Observer.PROTOCOL]
       , OAMMessage] =
@@ -135,7 +135,7 @@ object TestSimulationLayers:
       fixture <- ZIO.service[ActorTestKit]
       supervisor <- ZIO.service[SimulationSupervisor]
       sink <- ZIO.service[RelayToActor[TestSimulationLayers.ProbeMessage]]
-      source <- ZIO.service[Source[TestSimulationLayers.ProbeMessage]]
+      source <- ZIO.service[Source[TestSimulationLayers.ProbeMessage, TestSimulationLayers.ProbeMessage]]
       observer <- ZIO.service[RecordingObserver]
       observerProbeRef <- ZIO.service[ActorRef[Observer.PROTOCOL]]
       supPing <- {

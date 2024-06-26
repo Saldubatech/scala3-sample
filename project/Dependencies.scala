@@ -2,6 +2,7 @@ import sbt.*
 object Dependencies {
   val lastUpdated = "20240606"
   val scalaVersion = "3.3.1"
+  def useFrom2_13(m: ModuleID) = m.cross(CrossVersion.for3Use2_13)
 
   object Lang {
     object Refined {
@@ -53,8 +54,9 @@ object Dependencies {
       val zioJsonVersion = "0.6.2"
       val zioConfigVersion = "4.0.2" // "4.0.0-RC16"
       val zioHttpVersion = "3.0.0-RC8" // Upgrade when ready to put effort in HTTP layer, to update the samples.
-      val quillVersion = "4.8.5" // "4.8.0"
+      val quillVersion = "4.8.5" // "4.8.5"
 
+//      val quillCore = "io.getquill" %% "quill-core" % quillVersion ONLY FOR SCALA 2!!!!
       val quillJdbcZio = "io.getquill" %% "quill-jdbc-zio" % quillVersion excludeAll
         ExclusionRule(organization = "org.scala-lang.modules")
       val quillJdbc = "io.getquill" %% "quill-jdbc" % quillVersion
@@ -131,6 +133,18 @@ object Dependencies {
     val core = "io.circe" %% "circe-core" % version
     val generic = "io.circe" %% "circe-generic" % version
     val parser = "io.circe" %% "circe-parser" % version
+  }
+
+  object Spark {
+    val version = "4.0.0-preview1"
+    // https://mvnrepository.com/artifact/org.apache.spark/spark-mllib
+    val mlLib = useFrom2_13(
+      ("org.apache.spark" %% "spark-mllib" % version)
+      .excludeAll(
+        ExclusionRule(organization = "org.scala-lang.modules"),
+        ExclusionRule(organization = "org.typelevel")
+        )
+    )
   }
 
   object Logging {

@@ -92,7 +92,7 @@ object QuillMM1ObservationSpec extends  ZIOSpecDefault
           fixture <- ZIO.service[ActorTestKit]
           observerProbe <- ZIO.service[TestProbe[Observer.PROTOCOL]]
           termProbe <- ZIO.service[TestProbe[DomainEvent[TestSimulationLayers.ProbeMessage]]]
-          source <- ZIO.service[Source[TestSimulationLayers.ProbeMessage]]
+          source <- ZIO.service[Source[TestSimulationLayers.ProbeMessage, TestSimulationLayers.ProbeMessage]]
           supervisor <- ZIO.service[SimulationSupervisor]
           _ <- TestSimulationLayers.initializeMM1ShopFloor
           rootResponse <- {

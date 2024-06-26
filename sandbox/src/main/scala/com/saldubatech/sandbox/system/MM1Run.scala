@@ -43,14 +43,14 @@ object MM1Run extends ZIOAppDefault with LogEnabled:
   private val pgConfig = PGDataSourceBuilder.Configuration(dbConfig)
 
   private val initializeShopFloor: RIO[
-    SimulationSupervisor & AbsorptionSink[JobMessage] & Ggm[JobMessage] & Source[JobMessage] & RecordingObserver,
+    SimulationSupervisor & AbsorptionSink[JobMessage] & Ggm[JobMessage] & Source[JobMessage, JobMessage] & RecordingObserver,
     ActorSystem[DDE.SupervisorProtocol]
   ] =
     for {
       supervisor <- ZIO.service[SimulationSupervisor]
       sink <- ZIO.service[AbsorptionSink[JobMessage]]
       mm1 <- ZIO.service[Ggm[JobMessage]]
-      source <- ZIO.service[Source[JobMessage]]
+      source <- ZIO.service[Source[JobMessage, JobMessage]]
       observer <- ZIO.service[RecordingObserver]
       as <- {
         val simulation = new DDE.SimulationComponent {
@@ -79,10 +79,10 @@ object MM1Run extends ZIOAppDefault with LogEnabled:
     } yield rs
 
   private def simulation(nMessages: Int): RIO[
-    SimulationSupervisor & AbsorptionSink[JobMessage] & Ggm[JobMessage] & Source[JobMessage] & RecordingObserver,
+    SimulationSupervisor & AbsorptionSink[JobMessage] & Ggm[JobMessage] & Source[JobMessage, JobMessage] & RecordingObserver,
     ActorSystem[Nothing]] = for {
       supervisor <- ZIO.service[SimulationSupervisor]
-      source <- ZIO.service[Source[JobMessage]]
+      source <- ZIO.service[Source[JobMessage, JobMessage]]
       actorSystem <- initializeShopFloor
       supPing <- {
         given ActorSystem[DDE.SupervisorProtocol] = actorSystem
@@ -119,7 +119,7 @@ object MM1Run extends ZIOAppDefault with LogEnabled:
   }
 
   def shopFloorLayer(lambda: Distributions.LongRVar, tau: Distributions.LongRVar):
-    RLayer[SimulationSupervisor, AbsorptionSink[JobMessage] & Source[JobMessage] & Ggm[JobMessage]] =
+    RLayer[SimulationSupervisor, AbsorptionSink[JobMessage] & Source[JobMessage, JobMessage] & Ggm[JobMessage]] =
      (DdesLayers.absorptionSinkLayer[JobMessage]("AbsorptionSink") >+>
         (NodeLayers.mm1ProcessorLayer[JobMessage]("MM1_Station", tau, 1) >>> NodeLayers.ggmLayer[JobMessage]("MM1_Station")) >+>
         DdesLayers.sourceLayer[JobMessage]("MM1_Source", lambda))

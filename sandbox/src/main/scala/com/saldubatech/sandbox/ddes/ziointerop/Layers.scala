@@ -43,13 +43,13 @@ object Layers:
   (name: String, distribution: Distributions.LongRVar):
   RLayer[
     SimulationSupervisor & SimActor[DM],
-    Source[DM]
+    Source[DM, DM]
   ] =
     ZLayer(
       for {
         supervisor <- ZIO.service[SimulationSupervisor]
         target <- ZIO.service[SimActor[DM]]
-      } yield Source(target)(name, distribution, supervisor.clock)
+      } yield Source(target, (t: Tick, s: DM) => s)(name, distribution, supervisor.clock)
     )
 
 

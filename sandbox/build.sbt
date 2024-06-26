@@ -84,6 +84,9 @@ libraryDependencies ++= Seq(
   // Actors
   Dependencies.Pekko.actor,
 
+  // Math, etc...
+  Dependencies.Spark.mlLib,
+
   // test
   // Dependencies.Logging.sl4jSimple % Test,
   Dependencies.Zio.Testing.zio % Test,

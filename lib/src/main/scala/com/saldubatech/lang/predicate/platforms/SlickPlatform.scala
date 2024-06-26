@@ -61,7 +61,7 @@ class SlickPlatform(val dbP: DatabaseProvider) extends Platform:
     }
 
 object SlickPlatform:
-  type REPO_IO[A] = SIO[PersistenceError, A]
+  type REPO_IO[A] = SZIO[Any, PersistenceError, A]
 
 
 abstract class SlickRepoZioService[E: ZTag]

@@ -1,6 +1,6 @@
 package com.saldubatech.lang.types
 
-import zio.{Layer, Task, ZIO, ZLayer}
+import zio.{Layer, Task, ZIO, ZLayer, IO}
 
 class AppError(val msg: String, val cause: Option[Throwable] = None)
   extends Throwable(msg,
@@ -38,7 +38,7 @@ inline def AppFail[ER <: AppError, R](e: ER) = Left[ER, R](e)
 type SZIO[-R, +E <: AppError, +A] = ZIO[R, E, A]
 type SRIO[-R, +A] = ZIO[R, AppError, A]
 type STask[+A] = SRIO[Any, A]
-type SIO[+E <: AppError, +A] = ZIO[Any, E, A]
+type SIO[+A] = IO[AppError, A]
 
 // Specialized ZIO Layers
 

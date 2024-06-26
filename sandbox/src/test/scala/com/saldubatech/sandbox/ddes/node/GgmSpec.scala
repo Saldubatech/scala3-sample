@@ -12,6 +12,7 @@ import org.scalatest.wordspec.AnyWordSpecLike
 
 import scala.concurrent.duration.*
 import scala.language.postfixOps
+import com.saldubatech.sandbox.ddes.Tick
 
 
 object GgmSpec:
@@ -42,7 +43,7 @@ class GgmSpec extends ScalaTestWithActorTestKit
       val mm1: Ggm[ProbeMessage] = Ggm(sink)("MM1_Station", mm1Processor, simSupervisor.clock)
       val mm1Ref = spawn(mm1.init())
       val source =
-        Source[ProbeMessage](mm1)(
+        Source[ProbeMessage, ProbeMessage](mm1, (t: Tick, s: ProbeMessage) => s)(
           "TheSource",
           Distributions.toLong(Distributions.exponential(500.0)),
           simSupervisor.clock

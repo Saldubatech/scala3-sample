@@ -23,6 +23,7 @@ import scala.reflect.Typeable
 
 object SlickRecorder
 
+@Deprecated("Slick DB access not maintained for this project")
 class SlickRecorder
 (val simulationBatch: String)
 (using val recorderPlatform: SlickPlatform, ec: ExecutionContext) extends Recorder:
@@ -116,52 +117,52 @@ class SlickRecorder
     log.debug(s"\tIntent to record: $r")
     Events.persistenceService.add(r).map(_.opEvent)
 
-  def record2(ev: OperationEventNotification): DBIO[OperationEventNotification] =
-    val evRecord = Events.fromOpEvent(ev)
-    evRecord.operation match
-      case OperationEventType.NEW | OperationEventType.START | OperationEventType.ARRIVE =>
-        Events._repo.add(evRecord).map(_.opEvent)
-      case op@(OperationEventType.END | OperationEventType.DEPART | OperationEventType.COMPLETE) =>
-        (for {
-          nInserts <- Events._repo.tableQuery += evRecord
-          partialTimeOp <- partialTimeOpRecord(evRecord)
-          bracketOp <- bracketOpRecord(evRecord)
-        } yield evRecord.opEvent).transactionally
+  // def record2(ev: OperationEventNotification): DBIO[OperationEventNotification] =
+  //   val evRecord = Events.fromOpEvent(ev)
+  //   evRecord.operation match
+  //     case OperationEventType.NEW | OperationEventType.START | OperationEventType.ARRIVE =>
+  //       Events._repo.add(evRecord).map(_.opEvent)
+  //     case op@(OperationEventType.END | OperationEventType.DEPART | OperationEventType.COMPLETE) =>
+  //       (for {
+  //         nInserts <- Events._repo.tableQuery += evRecord
+  //         partialTimeOp <- partialTimeOpRecord(evRecord)
+  //         bracketOp <- bracketOpRecord(evRecord)
+  //       } yield evRecord.opEvent).transactionally
 
-  private def partialTimeOpRecord(ev: Events.OperationEventRecord)(using ec: ExecutionContext): DBIO[Operations.OperationRecord] =
-    import Events.given
-    val previousType = OperationEventType.previous(ev.operation)
-    val opType = OperationType.partialTimeOperation(ev.operation)
-    for {
-      evMatch <- Events._tblQ.filter {
-        r =>
-          (r.batch === ev.batch) &&
-            (r.station === ev.station) &&
-            (r.job === ev.job) &&
-            (r.operation === previousType.get)
-      }.take(1).result.headOption if previousType.isDefined
-      addedOp <- Operations._repo.add(
-        Operations.OperationRecord(ev.batch, opType.get, Id, evMatch.get.at, ev.at - evMatch.get.at, ev.job, ev.station))
-      if evMatch.isDefined && opType.isDefined
-    } yield addedOp
+  // private def partialTimeOpRecord(ev: Events.OperationEventRecord)(using ec: ExecutionContext): DBIO[Operations.OperationRecord] =
+  //   import Events.given
+  //   val previousType = OperationEventType.previous(ev.operation)
+  //   val opType = OperationType.partialTimeOperation(ev.operation)
+  //   for {
+  //     evMatch <- Events._tblQ.filter {
+  //       r =>
+  //         (r.batch === ev.batch) &&
+  //           (r.station === ev.station) &&
+  //           (r.job === ev.job) &&
+  //           (r.operation === previousType.get)
+  //     }.take(1).result.headOption if previousType.isDefined
+  //     addedOp <- Operations._repo.add(
+  //       Operations.OperationRecord(ev.batch, opType.get, Id, evMatch.get.at, ev.at - evMatch.get.at, ev.job, ev.station))
+  //     if evMatch.isDefined && opType.isDefined
+  //   } yield addedOp
 
-  private def bracketOpRecord(ev: Events.OperationEventRecord)(using ec: ExecutionContext): DBIO[Operations.OperationRecord] =
-    import Events.given
-    val opType = OperationType.bracketTimeOperation(ev.operation)
-    for {
-      evMatch <- Events._tblQ.filter {
-        r =>
-          (r.batch === ev.batch) &&
-            (r.station === ev.station) &&
-            (r.job === ev.job) &&
-            (r.operation === OperationEventType.bracket(ev.operation))
-      }.take(1).result.headOption
-      opResult <- Operations._repo.add(
-        Operations.OperationRecord(
-          ev.batch, opType.get, Id, evMatch.get.at, ev.at - evMatch.get.at, ev.job, ev.station
-        )
-      ) if evMatch.isDefined && opType.isDefined
-    } yield (opResult)
+  // private def bracketOpRecord(ev: Events.OperationEventRecord)(using ec: ExecutionContext): DBIO[Operations.OperationRecord] =
+  //   import Events.given
+  //   val opType = OperationType.bracketTimeOperation(ev.operation)
+  //   for {
+  //     evMatch <- Events._tblQ.filter {
+  //       r =>
+  //         (r.batch === ev.batch) &&
+  //           (r.station === ev.station) &&
+  //           (r.job === ev.job) &&
+  //           (r.operation === OperationEventType.bracket(ev.operation))
+  //     }.take(1).result.headOption
+  //     opResult <- Operations._repo.add(
+  //       Operations.OperationRecord(
+  //         ev.batch, opType.get, Id, evMatch.get.at, ev.at - evMatch.get.at, ev.job, ev.station
+  //       )
+  //     ) if evMatch.isDefined && opType.isDefined
+  //   } yield (opResult)
 
 
 

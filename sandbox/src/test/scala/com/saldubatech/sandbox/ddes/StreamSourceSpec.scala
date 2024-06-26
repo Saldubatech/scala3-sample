@@ -16,7 +16,12 @@ import zio.stream.{ZStream, UStream}
 
 object StreamSourceSpec:
   case class ProbeMessage(number: Int, override val job: Id, override val id: Id = Id) extends DomainMessage
+  case class ResultMessage(forTime: Tick, number: Int, override val job: Id, override val id: Id = Id) extends DomainMessage
+  def resultTransformer(t: Tick, s: ProbeMessage): ResultMessage = ResultMessage(t, s.number, s.job, s.id)
   case class NotAProbeMessage(number: Int, override val job: Id, override val id: Id = Id) extends DomainMessage
+
+
+
 
 class StreamSourceSpec extends ScalaTestWithActorTestKit
   with Matchers
@@ -45,46 +50,48 @@ class StreamSourceSpec extends ScalaTestWithActorTestKit
           succeed
     }
     "Send all the messages it is provided" in {
-      val termProbe = createTestProbe[DomainEvent[ProbeMessage]]()
-      val probes = 0 to 10 map {n => ProbeMessage(n, s"Job[$n]") }
+      val intervalMean: Double = 500.0
+      val termProbe = createTestProbe[DomainEvent[ResultMessage]]()
+      val nProbes = 10000
+      val probes = 0 to nProbes map {n => ProbeMessage(n, s"Job[$n]") }
       val zProbes: UStream[ProbeMessage] = ZStream.fromIterable(probes)
 
 
       val simSupervisor = SimulationSupervisor("ClockSpecSupervisor", None)
       spawn(simSupervisor.start(None))
 
-      val sink = RelayToActor[ProbeMessage]("TheSink", termProbe.ref, simSupervisor.clock)
+      val sink = RelayToActor[ResultMessage]("TheSink", termProbe.ref, simSupervisor.clock)
       val sinkRef = spawn(sink.init())
-      val source =
-        Source(sink)(
-          "TheSource",
-          Distributions.toLong(Distributions.exponential(500.0)),
-          simSupervisor.clock
-        )
-      val sourceRef = spawn(source.init())
-
       given ZRuntime[Any] = ZRuntime.default
-      val streamSource = ZStreamSource(sink)(
+      val streamSource = ZStreamSource(sink, resultTransformer)(
         "TheStreamingSource",
           Distributions.toLong(Distributions.exponential(500.0)),
           simSupervisor.clock
       )
       val streamSourceRef = spawn(streamSource.init())
 
-      log.debug("Root Sending message for time: 3 (InstallTarget)")
-      //root.send[InstallTarget[ProbeMessage]](source)(3, InstallTarget(sink, Some(10)))
+      log.debug("Root Sending message for time: 0 (InstallTarget)")
       val jobId = Id
       val trigger = StreamTrigger[ProbeMessage](jobId, zProbes)
-      simSupervisor.directRootSend[StreamTrigger[ProbeMessage]](streamSource)(3, trigger)
+      simSupervisor.directRootSend[StreamTrigger[ProbeMessage]](streamSource)(0, trigger)
       var found = 0
+      var lastTime = 0L
+      var intervalSum = 0L
+      val times = collection.mutable.ArrayBuffer[Long]()
       val r = termProbe.fishForMessage(1 second){ de =>
+        intervalSum += de.payload.forTime - lastTime
+        times.addOne(de.payload.forTime)
+        lastTime = de.payload.forTime
         de.payload.number match
-          case c if c <= 10 =>
+          case c if c <= nProbes =>
            found += 1
            if found == probes.size then FishingOutcomes.complete else FishingOutcomes.continue
           case other => FishingOutcomes.fail(s"Incorrect message received: $other")
       }
       assert(r.size == probes.size)
+      assert(intervalSum.toDouble/(found.toDouble - 1.0) === intervalMean +- 30.0)
+
       termProbe.expectNoMessage(300 millis)
+      println(s"#### Times:\n$times")
     }
   }
