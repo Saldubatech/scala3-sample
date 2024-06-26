@@ -1,0 +1,59 @@
+<style>
+
+.Value {
+  BackgroundColor LightBlue
+}
+
+.Right {
+  defaultTextAlignment right
+  rectangleDefaultTextAlignment right
+}
+
+.Left {
+  defaultTextAlignment left
+  rectangleDefaultTextAlignment left
+}
+
+.Center {
+  defaultTextAlignment center
+  rectangleDefaultTextAlignment center
+}
+
+.{
+  defaultTextAlignment center
+  rectangleDefaultTextAlignment center
+}
+</style>
+
+skinparam nodesep 70
+skinparam ranksep 50
+
+
+skinparam defaultTextAlignment<<Left>> left
+hide <<Left>> stereotype
+skinparam defaultTextAlignment<<Right>> right
+hide <<Right>> stereotype
+skinparam defaultTextAlignment<<Center>> center
+hide <<Center>> stereotype
+skinparam defaultTextAlignment center
+
+/'
+
+
+skinparam componentDefaultTextAlignment<<right>> right
+skinparam componentDefaultTextAlignment<<left>> left
+skinparam componentDefaultTextAlignment<<center>> center
+
+skinparam componentTextAlignment<<right>> right
+skinparam componentTextAlignment<<left>> left
+skinparam componentTextAlignment<<center>> center
+
+skinparam rectanangleDefaultTextAlignment<<right>> right
+skinparam rectanangleDefaultTextAlignment<<left>> left
+skinparam rectanangleDefaultTextAlignment<<center>> center
+
+skinparam rectangleTextAlignment<<right>> right
+skinparam rectangleTextAlignment<<left>> left
+skinparam rectangleTextAlignment<<center>> center
+
+'/

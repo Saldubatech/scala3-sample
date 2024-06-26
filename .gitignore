@@ -17,12 +17,17 @@ hs_err_pid*
 
 # Build Products
 
+# Java/Scala
 *.class
 **/target
 **/.bloop
 **/.bsp
 **/.metals
 **/.tasty
+
+# Python
+**/*.pyc
+**/__pycache__
 
 # Scala worksheet temporary files
 

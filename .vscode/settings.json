@@ -90,10 +90,12 @@
   "python.analysis.diagnosticMode": "workspace",
   "python.analysis.typeCheckingMode": "strict",
   "python.analysis.extraPaths": [
-    "${workspaceFolder}/analysis/src"
+    "${workspaceFolder}/analysis/src",
+    "${workspaceFolder}/scripts"
   ],
   "python.autoComplete.extraPaths": [
-    "${workspaceFolder}/analysis/src"
+    "${workspaceFolder}/analysis/src",
+    "${workspaceFolder}/scripts"
   ],
   "python.testing.pytestArgs": [
     "analysis"
@@ -105,5 +107,10 @@
     "./analysis/tests",
     "-p",
     "*test.py"
-  ]
+  ],
+  "testExplorer.showOnRun": true,
+  "testExplorer.addToEditorContextMenu": true,
+  "notebook.defaultFormatter": "ms-python.flake8",
+  "testing.alwaysRevealTestOnStateChange": true,
+  "python.analysis.inlayHints.pytestParameters": true
 }

@@ -4,6 +4,8 @@
   // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
   "version": "0.2.0",
   "configurations": [
+
+
     {
       "type": "scala",
       "name": "run envViewer",
@@ -18,6 +20,15 @@
       "name": "run mm1",
       "request": "launch",
       "mainClass": "com.saldubatech.sandbox.system.MM1Run",
+      "args": [],
+      "jvmOptions": [],
+      "envFile": "./.env"
+    },
+    {
+      "type": "scala",
+      "name": "init db",
+      "request": "launch",
+      "mainClass": "com.saldubatech.sandbox.system.DbMigrator",
       "args": [],
       "jvmOptions": [],
       "envFile": "./.env"

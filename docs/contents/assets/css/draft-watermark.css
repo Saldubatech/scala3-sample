@@ -1,0 +1,40 @@
+/* @media print { */
+  .draftWatermark {
+    text-align: center;
+    display: block;
+    position: fixed;
+    top: 25%;
+    left: 10%;
+    width:80%;    
+    font-size: 192px;
+    font-weight: bold;
+    opacity: 0.4;
+    color:grey;
+    z-index: 0;
+    transform: rotate(-45deg);
+  }
+/* } */
+  
+/*
+@media screen {
+  .draftWatermark {
+    display: block;
+    width:40%;
+    position: fixed;
+    top: 40%;
+    left: 30%;
+    font-size: 82px;
+    font-weight: bold;
+    opacity: 0.5;
+    color:grey;
+    z-index: 5;
+    transform: rotate(-45deg);
+  }
+}
+*/
+
+.draftWatermark::before {
+  content: "DRAFT";
+}
+/* not sure this does anything... */
+

@@ -1,0 +1,209 @@
+# For use with Github Actions to override plantuml execution.
+---
+INHERIT: mkdocs_local.yml
+
+# Extensions
+# IMPORTANT: KEEP IN SYNC WITH mkdocs_local.yml EXCEPT THE PLANTUML JAR LOCATION
+markdown_extensions:
+  # https://squidfunk.github.io/mkdocs-material/reference/footnotes/
+  - footnotes
+  - nl2br
+  - attr_list
+  # https://squidfunk.github.io/mkdocs-material/setup/extensions/python-markdown/#markdown-in-html
+  - md_in_html
+  - meta
+  - smarty
+  - tables
+  - mdx_truly_sane_lists:
+      nested_indent: 2
+      truly_sane: True
+  - mdx_breakless_lists
+  - def_list
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.details
+  - pymdownx.magiclink
+  - pymdownx.critic
+  - pymdownx.caret
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.tilde
+  - pymdownx.highlight:
+      use_pygments: true
+      anchor_linenums: true
+  - pymdownx.tasklist:
+       custom_checkbox: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:materialx.emoji.to_svg
+  - admonition
+  - toc:
+      permalink: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - plantuml_markdown:
+      format: png
+      base_dir: !relative
+#      server: 'https://plantuml.com/plantuml'
+#      server: ''
+#      kroki_server: ''
+      plantuml_cmd: 'java -DPLANTUML_SECURITY_PROFILE=UNSECURE -DPLANTUML_LIMIT_SIZE=8192 -Dplantuml.include.path="contents:contents/assets/plantuml:docs" -Djava.awt.headless=true -jar plantuml.jar  -config contents/assets/plantuml/config.cfg'
+
+plugins:
+  - search
+  # https://github.com/shyamd/mkdocs-bibtex
+  - bibtex:
+      bib_file: "bibtex/refs.bib"
+      # csl_file: "bibtex/production-and-operations-management.csl"
+      csl_file: "bibtex/informs-journal-on-computing.csl"
+      cite_inline: False
+  - awesome-pages
+  - macros
+  - meta-descriptions
+  - mkdocs_matplotlib
+  - rss:
+      match_path: blog/posts/.*
+      date_from_meta:
+        as_creation: date
+      categories:
+        - categories
+        - tags
+#  - drawio_file
+#  - git-revision-date-localized:
+#      type: date
+#      fallback_to_build_date: true
+#      locale: en
+#      custom_format: "%A %d %B %Y"
+#      enable_creation_date: true
+  - ezlinks:
+      wikilinks: true
+#  - embed_file:
+#      callouts: true
+#      custom-attributes: 'assets/css/custom_attributes.css'
+  - custom-attributes:
+      file: 'assets/css/custom_attributes.css'
+  - tags:
+      tags_file: tags.md
+#  - encryptcontent:
+#      title_prefix: '🔐'
+#      summary: 'Private page'
+#      placeholder: 'Password'
+#      decryption_failure_message: 'Invalid password'
+#      encryption_info_message: "You don't have access to this page."
+#      search_index: 'encrypted'
+#      password_button: True
+#      password_button_text: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" height="1em" width="1em"><!--! Font Awesome Pro 6.1.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license (Commercial License) Copyright 2022 Fonticons, Inc. --><path d="M416 32h-64c-17.67 0-32 14.33-32 32s14.33 32 32 32h64c17.67 0 32 14.33 32 32v256c0 17.67-14.33 32-32 32h-64c-17.67 0-32 14.33-32 32s14.33 32 32 32h64c53.02 0 96-42.98 96-96V128C512 74.98 469 32 416 32zM342.6 233.4l-128-128c-12.51-12.51-32.76-12.49-45.25 0c-12.5 12.5-12.5 32.75 0 45.25L242.8 224H32C14.31 224 0 238.3 0 256s14.31 32 32 32h210.8l-73.38 73.38c-12.5 12.5-12.5 32.75 0 45.25s32.75 12.5 45.25 0l128-128C355.1 266.1 355.1 245.9 342.6 233.4z"/></svg>'
+  - callouts
+  # https://github.com/blueswen/mkdocs-glightbox#usage
+  - glightbox:
+      auto_caption: true
+  # https://squidfunk.github.io/mkdocs-material/plugins/blog/
+  - blog:
+      enabled: true
+      blog_dir: blog
+      blog_toc: false
+      post_dir: "{blog}/posts"
+      post_date_format: medium
+      post_url_date_format: yyyy/MM/dd
+      post_url_format: "{date}/{slug}"
+      post_url_max_categories: 2
+#      post_slugify: pymdownx.slugs.slugify
+      post_slugify_separator: "-"
+      post_excerpt: optional
+      # default is 2
+      post_excerpt_max_authors: 5
+      post_excerpt_max_categories: 5
+      post_excerpt_separator: <!-- end_excerpt -->
+      post_readtime: true
+      post_readtime_words_per_minute: 265
+      archive: true
+      archive_name: Archive
+      archive_date_format: yyyy
+      archive_url_date_format: yyyy
+      archive_url_format: archive/{date}
+      # Default is the value of `blog_toc`, this is only if override is desired
+      # archive_toc: true
+      # Below are insiders-4.44.0 options for archive
+#      archive_pagination: true
+#      archive_pagination_per_page: 10
+      categories: true
+      categories_name: Categories
+      categories_url_format: category/{slug}
+#      categories_slugify: pymdownx.slugs.slugify
+      categories_slugify_separator: "-"
+      categories_allowed:
+        - Supply Chain
+        - Technology Strategy
+        - Software Practice
+        - Systems Architecture
+        - Leadership
+        - Business
+        - Test
+      # Default is from `blog_toc` override only
+      # categories_toc: false
+      # Below are insiders-4.45.0 settings for categories
+#      categories_sort_by: material.plugins.blog.view_name
+#      categories_sort_reverse: false
+#      categories_pagination: true
+#      categories_pagination_per_page: 10
+      authors: true
+      authors_file: "{blog}/.authors.yml"
+      # Authors Settings for insiders-4.46.0
+#      authors_profiles: false
+#      authors_profiles_name: Authors
+#      authors_profiles_url_format: author/{slug}
+#      authors_profiles_pagination: true
+#      authors_profiles_pagination_per_page: 10
+      # Only to override `blog_toc`
+      # authors_profiles_toc: false
+      pagination: true
+      pagination_per_page: 10
+      pagination_url_format: "{date}/{slug}"
+      pagination_format: "~2~"
+      pagination_if_single_page: false
+      pagination_keep_content: false
+      draft: true
+      draft_on_serve: true
+      # default is false
+      draft_if_future_date: true
+
+#hooks:
+#  - overrides/hooks/on_page_markdown.py
+#  - overrides/hooks/on_env.py
+#  - overrides/hooks/on_files.py
+#  - overrides/hooks/plant_uml_env.py
+extra_javascript:
+#  - https://cdn.jsdelivr.net/gh/ObsidianPublisher/assets@main/dist/javascript.js
+#  - https://polyfill.io/v3/polyfill.min.js?features=es6
+#  - assets/js/tex-mml-chtml_v3.js
+   - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+extra_css:
+    - https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css
+#    - https://cdn.jsdelivr.net/gh/ObsidianPublisher/assets@main/dist/styles.css
+    - assets/css/admonition.css
+    - assets/css/custom_attributes.css
+    - assets/css/customization.css
+    - assets/css/draft-watermark.css
+extra:
+  draftMark: |
+    &nbsp;
+    { .draftWatermark }
+  generator: false
+  SEO: assets/meta/SEO.png
+  comments: false #disable comments globally
+  generate_graph: true #generate the graph of the site
+  attachments: 'assets/img' #path to the folder where the attachments are stored
+  no-auto-h1: false #disable the automatic generation of h1 if no h1 is found
+  blog_list:
+    pagination: true #enable pagination
+    pagination_message: true #display the message "Showing x posts out of y"
+    pagination_translation: 'posts in' #message to display before the number of posts ; Add your own translation!
+    no_page_found: "No pages found!" #message to display when no pages are found ; Add your own translation!
+  hooks:
+    strip_comments: true
+    fix_heading: true

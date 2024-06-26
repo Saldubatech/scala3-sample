@@ -8,7 +8,16 @@ classifiers = [
   "Development Status :: 2 - Pre-Alpha",
   "Typing :: Typed"
 ]
-packages = [{include = "salduba", from = "analysis/src"}]
+packages = [
+  {include = "salduba", from = "analysis/src"},
+  {include = "database", from = "scripts"}
+  ]
+
+
+[tool.poetry.scripts]
+clear_records = "database.reset_db:clearRecords"
+clear_db = "scripts.database.reset_db:clearDb"
+boo = "salduba.ddes.analysis.util:buuu"
 
 [tool.poetry.dependencies]
 python = "^3.11"
@@ -41,6 +50,7 @@ black = "^24.4.2"
 # https://github.com/jvllmr/poetry-types
 # poetry types add <package-name>
 # poetry types update
+mkdocs = "^1.6.0"
 [tool.poetry.group.types.dependencies]
 types-flake8 = "^7.0.0.20240511"
 
@@ -56,7 +66,6 @@ build-backend = "poetry.core.masonry.api"
 [tool.mypy]
 strict=true
 python_version = "3.11"
-exclude = "ib_src"
 
 [[tool.mypy.overrides]]
 module = 'ibapi.*'

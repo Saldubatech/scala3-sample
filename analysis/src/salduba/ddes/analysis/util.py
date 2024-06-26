@@ -179,3 +179,7 @@ def plotThroughput(station_name: str, n_slots: int, db_engine: Engine) -> None:
   plt.xlabel(f"period = {window_length}")
   plt.ylabel('Jobs per period')
   th.plot.bar(rot=45)
+
+
+def buuu() -> None:
+  print("HELLO THERE")
