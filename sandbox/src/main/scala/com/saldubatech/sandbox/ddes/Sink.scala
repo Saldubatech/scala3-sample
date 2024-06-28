@@ -14,7 +14,7 @@ object Sink:
     private val name: String,
     private val notifier: OperationEventNotification => Unit
   ) extends DomainProcessor[DM] with LogEnabled:
-    override def accept(at: Tick, ev: DomainEvent[DM])(using env: SimEnvironment)
+    override def accept(at: Tick, ev: DomainEvent[DM])
     : ActionResult =
       notifier(Arrival(at, ev.payload.job, name, ev.from.name))
       notifier(CompleteJob(at, ev.payload.job, name))

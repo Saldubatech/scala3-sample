@@ -38,7 +38,7 @@ trait Subject extends LogEnabled:
         observers.clear()
     } andThen ( _ => Right(()))
 
-  protected def notify(ev: OperationEventNotification): Unit =
+  def eventNotify(ev: OperationEventNotification): Unit =
     log.debug(s"Notifying $ev to Observers [$observers]")
     observers.values.foreach( (_, ref) => ref ! ev)
 

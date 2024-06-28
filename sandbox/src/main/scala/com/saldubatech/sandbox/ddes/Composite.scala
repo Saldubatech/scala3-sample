@@ -22,7 +22,7 @@ object Composite:
 
     def accept(at: Tick, dmEv: DE)(using env: SimEnvironment): ActionResult
 
-  class DP[DOMAIN_TUPLE](components: Seq[Component[DOMAIN_MESSAGE[DOMAIN_TUPLE], ?]])
+  class DP[DOMAIN_TUPLE](components: Seq[Component[DOMAIN_MESSAGE[DOMAIN_TUPLE], ?]], env: SimEnvironment)
   (using Typeable[DOMAIN_MESSAGE[DOMAIN_TUPLE]])
     extends DomainProcessor[DOMAIN_MESSAGE[DOMAIN_TUPLE]]:
     type PF = PartialFunction[DomainEvent[DOMAIN_MESSAGE[DOMAIN_TUPLE]], ActionResult]
@@ -33,7 +33,7 @@ object Composite:
       components.map[(Tick, SimEnvironment) => PF](cmp => (tick, env) => cmp.maybeAccept(tick)(using env))
         .foldRight[(Tick, SimEnvironment) => PF]((t, env) => fallThrough)( (cmp, rs) => (t, env) => cmp(t, env) orElse rs(t, env))
 
-    override def accept(at: Tick, ev: DomainEvent[DOMAIN_MESSAGE[DOMAIN_TUPLE]])(using env: SimEnvironment)
+    override def accept(at: Tick, ev: DomainEvent[DOMAIN_MESSAGE[DOMAIN_TUPLE]])
     : ActionResult = resolver(at, env)(ev)
 
 
@@ -45,5 +45,5 @@ trait Composite[DOMAIN_TUPLE <: Tuple : Typeable]
   extends SimActorBehavior[Composite.DOMAIN_MESSAGE[DOMAIN_TUPLE]]:
   import Composite.*
 
-  override val domainProcessor: DP[DOMAIN_TUPLE] = DP(components)
+  override val domainProcessor: DP[DOMAIN_TUPLE] = DP(components, this.Env)
 

@@ -6,7 +6,7 @@ import com.saldubatech.lang.predicate.ziointerop.Layers as PredicateLayers
 import com.saldubatech.math.randomvariables.Distributions
 import com.saldubatech.sandbox.ddes.{Source, DDE, DomainMessage, AbsorptionSink, DoneOK}
 import com.saldubatech.sandbox.ddes.ziointerop.Layers as DdesLayers
-import com.saldubatech.sandbox.ddes.node.Ggm
+import com.saldubatech.sandbox.ddes.node.Station
 import com.saldubatech.sandbox.ddes.node.ziointerop.Layers as NodeLayers
 import com.saldubatech.sandbox.observers.{RecordingObserver, Observer, Subject}
 import com.saldubatech.sandbox.observers.ziointerop.Layers as ObserverLayers
@@ -43,13 +43,13 @@ object MM1Run extends ZIOAppDefault with LogEnabled:
   private val pgConfig = PGDataSourceBuilder.Configuration(dbConfig)
 
   private val initializeShopFloor: RIO[
-    SimulationSupervisor & AbsorptionSink[JobMessage] & Ggm[JobMessage] & Source[JobMessage, JobMessage] & RecordingObserver,
+    SimulationSupervisor & AbsorptionSink[JobMessage] & Station[JobMessage, JobMessage, JobMessage, JobMessage] & Source[JobMessage, JobMessage] & RecordingObserver,
     ActorSystem[DDE.SupervisorProtocol]
   ] =
     for {
       supervisor <- ZIO.service[SimulationSupervisor]
       sink <- ZIO.service[AbsorptionSink[JobMessage]]
-      mm1 <- ZIO.service[Ggm[JobMessage]]
+      mm1 <- ZIO.service[Station[JobMessage, JobMessage, JobMessage, JobMessage]]
       source <- ZIO.service[Source[JobMessage, JobMessage]]
       observer <- ZIO.service[RecordingObserver]
       as <- {
@@ -79,7 +79,7 @@ object MM1Run extends ZIOAppDefault with LogEnabled:
     } yield rs
 
   private def simulation(nMessages: Int): RIO[
-    SimulationSupervisor & AbsorptionSink[JobMessage] & Ggm[JobMessage] & Source[JobMessage, JobMessage] & RecordingObserver,
+    SimulationSupervisor & AbsorptionSink[JobMessage] & Station[JobMessage, JobMessage, JobMessage, JobMessage] & Source[JobMessage, JobMessage] & RecordingObserver,
     ActorSystem[Nothing]] = for {
       supervisor <- ZIO.service[SimulationSupervisor]
       source <- ZIO.service[Source[JobMessage, JobMessage]]
@@ -119,10 +119,10 @@ object MM1Run extends ZIOAppDefault with LogEnabled:
   }
 
   def shopFloorLayer(lambda: Distributions.LongRVar, tau: Distributions.LongRVar):
-    RLayer[SimulationSupervisor, AbsorptionSink[JobMessage] & Source[JobMessage, JobMessage] & Ggm[JobMessage]] =
-     (DdesLayers.absorptionSinkLayer[JobMessage]("AbsorptionSink") >+>
-        (NodeLayers.mm1ProcessorLayer[JobMessage]("MM1_Station", tau, 1) >>> NodeLayers.ggmLayer[JobMessage]("MM1_Station")) >+>
-        DdesLayers.sourceLayer[JobMessage]("MM1_Source", lambda))
+    RLayer[SimulationSupervisor, AbsorptionSink[JobMessage] & Source[JobMessage, JobMessage] & Station[JobMessage, JobMessage, JobMessage, JobMessage]] = ???
+    //  (DdesLayers.absorptionSinkLayer[JobMessage]("AbsorptionSink") >+>
+    //     (NodeLayers.mm1ProcessorLayer[JobMessage]("MM1_Station", tau, 1) >>> NodeLayers.ggmLayer[JobMessage]("MM1_Station")) >+>
+    //     DdesLayers.sourceLayer[JobMessage]("MM1_Source", lambda))
 
   def dataSourceStack(configuration: PGDataSourceBuilder.Configuration): TaskLayer[DataSource] =
       DbLayers.pgDbBuilderFromConfig(configuration) >>>

@@ -8,7 +8,7 @@ import scala.reflect.Typeable
 import com.saldubatech.lang.Id
 
 trait DomainProcessor[-DM <: DomainMessage : Typeable]:
-  def accept(at: Tick, ev: DomainEvent[DM])(using env: SimEnvironment): ActionResult
+  def accept(at: Tick, ev: DomainEvent[DM]): ActionResult
 
 trait SimActor[-DM <: DomainMessage : Typeable] extends LogEnabled:
   selfSimActor =>

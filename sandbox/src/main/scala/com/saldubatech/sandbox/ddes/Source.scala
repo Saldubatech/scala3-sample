@@ -50,16 +50,17 @@ object Source:
    private val name: String,
    private val interval: LongRVar,
    private val notifier: OperationEventNotification => Unit)
+   (using env: SimEnvironment)
     extends DomainProcessor[Trigger[SOURCED]] with LogEnabled:
 
-    private def scheduleSend(at: Tick, forTime: Tick, targetMsg: TARGETED, target: SimActor[TARGETED])(using env: SimEnvironment): Unit =
+    private def scheduleSend(at: Tick, forTime: Tick, targetMsg: TARGETED, target: SimActor[TARGETED]): Unit =
       log.debug(s"Source[$name] at ${at}, Scheduling message for $forTime : $targetMsg with Target ${target.name}")
       env.schedule(target)(forTime, targetMsg)
       notifier(NewJob(forTime, targetMsg.job, name))
       notifier(Departure(forTime, targetMsg.job, name))
 
 
-    override def accept(at: Tick, ev: DomainEvent[Trigger[SOURCED]])(using env: SimEnvironment): ActionResult =
+    override def accept(at: Tick, ev: DomainEvent[Trigger[SOURCED]]): ActionResult =
         var forTime = ev.payload.startDelay match {
           case None => at
           case Some(withDelay) => at + withDelay
@@ -81,7 +82,7 @@ class Source[SOURCED <: DomainMessage : Typeable, TARGETED <: DomainMessage : Ty
   import Source._
 
   override val domainProcessor: DomainProcessor[Source.Trigger[SOURCED]] =
-    Source.DP(target, transformation, name, interval, opEv => notify(opEv))
+    Source.DP(target, transformation, name, interval, opEv => eventNotify(opEv))
 
   override def oam(msg: OAMMessage): ActionResult =
     msg match

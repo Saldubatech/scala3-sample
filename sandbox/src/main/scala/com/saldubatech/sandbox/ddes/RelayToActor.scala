@@ -14,7 +14,7 @@ object RelayToActor:
     notifier: OperationEventNotification => Unit,
     private val target: ActorRef[DomainEvent[DM]]
   ) extends Sink.DP[DM](name, notifier):
-    override def accept(at: Tick, ev: DomainEvent[DM])(using env: SimEnvironment)
+    override def accept(at: Tick, ev: DomainEvent[DM])
     : ActionResult =
       super.accept(at, ev)
       Right(target ! ev)
@@ -25,5 +25,5 @@ class RelayToActor[DM <: DomainMessage : Typeable]
   extends Sink(name, clock):
 
   override val domainProcessor: DomainProcessor[DM] =
-    RelayToActor.RelayProcessor[DM](name, opEv => notify(opEv), target)
+    RelayToActor.RelayProcessor[DM](name, opEv => eventNotify(opEv), target)
 

@@ -29,6 +29,9 @@ type Result[+ER <: AppError, +R] = Either[ER, R]
 type AppResult[R] = Result[AppError, R]
 type AppSuccess[+ER <: AppError, +R] = Right[ER, R]
 inline def AppSuccess[ER <: AppError, R](r: R) = Right[ER, R](r)
+object AppSuccess:
+  val unit: AppSuccess[? <: AppError, Unit] = AppSuccess(())
+
 type AppFail[+ER <: AppError, +R] = Left[ER, R]
 inline def AppFail[ER <: AppError, R](e: ER) = Left[ER, R](e)
 
