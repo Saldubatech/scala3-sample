@@ -2,13 +2,9 @@ package com.saldubatech.sandbox.observers
 
 import com.dimafeng.testcontainers.PostgreSQLContainer
 import com.saldubatech.infrastructure.storage.rdbms.{DataSourceBuilder, PGDataSourceBuilder, PersistenceError}
-import com.saldubatech.infrastructure.storage.rdbms.ziointerop.Layers as DbLayers
 import com.saldubatech.lang.Id
-import com.saldubatech.lang.predicate.ziointerop.Layers as PredicateLayers
 import com.saldubatech.math.randomvariables.Distributions
 import com.saldubatech.sandbox.ddes.*
-import com.saldubatech.sandbox.ddes.ziointerop.Layers as DdesLayers
-import com.saldubatech.sandbox.observers.ziointerop.Layers as ObserverLayers
 import com.saldubatech.sandbox.observers.{Observer, Subject}
 import com.saldubatech.test.persistence.postgresql.{PostgresContainer, TestPGDataSourceBuilder}
 import com.saldubatech.util.LogEnabled
@@ -34,6 +30,8 @@ import javax.sql.DataSource
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.*
 import scala.language.postfixOps
+import com.saldubatech.infrastructure.storage.rdbms.quill.QuillPostgres
+import com.saldubatech.lang.predicate.platforms.QuillPlatform
 
 object QuillMM1ObservationSpec extends  ZIOSpecDefault
 //  with Matchers
@@ -68,12 +66,6 @@ object QuillMM1ObservationSpec extends  ZIOSpecDefault
     containerLayer >>>
       dataSourceBuilderLayer >>>
       dataSourceLayer
-
-  val recorderStack: TaskLayer[QuillRecorder] =
-    dataSourceStack >>>
-      DbLayers.quillPostgresLayer >>>
-      PredicateLayers.quillPlatformLayer >>>
-      ObserverLayers.quillRecorderLayer(simulationBatch)
 
   given rt: ZRuntime[Any] = ZRuntime.default
 
@@ -145,9 +137,10 @@ object QuillMM1ObservationSpec extends  ZIOSpecDefault
       probeLayer,
       probeRefLayer[Observer.PROTOCOL],
       probeRefLayer[DomainEvent[TestSimulationLayers.ProbeMessage]],
-      recorderStack,
+      dataSourceStack,
+      QuillRecorder.fromDataSourceStack(simulationBatch),
       DDE.simSupervisorLayer("QuillMM1ObserverTest", None),
-      ObserverLayers.observerLayer,
+      RecordingObserver.layer,
       mm1ShopFloorLayer(lambda, tau)
     ) @@ sequential
   }

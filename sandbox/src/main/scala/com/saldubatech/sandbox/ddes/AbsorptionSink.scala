@@ -6,7 +6,13 @@ import scala.reflect.Typeable
 import org.apache.pekko.actor.typed.scaladsl.ActorContext
 import org.apache.pekko.actor.typed.ActorRef
 
-object AbsorptionSink
+import zio.{ZIO, RLayer, ZLayer, Tag as ZTag}
+
+object AbsorptionSink:
+  def layer[DM <: DomainMessage : Typeable : ZTag](name: String):
+    RLayer[SimulationSupervisor, AbsorptionSink[DM]] =
+    ZLayer( ZIO.serviceWith[SimulationSupervisor]( s => AbsorptionSink(name, s.clock)) )
+end AbsorptionSink // object
 
 class AbsorptionSink[DM <: DomainMessage : Typeable]
 (name: Id, clock: Clock)

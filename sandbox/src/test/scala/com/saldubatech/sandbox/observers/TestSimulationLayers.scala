@@ -1,17 +1,12 @@
 package com.saldubatech.sandbox.observers
 
-import com.saldubatech.infrastructure.storage.rdbms.ziointerop.Layers as DbLayers
 import com.saldubatech.infrastructure.storage.rdbms.{DataSourceBuilder, PGDataSourceBuilder}
 import com.saldubatech.lang.Id
 import com.saldubatech.lang.predicate.SlickPlatform
-import com.saldubatech.lang.predicate.ziointerop.Layers as PredicateLayers
 import com.saldubatech.math.randomvariables.Distributions
 import com.saldubatech.math.randomvariables.Distributions.LongRVar
 import com.saldubatech.sandbox.ddes.*
-import com.saldubatech.sandbox.ddes.node.Ggm
-import com.saldubatech.sandbox.ddes.ziointerop.Layers as DdesLayers
-import com.saldubatech.sandbox.ddes.node.ziointerop.Layers as NodeLayers
-import com.saldubatech.sandbox.observers.ziointerop.Layers as ObserverLayers
+import com.saldubatech.sandbox.ddes.node.{Station, SimpleStation}
 import com.saldubatech.sandbox.observers.{Observer, Subject}
 import org.apache.pekko.actor.testkit.typed.scaladsl.{ActorTestKit, TestProbe}
 import org.apache.pekko.actor.typed.{ActorRef, ActorSystem}
@@ -39,35 +34,20 @@ object TestSimulationLayers:
   val fixtureStack: URLayer[SimulationSupervisor, ActorSystem[DDE.SupervisorProtocol] & ActorTestKit] =
     testActorSystemLayer >+> fixtureLayer
 
-  def sinkLayer:
-    RLayer[
-      SimulationSupervisor &
-        ActorRef[DomainEvent[ProbeMessage]
-        ],
-      RelayToActor[ProbeMessage]] = DdesLayers.relayToActorLayer[ProbeMessage]
-
-  def sourceProbeLayer(interval: LongRVar = Distributions.toLong(Distributions.exponential(500.0))):
-    RLayer[
-      SimulationSupervisor & SimActor[ProbeMessage],
-      Source[ProbeMessage, ProbeMessage]
-    ]  = DdesLayers.sourceLayer[ProbeMessage]("TheSource", Distributions.toLong(Distributions.exponential(500.0)))
-
-
-  def mm1Layer(processingTime: LongRVar): RLayer[
-    SimActor[ProbeMessage] & SimulationSupervisor,
-    Ggm[ProbeMessage]
-  ] = NodeLayers.mm1ProcessorLayer[ProbeMessage]("MM1_Station", processingTime, 1) >>>
-      NodeLayers.ggmLayer[ProbeMessage]("MM1_Station")
-
   def simpleShopFloorLayer: RLayer[
   ActorRef[DomainEvent[ProbeMessage]] & SimulationSupervisor,
   RelayToActor[ProbeMessage] & Source[ProbeMessage, ProbeMessage]
-  ] = sinkLayer >+> sourceProbeLayer()
+  ] =
+    RelayToActor.layer[ProbeMessage] >+>
+    Source.layer[ProbeMessage]("TheSource", Distributions.toLong(Distributions.exponential(500.0)))
 
   def mm1ShopFloorLayer(lambda: LongRVar, tau: LongRVar): RLayer[
     SimulationSupervisor & ActorRef[DomainEvent[ProbeMessage]],
-    RelayToActor[ProbeMessage] & Source[ProbeMessage, ProbeMessage] & Ggm[ProbeMessage]
-  ] = (sinkLayer >+> mm1Layer(tau) >+> sourceProbeLayer(lambda))
+    RelayToActor[ProbeMessage] & Source[ProbeMessage, ProbeMessage] & SimpleStation[ProbeMessage]
+  ] =
+    RelayToActor.layer[ProbeMessage] >+>
+    SimpleStation.simpleStationLayer[ProbeMessage]("MM1_Station", 1, tau, Distributions.zeroLong, Distributions.zeroLong) >+>
+    Source.layer[ProbeMessage]("TheSource", lambda)
 
   def initializeMM1ShopFloor:
     RIO[
@@ -75,7 +55,7 @@ object TestSimulationLayers:
         SimulationSupervisor &
         ActorSystem[DDE.SupervisorProtocol] &
         RelayToActor[ProbeMessage] &
-        Ggm[ProbeMessage] &
+        SimpleStation[ProbeMessage] &
         Source[TestSimulationLayers.ProbeMessage, TestSimulationLayers.ProbeMessage] &
         RecordingObserver &
         ActorRef[Observer.PROTOCOL]
@@ -84,7 +64,7 @@ object TestSimulationLayers:
         fixture <- ZIO.service[ActorTestKit]
         supervisor <- ZIO.service[SimulationSupervisor]
         sink <- ZIO.service[RelayToActor[TestSimulationLayers.ProbeMessage]]
-        mm1 <- ZIO.service[Ggm[TestSimulationLayers.ProbeMessage]]
+        mm1 <- ZIO.service[SimpleStation[TestSimulationLayers.ProbeMessage]]
         source <- ZIO.service[Source[TestSimulationLayers.ProbeMessage, TestSimulationLayers.ProbeMessage]]
         observer <- ZIO.service[RecordingObserver]
         observerProbeRef <- ZIO.service[ActorRef[Observer.PROTOCOL]]

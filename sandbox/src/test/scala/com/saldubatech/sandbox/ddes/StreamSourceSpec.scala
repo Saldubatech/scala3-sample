@@ -92,6 +92,5 @@ class StreamSourceSpec extends ScalaTestWithActorTestKit
       assert(intervalSum.toDouble/(found.toDouble - 1.0) === intervalMean +- 30.0)
 
       termProbe.expectNoMessage(300 millis)
-      println(s"#### Times:\n$times")
     }
   }

@@ -5,6 +5,8 @@ import com.github.tminglei.slickpg.geom.PgPostGISExtensions
 
 import io.circe._
 //import io.circe.generic.auto
+import zio.{ULayer, ZLayer}
+import slick.jdbc.JdbcProfile
 
 
 trait PGExtendedProfile extends ExPostgresProfile
@@ -21,8 +23,8 @@ trait PGExtendedProfile extends ExPostgresProfile
   with PgNetSupport
   with PgLTreeSupport {
   def pgjson = "jsonb" // jsonb support is in postgres 9.4.0 onward; for 9.3.x use "json"
-  
-  trait API extends JdbcAPI 
+
+  trait API extends JdbcAPI
     //with Date2DateTimeImplicitsDuration
     with JsonImplicits
     with NetImplicits
@@ -56,4 +58,8 @@ trait PGExtendedProfile extends ExPostgresProfile
   }
 }
 
-object PGExtendedProfile extends PGExtendedProfile
+object PGExtendedProfile extends PGExtendedProfile:
+  val postgresProfileLayer: ULayer[JdbcProfile] = ZLayer.succeed[JdbcProfile](slick.jdbc.PostgresProfile)
+  val PGExtendedProfileLayer: ULayer[JdbcProfile] = ZLayer.succeed[JdbcProfile](PGExtendedProfile)
+
+

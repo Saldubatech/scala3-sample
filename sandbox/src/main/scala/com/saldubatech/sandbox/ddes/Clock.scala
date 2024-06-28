@@ -4,6 +4,7 @@ import com.saldubatech.lang.Id
 import com.saldubatech.util.LogEnabled
 import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors, TimerScheduler}
 import org.apache.pekko.actor.typed.{ActorRef, Behavior}
+import zio.{RLayer, TaskLayer, ZLayer}
 
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration._
@@ -16,10 +17,11 @@ object Clock:
 
   case class ActionComplete(action: Id, by: SimActor[?]) extends ClockMessage
 
-
   type PROTOCOL = ClockMessage | Command
 
-
+  val withTickLayer: RLayer[Option[Tick], Clock] = ZLayer.fromFunction { (maxTime: Option[Tick]) => Clock(maxTime) }
+  def startTimeLayer(at: Tick): TaskLayer[Clock] = ZLayer.succeed { Clock(Some(at)) }
+  val zeroStartLayer: TaskLayer[Clock] = startTimeLayer(0L)
 
 
 class Clock(

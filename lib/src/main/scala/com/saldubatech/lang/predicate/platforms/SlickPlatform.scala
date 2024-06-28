@@ -8,13 +8,20 @@ import izumi.reflect.Tag as ZTag
 import slick.interop.zio.DatabaseProvider
 import slick.interop.zio.syntax.*
 import slick.lifted.TableQuery.Extract
-import zio.{Executor, URLayer, ZEnvironment, ZIO, ZLayer}
+import zio.{Executor, URLayer, ZEnvironment, ZIO, ZLayer, RLayer}
 
 import java.util.concurrent.{ExecutorService, Executors}
 import scala.concurrent.ExecutionContext
 import scala.language.postfixOps
 import scala.ref.{PhantomReference, ReferenceQueue}
 import scala.reflect.Typeable
+
+
+object SlickPlatform:
+  val layer: URLayer[DatabaseProvider, SlickPlatform] =
+    ZLayer(ZIO.serviceWith[DatabaseProvider](SlickPlatform(_)))
+
+  type REPO_IO[A] = SZIO[Any, PersistenceError, A]
 
 class SlickPlatform(val dbP: DatabaseProvider) extends Platform:
   selfSlickPlatform =>
@@ -59,9 +66,6 @@ class SlickPlatform(val dbP: DatabaseProvider) extends Platform:
         case _ => DBIO.failed(InsertionError(s"Could not Insert $e"))
       }
     }
-
-object SlickPlatform:
-  type REPO_IO[A] = SZIO[Any, PersistenceError, A]
 
 
 abstract class SlickRepoZioService[E: ZTag]

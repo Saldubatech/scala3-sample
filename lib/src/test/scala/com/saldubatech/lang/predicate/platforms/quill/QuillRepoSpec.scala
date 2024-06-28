@@ -2,11 +2,9 @@ package com.saldubatech.lang.predicate.platforms.quill
 
 import com.dimafeng.testcontainers.PostgreSQLContainer
 import com.saldubatech.infrastructure.storage.rdbms.{DataSourceBuilder, PersistenceError, PersistenceIO}
-import com.saldubatech.infrastructure.storage.rdbms.ziointerop.Layers as DBLayers
 import com.saldubatech.test.persistence.postgresql.{PostgresContainer, TestPGDataSourceBuilder}
 import com.saldubatech.lang.predicate.platforms.{QPlatformIO, QuillPlatform, QuillRepo}
 
-import com.saldubatech.lang.predicate.ziointerop.Layers as PredicateLayers
 import io.getquill._
 import io.getquill.jdbczio.Quill
 import zio.{query => _, _}
@@ -16,6 +14,7 @@ import zio.test.TestAspect.*
 
 import java.sql.SQLException
 import javax.sql.DataSource
+import com.saldubatech.infrastructure.storage.rdbms.quill.QuillPostgres
 
 case class Animal(animal: String, size: Int, age: Double)
 
@@ -56,9 +55,9 @@ object QuillRepoSpec
 
   val dataSourceLayer: ZLayer[DataSourceBuilder, Nothing, DataSource] = ZLayer(ZIO.serviceWith[DataSourceBuilder](_.dataSource))
 
-  val postgresQuill: RLayer[DataSource, Quill.Postgres[SnakeCase]] = DBLayers.quillPostgresLayer
+  val postgresQuill: RLayer[DataSource, Quill.Postgres[SnakeCase]] = QuillPostgres.layer
 
-  val quillPlatformLayer: URLayer[Quill.Postgres[SnakeCase], QuillPlatform] = PredicateLayers.quillPlatformLayer
+  val quillPlatformLayer: URLayer[Quill.Postgres[SnakeCase], QuillPlatform] = QuillPlatform.layer
 
   val animalServiceLayer: RLayer[QuillPlatform, AnimalZioService] = AnimalZioService.zioLayer
 

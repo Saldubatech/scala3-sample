@@ -1,15 +1,10 @@
 package com.saldubatech.sandbox.system
 
-import com.saldubatech.infrastructure.storage.rdbms.ziointerop.Layers as DbLayers
 import com.saldubatech.lang.Id
-import com.saldubatech.lang.predicate.ziointerop.Layers as PredicateLayers
 import com.saldubatech.math.randomvariables.Distributions
 import com.saldubatech.sandbox.ddes.{Source, DDE, DomainMessage, AbsorptionSink, DoneOK}
-import com.saldubatech.sandbox.ddes.ziointerop.Layers as DdesLayers
 import com.saldubatech.sandbox.ddes.node.Station
-import com.saldubatech.sandbox.ddes.node.ziointerop.Layers as NodeLayers
 import com.saldubatech.sandbox.observers.{RecordingObserver, Observer, Subject}
-import com.saldubatech.sandbox.observers.ziointerop.Layers as ObserverLayers
 import com.saldubatech.infrastructure.storage.rdbms.PGDataSourceBuilder
 import com.typesafe.config.{Config, ConfigFactory}
 import zio.{IO, Task, RIO, ZIO, ZIOAppDefault, ZLayer, RLayer, TaskLayer, Runtime as ZRuntime, Console as ZConsole}
@@ -28,6 +23,11 @@ import org.apache.pekko.Done
 import scala.concurrent.duration._
 import com.saldubatech.lang.types.AppError
 import com.saldubatech.util.LogEnabled
+import com.saldubatech.infrastructure.storage.rdbms.DataSourceBuilder
+import com.saldubatech.infrastructure.storage.rdbms.quill.QuillPostgres
+import com.saldubatech.lang.predicate.platforms.QuillPlatform
+import org.apache.commons.math3.analysis.function.Abs
+import com.saldubatech.sandbox.ddes.node.SimpleStation
 
 object MM1Run extends ZIOAppDefault with LogEnabled:
   case class JobMessage(number: Int, override val job: Id, override val id: Id = Id) extends DomainMessage
@@ -110,7 +110,7 @@ object MM1Run extends ZIOAppDefault with LogEnabled:
                       dataSourceStack(pgConfig),
                       recorderStack(simulationBatch),
                       DDE.simSupervisorLayer("MM1Run", None),
-                      ObserverLayers.observerLayer,
+                      RecordingObserver.layer,
                       shopFloorLayer(lambda, tau))
       _ <- ZConsole.printLine(s">> Waiting for Actor System to finish")
       done <- ZIO.fromFuture(implicit ec => actorSystem.whenTerminated)
@@ -119,16 +119,16 @@ object MM1Run extends ZIOAppDefault with LogEnabled:
   }
 
   def shopFloorLayer(lambda: Distributions.LongRVar, tau: Distributions.LongRVar):
-    RLayer[SimulationSupervisor, AbsorptionSink[JobMessage] & Source[JobMessage, JobMessage] & Station[JobMessage, JobMessage, JobMessage, JobMessage]] = ???
-    //  (DdesLayers.absorptionSinkLayer[JobMessage]("AbsorptionSink") >+>
-    //     (NodeLayers.mm1ProcessorLayer[JobMessage]("MM1_Station", tau, 1) >>> NodeLayers.ggmLayer[JobMessage]("MM1_Station")) >+>
-    //     DdesLayers.sourceLayer[JobMessage]("MM1_Source", lambda))
+    RLayer[SimulationSupervisor, AbsorptionSink[JobMessage] & Source[JobMessage, JobMessage] & Station[JobMessage, JobMessage, JobMessage, JobMessage]] =
+     (AbsorptionSink.layer[JobMessage]("AbsorptionSink") >+>
+        SimpleStation.simpleStationLayer[JobMessage]("MM1_Station", 1, tau, Distributions.zeroLong, Distributions.zeroLong) >+>
+        Source.layer[JobMessage]("MM1_Source", lambda))
 
   def dataSourceStack(configuration: PGDataSourceBuilder.Configuration): TaskLayer[DataSource] =
-      DbLayers.pgDbBuilderFromConfig(configuration) >>>
-        DbLayers.dataSourceLayer
+      PGDataSourceBuilder.layerFromConfig(configuration) >>>
+        DataSourceBuilder.dataSourceLayer
 
   def recorderStack(simulationBatch: String): RLayer[DataSource, QuillRecorder] =
-      DbLayers.quillPostgresLayer >>>
-      PredicateLayers.quillPlatformLayer >>>
-      ObserverLayers.quillRecorderLayer(simulationBatch)
+      QuillPostgres.layer >>>
+      QuillPlatform.layer >>>
+      QuillRecorder.layer(simulationBatch)

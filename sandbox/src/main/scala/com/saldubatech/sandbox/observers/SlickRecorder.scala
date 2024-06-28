@@ -20,8 +20,26 @@ import javax.sql.DataSource
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.*
 import scala.reflect.Typeable
+import com.saldubatech.infrastructure.storage.rdbms.PGDataSourceBuilder
 
-object SlickRecorder
+import zio.{RLayer, ZIO}
+import com.saldubatech.infrastructure.storage.rdbms.DataSourceBuilder
+import com.saldubatech.infrastructure.storage.rdbms.slick.PGExtendedProfile
+import com.saldubatech.types.datetime.Epoch
+
+object SlickRecorder:
+  def layer(simulationBatch: String)(using ec: ExecutionContext): URLayer[SlickPlatform, SlickRecorder] =
+    ZLayer(ZIO.serviceWith[SlickPlatform](implicit plt => SlickRecorder(simulationBatch)))
+
+  def stack(
+    using ec: ExecutionContext)
+    (dbConfig: PGDataSourceBuilder.Configuration)
+    (simulationBatch: String): RLayer[Any, Recorder] =
+    (PGExtendedProfile.PGExtendedProfileLayer ++ (PGDataSourceBuilder.layerFromConfig(dbConfig) >>>
+      DataSourceBuilder.dataSourceLayer)) >>>
+      DatabaseProvider.fromDataSource() >>>
+      SlickPlatform.layer >>>
+      layer(simulationBatch)
 
 @Deprecated("Slick DB access not maintained for this project")
 class SlickRecorder
@@ -36,11 +54,11 @@ class SlickRecorder
       s => OperationEventType.valueOf(s)
     )
 
-    private[SlickRecorder] case class OperationEventRecord(batch: String, operation: OperationEventType, id: Id, at: Tick, job: Id, station: Id, fromStation: Id):
+    private[SlickRecorder] case class OperationEventRecord(batch: String, operation: OperationEventType, id: Id, at: Tick, job: Id, station: Id, fromStation: Id, realTime: Epoch):
       lazy val opEvent: OperationEventNotification = OperationEventNotification.apply(operation, id, at, job, station, fromStation)
 
     private[SlickRecorder] def fromOpEvent(opEv: OperationEventNotification): OperationEventRecord =
-        OperationEventRecord(simulationBatch, opEv.operation, opEv.id, opEv.at, opEv.job, opEv.station, opEv.fromStation)
+        OperationEventRecord(simulationBatch, opEv.operation, opEv.id, opEv.at, opEv.job, opEv.station, opEv.fromStation, opEv.realTime)
 
     implicit class EventRecordTable(tag: Tag) extends Table[OperationEventRecord](tag, "event_record") {
 
@@ -51,9 +69,10 @@ class SlickRecorder
       val job: Rep[Id] = column[Id]("job")
       val station: Rep[Id] = column[Id]("station")
       val fromStation: Rep[Id] = column[Id]("from_station")
+      val realTime: Rep[Epoch] = column[Epoch]("real_time")
 
       override def * : ProvenShape[OperationEventRecord] =
-        (batch, operation, id, at, job, station, fromStation) <> (OperationEventRecord.apply.tupled, OperationEventRecord.unapply)
+        (batch, operation, id, at, job, station, fromStation, realTime) <> (OperationEventRecord.apply.tupled, OperationEventRecord.unapply)
     }
     val _tblQ = TableQuery[EventRecordTable]
 

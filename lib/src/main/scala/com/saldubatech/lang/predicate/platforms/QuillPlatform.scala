@@ -2,7 +2,6 @@ package com.saldubatech.lang.predicate.platforms
 
 import algebra.instances.boolean
 import algebra.lattice.Bool
-import com.saldubatech.infrastructure.storage.rdbms.ziointerop.Layers as DbLayers
 import com.saldubatech.infrastructure.storage.rdbms.{PersistenceError, PersistenceIO}
 import InMemoryPlatform.B
 import com.saldubatech.lang.predicate.{Platform, Predicate, Repo}

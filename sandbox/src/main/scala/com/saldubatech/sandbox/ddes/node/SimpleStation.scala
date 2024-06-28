@@ -15,7 +15,23 @@ import com.saldubatech.sandbox.ddes.DomainEvent
 import com.saldubatech.sandbox.ddes.ActionResult
 import com.saldubatech.sandbox.observers.Arrival
 
+import zio.{Tag as ZTag, ZIO, ZLayer, RLayer}
+import com.saldubatech.sandbox.ddes.SimulationSupervisor
+
 object SimpleStation:
+
+  def simpleStationLayer[JOB <: DomainMessage : Typeable : ZTag]
+  (name: String, nServers: Int, processingTime: LongRVar, dischargeDelay:LongRVar, outboundTransportDelay: LongRVar)
+  (using Typeable[Station.PROTOCOL[JOB, JOB]]):
+    RLayer[SimActor[JOB] & SimulationSupervisor, SimpleStation[JOB]] =
+      ZLayer(
+        for {
+          target <- ZIO.service[SimActor[JOB]]
+          supervisor <- ZIO.service[SimulationSupervisor]
+        } yield
+          SimpleStation[JOB](target)(name, nServers, processingTime, dischargeDelay, outboundTransportDelay)(supervisor.clock)
+      )
+
   class SimpleInductor[JOB <: DomainMessage] extends Inductor[JOB, JOB]:
     import Inductor._
 
@@ -147,29 +163,33 @@ object SimpleStation:
       host.env.scheduleDelay(target)(transportDelay(), outbound)
       AppSuccess.unit
 
-    protected def process(wp: ProcessorResource.WorkPackage[JOB, JOB]): AppResult[JOB] = ???
+    protected def process(wp: ProcessorResource.WorkPackage[JOB, JOB]): AppResult[JOB] = AppSuccess(wp.wr)
 
-    override final lazy val overrideInboundBehavior: Option[PartialFunction[DomainEvent[Station.PROTOCOL[JOB, JOB]], ActionResult]] = Some(
-    {
-      case evFromUpstream@DomainEvent(action, from, ib: JOB) =>
-        host.eventNotify(Arrival(host.currentTime, ib.job, host.name, evFromUpstream.from.name))
-        pendingWork.enqueueWorkRequest(host.currentTime, action, from.name, ib).map{_ => ()}
-        // TODO
-        // materialFlowNotifier(MaterialArrival(host.currentTime, ib.job, host.name, ib.from.name))
-        inductor.arrival(host.currentTime, ib)
-    }
-  )
+    private lazy val overrideInboundBehavior: PartialFunction[DomainEvent[Station.PROTOCOL[JOB, JOB]], ActionResult] =
+      {
+        case evFromUpstream@DomainEvent(action, from, ib: JOB) =>
+          host.eventNotify(Arrival(host.currentTime, ib.job, host.name, evFromUpstream.from.name))
+          pendingWork.enqueueWorkRequest(host.currentTime, action, from.name, ib).map{_ => ()}
+          // TODO
+          // materialFlowNotifier(MaterialArrival(host.currentTime, ib.job, host.name, ib.from.name))
+          inductor.arrival(host.currentTime, ib)
+      }
 
-
+    override lazy val processingBehavior: PartialFunction[DomainEvent[Station.PROTOCOL[JOB, JOB]], ActionResult] =
+      overrideInboundBehavior orElse
+      executionCompleteBehavior orElse
+      dischargeBehavior orElse {
+        case other =>  AppFail(AppError(s"Unknown Domain Event received $other"))
+      }
 
 end SimpleStation // object
 
-class SimpleStation[JOB <: DomainMessage : Typeable](
+class SimpleStation[JOB <: DomainMessage : Typeable](target: SimActor[JOB])
+(
   name: String,
   nServers: Int,
   processingTime: LongRVar,
   dischargeDelay: LongRVar,
-  target: SimActor[Station.PROTOCOL[JOB, JOB]],
   outboundTransportDelay: LongRVar
   )
   (clock: Clock)

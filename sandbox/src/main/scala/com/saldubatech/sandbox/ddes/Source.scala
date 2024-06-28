@@ -14,9 +14,19 @@ import scala.reflect.Typeable
 import com.saldubatech.lang.types.AppError
 import scala.reflect.TypeTest
 import org.apache.pekko.actor.typed.ActorRef
-
+import zio.{ZIO, Tag as ZTag, RLayer, ZLayer}
+import com.saldubatech.math.randomvariables.Distributions
 
 object Source:
+  def layer[DM <: DomainMessage : Typeable : ZTag](name: String, distribution: Distributions.LongRVar):
+  RLayer[SimulationSupervisor & SimActor[DM], Source[DM, DM]] =
+    ZLayer(
+      for {
+        supervisor <- ZIO.service[SimulationSupervisor]
+        target <- ZIO.service[SimActor[DM]]
+      } yield Source(target, (t: Tick, s: DM) => s)(name, distribution, supervisor.clock)
+    )
+
   case class Trigger[SOURCED <: DomainMessage : Typeable] private (
     override val id: Id,
     override val job: Id,

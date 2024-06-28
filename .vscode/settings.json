@@ -98,7 +98,7 @@
     "${workspaceFolder}/scripts"
   ],
   "python.testing.pytestArgs": [
-    "analysis"
+    "."
   ],
   "python.testing.unittestEnabled": false,
   "python.testing.unittestArgs": [

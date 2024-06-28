@@ -10,7 +10,7 @@ import com.saldubatech.sandbox.ddes.Tick
 import com.saldubatech.sandbox.observers
 import io.getquill._
 import zio.Exit.{Failure, Success}
-import zio.{Exit, IO, RIO, Scope, Task, ULayer, URIO, URLayer, Unsafe, ZEnvironment, ZIO, ZLayer, Runtime as ZRuntime}
+import zio.{Exit, IO, RIO, Scope, Task, ULayer, URIO, URLayer, RLayer, Unsafe, ZEnvironment, ZIO, ZLayer, TaskLayer, Runtime as ZRuntime}
 
 import java.sql.SQLException
 import javax.sql.DataSource
@@ -18,7 +18,22 @@ import scala.concurrent.duration._
 import com.saldubatech.types.datetime.Epoch
 import com.saldubatech.lang.types.{SIO, AppFail}
 import com.saldubatech.infrastructure.storage.rdbms.PersistenceIO
-object QuillRecorder
+import com.saldubatech.infrastructure.storage.rdbms.PGDataSourceBuilder
+import com.saldubatech.infrastructure.storage.rdbms.DataSourceBuilder
+import com.saldubatech.infrastructure.storage.rdbms.quill.QuillPostgres
+
+object QuillRecorder:
+  def layer(simulationBatch: String): URLayer[QuillPlatform, QuillRecorder] =
+    ZLayer(ZIO.serviceWith[QuillPlatform](implicit plt => QuillRecorder(simulationBatch)))
+
+  def fromDataSourceStack(simulationBatch: String): RLayer[DataSource, QuillRecorder] =
+    QuillPostgres.layer >>> QuillPlatform.layer >>> layer(simulationBatch)
+
+  def stack(dbConfig: PGDataSourceBuilder.Configuration)
+                        (simulationBatch: String): TaskLayer[Recorder] =
+    PGDataSourceBuilder.layerFromConfig(dbConfig) >>>
+      DataSourceBuilder.dataSourceLayer >>>
+      fromDataSourceStack(simulationBatch)
 
 class QuillRecorder
 (val simulationBatch: String)
@@ -54,10 +69,10 @@ class QuillRecorder
 
     def eventRecordQuery(batch: String, operation: OperationEventType, job: Id, station: Id): Quoted[Query[OperationEventRecord]] =
       baseQuery().filter((r : OperationEventRecord) =>
-        r.batch == batch &&
-        r.operation == operation &&
-        r.job == job &&
-        r.station == station
+        r.batch == lift(batch) &&
+        r.operation == lift(operation) &&
+        r.job == lift(job) &&
+        r.station == lift(station)
       )
 
 
@@ -124,15 +139,17 @@ class QuillRecorder
     log.debug(s"\tIntent to record $ev")
     val newRecord = Events.fromOpEvent(ev)
     log.debug(s"\tFor Record: $newRecord")
-    (for {
-      nEvInserted <- Events.inserter(newRecord)
-      bracketEv <- Events.findEventRecord(newRecord.batch, newRecord.operation, newRecord.job, newRecord.station)
-      bracketOp <- Operations.bracketOperation(newRecord, bracketEv)
-      nOpInserted <- Operations.inserter(bracketOp)
-    } yield ev)
-    .mapError{
-      case ae: PersistenceError => ae
-      case other: Throwable => PersistenceError(s"Unexpected error: $other", Some(other))
+    Events.inserter(newRecord).map(_ => ev).mapError{
+      case sqlE: SQLException => PersistenceError(s"SQL Exception", Some(sqlE))
+//      case other: Throwable => PersistenceError(s"Unexpected error: $other", Some(other))
     }
+
+    // FOR LATER TO Compute Spans on the fly.
+    // (for {
+    //   nEvInserted <- Events.inserter(newRecord)
+    //   bracketEv <- Events.findEventRecord(newRecord.batch, newRecord.operation, newRecord.job, newRecord.station)
+    //   bracketOp <- Operations.bracketOperation(newRecord, bracketEv)
+    //   nOpInserted <- Operations.inserter(bracketOp)
+    // } yield ev)
 
 

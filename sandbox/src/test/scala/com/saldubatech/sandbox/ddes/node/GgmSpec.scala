@@ -13,6 +13,7 @@ import org.scalatest.wordspec.AnyWordSpecLike
 import scala.concurrent.duration.*
 import scala.language.postfixOps
 import com.saldubatech.sandbox.ddes.Tick
+import com.saldubatech.math.randomvariables.Distributions.LongRVar
 
 
 object GgmSpec:
@@ -39,8 +40,10 @@ class GgmSpec extends ScalaTestWithActorTestKit
 
       val sink = RelayToActor[ProbeMessage]("TheSink", termProbe.ref, simSupervisor.clock)
       val sinkRef = spawn(sink.init())
-      val mm1Processor = SimpleNProcessor[ProbeMessage]("MM1 Processor", tau, 1)
-      val mm1: Ggm[ProbeMessage] = Ggm(sink)("MM1_Station", mm1Processor, simSupervisor.clock)
+      val mm1: SimpleStation[ProbeMessage] =
+        SimpleStation(sink)(
+          "MM1_Station", 1, tau, Distributions.zeroLong, Distributions.zeroLong)(
+            simSupervisor.clock)
       val mm1Ref = spawn(mm1.init())
       val source =
         Source[ProbeMessage, ProbeMessage](mm1, (t: Tick, s: ProbeMessage) => s)(
@@ -50,10 +53,10 @@ class GgmSpec extends ScalaTestWithActorTestKit
         )
       val sourceRef = spawn(source.init())
 
-      log.debug("Root Sending message for time: 3 (InstallTarget)")
+      log.debug("Root Sending message for time: 0 (InstallTarget)")
       val jobId = Id
       val trigger = Trigger[ProbeMessage](jobId, probes)
-      simSupervisor.directRootSend[Trigger[ProbeMessage]](source)(3, trigger)
+      simSupervisor.directRootSend[Trigger[ProbeMessage]](source)(0, trigger)
       var found = 0
       val r = termProbe.fishForMessage(1 second){ de =>
         de.payload.number match

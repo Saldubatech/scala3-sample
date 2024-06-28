@@ -2,15 +2,11 @@ package com.saldubatech.sandbox.observers
 
 import com.dimafeng.testcontainers.PostgreSQLContainer
 import com.saldubatech.infrastructure.storage.rdbms.{DataSourceBuilder, PGDataSourceBuilder, PersistenceError}
-import com.saldubatech.infrastructure.storage.rdbms.ziointerop.Layers as DbLayers
 import com.saldubatech.lang.Id
 import com.saldubatech.lang.predicate.{SlickPlatform, SlickRepoZioService}
-import com.saldubatech.lang.predicate.ziointerop.Layers as PredicateLayers
 import com.saldubatech.math.randomvariables.Distributions
 import com.saldubatech.sandbox.ddes.{Tick, DomainEvent, Source, DDE, SimulationSupervisor, DoneOK}
-import com.saldubatech.sandbox.ddes.ziointerop.Layers as DdesLayers
 import com.saldubatech.sandbox.observers.{Observer, Subject}
-import com.saldubatech.sandbox.observers.ziointerop.Layers as ObserverLayers
 import com.saldubatech.test.persistence.postgresql.{PostgresContainer, TestPGDataSourceBuilder}
 import com.saldubatech.util.LogEnabled
 import com.typesafe.config.ConfigFactory
@@ -35,6 +31,7 @@ import javax.sql.DataSource
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.*
 import scala.language.postfixOps
+import com.saldubatech.infrastructure.storage.rdbms.slick.PGExtendedProfile
 
 object SlickObserverSpec extends  ZIOSpecDefault
 //  with Matchers
@@ -58,7 +55,7 @@ object SlickObserverSpec extends  ZIOSpecDefault
       _.createTestProbe[Observer.PROTOCOL]("observerProbe")}
   )
 
-  val postgresProfileLayer: ULayer[JdbcProfile] = DbLayers.PGExtendedProfileLayer
+  val postgresProfileLayer: ULayer[JdbcProfile] = PGExtendedProfile.PGExtendedProfileLayer
   val containerLayer: TaskLayer[PostgreSQLContainer] = ZLayer.scoped(PostgresContainer.make("flyway/V001.1__schema.sql"))
   val dataSourceBuilderLayer: URLayer[PostgreSQLContainer, DataSourceBuilder] = TestPGDataSourceBuilder.layer
   val dataSourceLayer: URLayer[DataSourceBuilder, DataSource] = ZLayer(ZIO.serviceWith[DataSourceBuilder](_.dataSource))
@@ -72,7 +69,7 @@ object SlickObserverSpec extends  ZIOSpecDefault
       dataSourceBuilderLayer >>>
       dataSourceLayer) ++ postgresProfileLayer) >>>
       dbProviderLayer >>>
-      PredicateLayers.slickPlatformLayer
+      SlickPlatform.layer
 
 //  val observerLayer =
 //    ObserverLayers.slickPgRecorderStack(dbConfig)(simulationBatch) >>> ObserverLayers.observerLayer
@@ -140,8 +137,8 @@ object SlickObserverSpec extends  ZIOSpecDefault
       probeRefLayer[Observer.PROTOCOL],
       probeRefLayer[DomainEvent[TestSimulationLayers.ProbeMessage]],
       slickPlatformStack,
-      ObserverLayers.slickRecorderLayer(simulationBatch),
-      ObserverLayers.observerLayer,
+      SlickRecorder.layer(simulationBatch),
+      RecordingObserver.layer,
       simpleShopFloorLayer
     ) @@ sequential
   }

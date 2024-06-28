@@ -1,8 +1,13 @@
 package com.saldubatech.sandbox.observers
 
 import com.saldubatech.infrastructure.storage.rdbms.PersistenceIO
-import zio.{Unsafe, Runtime as ZRuntime}
+import zio.{Unsafe, Runtime as ZRuntime, ZLayer, ZIO, URLayer}
 
+object RecordingObserver:
+  def layer(using rt: ZRuntime[Any]): URLayer[
+    Recorder,
+    RecordingObserver
+  ] = ZLayer(ZIO.serviceWith[Recorder](RecordingObserver("sourceObserver", _)))
 class RecordingObserver(override val name: String, val recorder: Recorder)
                        (using private val rt: ZRuntime[Any]) extends Observer {
   override def record(ev: OperationEventNotification): Unit = {

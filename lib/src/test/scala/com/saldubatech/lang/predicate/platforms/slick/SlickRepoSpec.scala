@@ -3,8 +3,6 @@ package com.saldubatech.lang.predicate
 import com.dimafeng.testcontainers.PostgreSQLContainer
 import com.saldubatech.infrastructure.storage.rdbms.{DataSourceBuilder, PersistenceError}
 import com.saldubatech.test.persistence.postgresql.{TestPGDataSourceBuilder, PostgresContainer}
-import com.saldubatech.infrastructure.storage.rdbms.ziointerop.Layers as RdbmsLayers
-import com.saldubatech.lang.predicate.ziointerop.Layers as PredicateLayers
 import slick.interop.zio.DatabaseProvider
 import slick.jdbc.JdbcProfile
 import zio.*
@@ -15,6 +13,7 @@ import zio.test.TestAspect.*
 import javax.sql.DataSource
 import scala.concurrent.ExecutionContext
 import scala.reflect.Typeable
+import com.saldubatech.infrastructure.storage.rdbms.slick.PGExtendedProfile
 
 case class Animal(animal: String, size: Int, age: Double)
 
@@ -53,7 +52,7 @@ object SlickRepoSpec
 
   val execContextLayer: ULayer[ExecutionContext] = ZLayer.succeed(ExecutionContext.global)
 
-  val postgresProfileLayer: ULayer[JdbcProfile] = RdbmsLayers.PGExtendedProfileLayer
+  val postgresProfileLayer: ULayer[JdbcProfile] = PGExtendedProfile.PGExtendedProfileLayer
 
   val containerLayer: ZLayer[Any, Throwable, PostgreSQLContainer] = ZLayer.scoped(PostgresContainer.make("animals_schema.sql"))
 
@@ -63,7 +62,7 @@ object SlickRepoSpec
 
   val dbProviderLayer: ZLayer[DataSource with JdbcProfile, Throwable, DatabaseProvider] = DatabaseProvider.fromDataSource()
 
-  val slickPlatformLayer: ZLayer[DatabaseProvider, Throwable, SlickPlatform] = PredicateLayers.slickPlatformLayer
+  val slickPlatformLayer: ZLayer[DatabaseProvider, Throwable, SlickPlatform] = SlickPlatform.layer
 
   val animalServiceLayer: ZLayer[SlickPlatform & ExecutionContext, Throwable, AnimalZioService] = AnimalZioService.zioLayer
 

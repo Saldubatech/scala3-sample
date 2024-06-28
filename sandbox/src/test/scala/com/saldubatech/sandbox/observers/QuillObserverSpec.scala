@@ -2,14 +2,10 @@ package com.saldubatech.sandbox.observers
 
 import com.dimafeng.testcontainers.PostgreSQLContainer
 import com.saldubatech.infrastructure.storage.rdbms.{DataSourceBuilder, PGDataSourceBuilder, PersistenceError}
-import com.saldubatech.infrastructure.storage.rdbms.ziointerop.Layers as DbLayers
 import com.saldubatech.lang.Id
 import com.saldubatech.lang.predicate.SlickPlatform
-import com.saldubatech.lang.predicate.ziointerop.Layers as PredicateLayers
 import com.saldubatech.math.randomvariables.Distributions
 import com.saldubatech.sandbox.ddes.{Tick, DomainEvent, Source, DDE, SimulationSupervisor, DoneOK}
-import com.saldubatech.sandbox.ddes.ziointerop.Layers as DdesLayers
-import com.saldubatech.sandbox.observers.ziointerop.Layers as ObserverLayers
 import com.saldubatech.sandbox.observers.{Observer, Subject}
 import com.saldubatech.test.persistence.postgresql.{PostgresContainer, TestPGDataSourceBuilder}
 import com.saldubatech.util.LogEnabled
@@ -65,13 +61,7 @@ object QuillObserverSpec extends  ZIOSpecDefault
   val dataSourceBuilderLayer: URLayer[PostgreSQLContainer, DataSourceBuilder] = TestPGDataSourceBuilder.layer
   val dataSourceLayer: URLayer[DataSourceBuilder, DataSource] = ZLayer(ZIO.serviceWith[DataSourceBuilder](_.dataSource))
 
-  def recorderStack: TaskLayer[QuillRecorder] =
-    containerLayer >>>
-      dataSourceBuilderLayer >>>
-      dataSourceLayer >>>
-      DbLayers.quillPostgresLayer >>>
-      PredicateLayers.quillPlatformLayer >>>
-      ObserverLayers.quillRecorderLayer(simulationBatch)
+  val dataSourceStack = containerLayer >>> dataSourceBuilderLayer >>> dataSourceLayer
 
   given rt: ZRuntime[Any] = ZRuntime.default
 
@@ -138,9 +128,10 @@ object QuillObserverSpec extends  ZIOSpecDefault
       probeLayer,
       probeRefLayer[Observer.PROTOCOL],
       probeRefLayer[DomainEvent[TestSimulationLayers.ProbeMessage]],
-      recorderStack,
+      dataSourceStack,
+      QuillRecorder.fromDataSourceStack(simulationBatch),
       DDE.simSupervisorLayer("QuillObserver_Test", None),
-      ObserverLayers.observerLayer,
+      RecordingObserver.layer,
       simpleShopFloorLayer,
     ) @@ sequential
   }

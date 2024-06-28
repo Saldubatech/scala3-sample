@@ -71,12 +71,12 @@ object Station:
         // materialFlowNotifier(MaterialArrival(host.currentTime, ib.job, host.name, ib.from.name))
         inductor.arrival(host.currentTime, ib)
     }
-    private val commandBehavior: PartialFunction[DomainEvent[PROTOCOL[WORK_REQUEST, INBOUND]], ActionResult] = {
+    protected val commandBehavior: PartialFunction[DomainEvent[PROTOCOL[WORK_REQUEST, INBOUND]], ActionResult] = {
         case command@DomainEvent(action, from, wr: WORK_REQUEST) =>
           host.eventNotify(Arrival(host.currentTime, wr.job, host.name, command.from.name))
           pendingWork.enqueueWorkRequest(host.currentTime, action, from.name, wr).map{_ => ()}
     }
-    private val executionCompleteBehavior: PartialFunction[DomainEvent[PROTOCOL[WORK_REQUEST, INBOUND]], ActionResult] = {
+    protected val executionCompleteBehavior: PartialFunction[DomainEvent[PROTOCOL[WORK_REQUEST, INBOUND]], ActionResult] = {
       case DomainEvent(action, from , ecEv@ExecutionComplete(id, job)) =>
         for {
           completedWp <- processorResource.completedJob(job)
@@ -87,19 +87,14 @@ object Station:
           host.env.scheduleDelay(host)(departureDelay, DepartureReady(Id, job))
         }
     }
-    private val dischargeBehavior: PartialFunction[DomainEvent[PROTOCOL[WORK_REQUEST, INBOUND]], ActionResult] =
+    protected val dischargeBehavior: PartialFunction[DomainEvent[PROTOCOL[WORK_REQUEST, INBOUND]], ActionResult] =
       { case DomainEvent(action, from, dr@DepartureReady(id, job)) => discharger.dischargeReady(host.currentTime, job) }
 
-    protected lazy val overrideInboundBehavior: Option[PartialFunction[DomainEvent[PROTOCOL[WORK_REQUEST, INBOUND]], ActionResult]] = None
-    protected lazy val overrideCommandBehavior: Option[PartialFunction[DomainEvent[PROTOCOL[WORK_REQUEST, INBOUND]], ActionResult]] = None
-    protected lazy val overrideExecutionCompleteBehavior: Option[PartialFunction[DomainEvent[PROTOCOL[WORK_REQUEST, INBOUND]], ActionResult]] = None
-    protected lazy val overrideDischargeBehavior: Option[PartialFunction[DomainEvent[PROTOCOL[WORK_REQUEST, INBOUND]], ActionResult]] = None
-
-    private lazy val processingBehavior: PartialFunction[DomainEvent[PROTOCOL[WORK_REQUEST, INBOUND]], ActionResult] =
-      overrideInboundBehavior.getOrElse(inboundBehavior) orElse
-      overrideCommandBehavior.getOrElse(inboundBehavior) orElse
-      overrideExecutionCompleteBehavior.getOrElse(executionCompleteBehavior) orElse
-      overrideDischargeBehavior.getOrElse(dischargeBehavior) orElse {
+    protected lazy val processingBehavior: PartialFunction[DomainEvent[PROTOCOL[WORK_REQUEST, INBOUND]], ActionResult] =
+      commandBehavior orElse
+      inboundBehavior orElse
+      executionCompleteBehavior orElse
+      dischargeBehavior orElse {
         case other =>  AppFail(AppError(s"Unknown Domain Event received $other"))
       }
 
@@ -130,10 +125,13 @@ object Station:
       for {
         _ <- processingBehavior(ev)
       } yield
-        discharger.doDischarge(at).foreach{ outbound => host.eventNotify(Departure(host.currentTime, outbound.job, host.name))
-        discharge(at, outbound)
-        startWorkIfPossible(at)
+        discharger.doDischarge(at).foreach{
+          outbound =>
+            host.eventNotify(Departure(host.currentTime, outbound.job, host.name))
+            discharge(at, outbound)
         }
+        startWorkIfPossible(at)
+
 
 end Station // object
 
