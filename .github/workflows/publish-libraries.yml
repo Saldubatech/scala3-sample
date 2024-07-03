@@ -15,10 +15,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Set up java
-      uses: actions/setup-java@v3
-      with:
-        java-version: '21'
-        distribution: corretto
+      uses: ./.github/actions/setup-java
     - name: Build and Publish package
       run: sbt test publish
       env:

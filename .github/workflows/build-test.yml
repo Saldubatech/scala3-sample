@@ -13,10 +13,10 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Set up JDK
-      uses: ./.github/actions/setup-java.yml
+      uses: ./.github/actions/setup-java
     - name: Build & Run tests
       run: sbt "coverage;test;coverageReport"
     - name: Publish tests
-      uses: ./.github/actions/codecov-publish.yml
+      uses: ./.github/actions/codecov-publish
       with:
         test-tags: ci_tests
