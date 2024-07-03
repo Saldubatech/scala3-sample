@@ -1,5 +1,16 @@
 # A Project Sample for Scala3 with Sbt
 
+## Metrics, etc...
+
+### Scala Code Build
+
+![Scala Build](https://github.com/Saldubatech/scala3-sample/.github/actions/workflows/build-test.yml/badge.svg)
+
+### Code Coverage
+
+[![codecov](https://codecov.io/gh/Saldubatech/scala3-sample/graph/badge.svg?token=LXGTEWXA1T)](https://codecov.io/gh/Saldubatech/scala3-sample)
+
+
 ## Additional Technologies:
 
 * [Zio](https://zio.dev/)
@@ -36,6 +47,10 @@ Root
 
 ## TODO/Steps
 
+### Documentation
+
+1. Migrate to RestructuredText with Sphinx and [sbt-site](https://www.scala-sbt.org/sbt-site/index.html)
+
 ### Infrastructure/DevOps
 
 1. Complete the structure as described above
@@ -54,7 +69,9 @@ Root
 
 ### App Framework Technologies
 
-1. Add OpenApi services
-2. Add gRpc services
-3. Add Redis
-4. Add Modular/API level Testing
+1. Add Codecov
+2. Add [Local-Action](https://github.com/github/local-action) for testing GHA
+3. Add OpenApi services
+4. Add gRpc services
+5. Add Redis
+6. Add Modular/API level Testing

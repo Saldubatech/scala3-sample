@@ -31,7 +31,7 @@ def clearRecords() -> None:
   with e.connect() as conn:
     conn.execute(sqlalchemy.text("delete from event_record;"))  # type: ignore
     conn.execute(sqlalchemy.text("delete from operation_record;"))  # type: ignore
-    conn.commit()
+    conn.commit()  # type: ignore
   return
 
 
@@ -40,7 +40,7 @@ def clearDb() -> None:
     conn.execute(sqlalchemy.text("drop table if exists event_record;"))  # type: ignore
     conn.execute(sqlalchemy.text("drop table if exists operation_record;"))  # type: ignore
     conn.execute(sqlalchemy.text("drop table if exists flyway_migration_record;"))  # type: ignore
-    conn.commit()
+    conn.commit()  # type: ignore
   return
 
 

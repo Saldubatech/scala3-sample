@@ -3,22 +3,32 @@
     "**/target": true
   },
   "cSpell.words": [
+    "cumsum",
     "DBIO",
     "DBRS",
     "Ddes",
     "deleter",
+    "figsize",
+    "gridspec",
     "Hmmss",
+    "hspace",
     "Rdbms",
     "RFOLD",
     "scalafix",
     "scalafmt",
     "semanticdb",
+    "sharex",
+    "sharey",
     "SRIO",
+    "suptitle",
     "SZIO",
     "tpolecat",
     "TUPLIFY",
     "Typesafe",
-    "URIO"
+    "URIO",
+    "wspace",
+    "xlabel",
+    "ylabel"
   ],
   "metals": {
     "inlayHints": {
@@ -98,7 +108,7 @@
     "${workspaceFolder}/scripts"
   ],
   "python.testing.pytestArgs": [
-    "."
+    "analysis"
   ],
   "python.testing.unittestEnabled": false,
   "python.testing.unittestArgs": [
@@ -112,5 +122,49 @@
   "testExplorer.addToEditorContextMenu": true,
   "notebook.defaultFormatter": "ms-python.flake8",
   "testing.alwaysRevealTestOnStateChange": true,
-  "python.analysis.inlayHints.pytestParameters": true
+  "python.analysis.inlayHints.pytestParameters": true,
+  "mypy-type-checker.importStrategy": "fromEnvironment",
+  "python.analysis.include": [
+    "analysis",
+    "scripts"
+  ],
+  "python.analysis.packageIndexDepths": [
+    {
+      "name": "sqlalchemy",
+      "depth": 3,
+      "includeAllSymbols": true
+    },
+    {
+      "name": "sklearn",
+      "depth": 2
+    },
+    {
+      "name": "matplotlib",
+      "depth": 3
+    },
+    {
+      "name": "pandas",
+      "depth": 2,
+      "includeAllSymbols": true
+    },
+    {
+      "name": "scipy",
+      "depth": 2
+    },
+    {
+      "name": "django",
+      "depth": 2
+    },
+    {
+      "name": "flask",
+      "depth": 2
+    },
+    {
+      "name": "fastapi",
+      "depth": 2
+    }
+  ],
+  "python.analysis.diagnosticSeverityOverrides": {
+    "reportUnknownMembertype": "info"
+  }
 }

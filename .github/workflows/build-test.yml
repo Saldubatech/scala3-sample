@@ -1,0 +1,22 @@
+name: Scala Build, Test & Coverage
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+#  pull_request:
+#    branches: [ main ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up JDK
+      uses: ./.github/actions/setup-java.yml
+    - name: Build & Run tests
+      run: sbt "coverage;test;coverageReport"
+    - name: Publish tests
+      uses: ./.github/actions/codecov-publish.yml
+      with:
+        test-tags: ci_tests

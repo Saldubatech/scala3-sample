@@ -39,17 +39,16 @@ pytest-cov = "^5.0.0"
 pre-commit = "^3.7.1"
 flake8 = "^7.0.0"
 nb-mypy = "^1.0.5"
-
-[tool.poetry.group.docs.dependencies]
-
-
 # https://github.com/jvllmr/poetry-types
 isort = "^5.13.2"
 black = "^24.4.2"
-
 # https://github.com/jvllmr/poetry-types
 # poetry types add <package-name>
 # poetry types update
+
+
+[tool.poetry.group.docs.dependencies]
+
 mkdocs = "^1.6.0"
 [tool.poetry.group.types.dependencies]
 types-flake8 = "^7.0.0.20240511"
@@ -69,7 +68,7 @@ python_version = "3.11"
 
 [[tool.mypy.overrides]]
 module = 'ibapi.*'
-ignore_missing_imports = true
+ignore_missing_imports = false
 
 [tool.isort]
 multi_line_output = 3

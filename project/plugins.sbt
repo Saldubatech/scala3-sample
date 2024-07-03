@@ -27,6 +27,11 @@ addSbtPlugin("org.scalameta"             % "sbt-scalafmt"        % "2.5.0")
 // https://github.com/typelevel/sbt-tpolecat
 addSbtPlugin("io.github.davidgregory084" % "sbt-tpolecat"        % "0.4.2")
 
+// Testing & Coverage
+
+// https://github.com/scoverage/sbt-scoverage
+addSbtPlugin("org.scoverage" % "sbt-scoverage" % "2.1.0")
+
 // Packaging
 // ==============================
 

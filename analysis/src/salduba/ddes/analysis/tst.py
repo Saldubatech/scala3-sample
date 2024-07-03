@@ -1,4 +1,5 @@
 import sqlalchemy
+from sqlalchemy.engine.base import Engine
 
 
 class Tst():
@@ -12,4 +13,4 @@ class Tst2():
   pass
 
 
-engine = sqlalchemy.create_engine("asdf")
+engine: Engine = sqlalchemy.create_engine("asdf")  # pyright: ignore

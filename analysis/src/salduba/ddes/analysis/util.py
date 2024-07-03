@@ -2,7 +2,6 @@ from typing import Callable, Optional
 import pandas as pd
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
-from matplotlib.figure import Figure
 from sqlalchemy.engine import Engine
 
 
@@ -30,19 +29,20 @@ def eventCounter(evName: str) -> Callable[[pd.DataFrame], pd.DataFrame]:
       data={
         'job': batchDf['job'],
         'at': batchDf['at'],
-        'incr': batchDf['op_type'].apply(lambda ot: 1 if ot == evName else -1)
+        'incr': batchDf['op_type'].apply(lambda ot: 1 if ot == evName else -1)  # type: ignore
       }
     )
-    ldf.loc[:, 'count'] = ldf['incr'].cumsum()
+    ldf.loc[:, 'count'] = ldf['incr'].cumsum()  # type: ignore
     return ldf
   return counter
 
 
-def stagePlots(stage: str, timePlot: Axes, wipPlot: Axes, times: pd.Series, wip: pd.Series) -> None:
-  timePlot.set_title(f"{stage} Times")
-  timePlot.hist(times)
-  wipPlot.set_title(f"{stage} Wip")
-  wipPlot.hist(wip)
+def stagePlots(stage: str, timePlot: Axes, wipPlot: Axes, times: pd.Series, wip: pd.Series) -> None:  # type: ignore
+  timePlot.set_title(f"{stage} Times")  # type: ignore
+  timePlot.hist(times)  # pyright: ignore
+  wipPlot.set_title(f"{stage} Wip")  # pyright: ignore
+  wipPlot.hist(wip)  # pyright: ignore
+
   return
 
 
@@ -118,27 +118,31 @@ def plotStation(station_name: str, db_engine: Engine, batch: Optional[str] = Non
     order by at;
     """, con=db_engine)
 
-  iat: pd.Series[int] = arrival_events.groupby('batch').apply(compute_iat, include_groups=False)['iat']
-  idt: pd.Series[int] = departure_events.groupby('batch').apply(compute_idt, include_groups=False)['idt']
+  iat: pd.Series[int] = arrival_events.groupby('batch').apply(compute_iat, include_groups=False)['iat']  # pyright: ignore
+  idt: pd.Series[int] = departure_events.groupby('batch').apply(compute_idt, include_groups=False)['idt']  # pyright: ignore
 
   sojourn: pd.Series[int] = end_to_end_times['end_to_end']
-  e2e_wip: pd.Series[int] = end_to_end_wip.groupby('batch').apply(eventCounter('ARRIVE'), include_groups=False)['count']
+  e2e_wip: pd.Series[int] = \
+    end_to_end_wip.groupby('batch').apply(eventCounter('ARRIVE'), include_groups=False)['count']  # pyright: ignore
 
   wait_time: pd.Series[int] = waiting_times['wait_time']
-  waiting_counts: pd.Series[int] = waiting_events.groupby('batch').apply(eventCounter('ARRIVE'), include_groups=False)['count']
+  waiting_counts: pd.Series[int] = \
+    waiting_events.groupby('batch').apply(eventCounter('ARRIVE'), include_groups=False)['count']  # pyright: ignore
 
   processing_time: pd.Series[int] = processing_times['processing_time']
-  processing_counts: pd.Series[int] = processing_events.groupby('batch').apply(eventCounter('START'), include_groups=False)['count']
+  processing_counts: pd.Series[int] = \
+    processing_events.groupby('batch').apply(eventCounter('START'), include_groups=False)['count']  # pyright: ignore
   #  (with_iat['iat'].mean(), with_iat['iat'].std())
 
   departure_time: pd.Series[int] = departure_times['depart_delay']
-  departure_counts: pd.Series[int] = departure_events.groupby('batch').apply(eventCounter('END'), include_groups=False)['count']
+  departure_counts: pd.Series[int] = \
+    departure_events.groupby('batch').apply(eventCounter('END'), include_groups=False)['count']  # pyright: ignore
 
-  fig, plots = plt.subplots(5, 2, figsize=(10, 15), gridspec_kw={'height_ratios': [1, 1, 1, 1, 1]})
+  fig, plots = plt.subplots(5, 2, figsize=(10, 15), gridspec_kw={'height_ratios': [1, 1, 1, 1, 1]})  # pyright: ignore
   print(f"Plots: {type(plots)}, row: {type(plots[0])}, element: {type(plots[0][0])}")
 
   plt.subplots_adjust(wspace=0.3, hspace=0.3)
-  fig.suptitle(f"Station {station_name} Frequency Histograms")
+  fig.suptitle(f"Station {station_name} Frequency Histograms")  # pyright: ignore
   plots[0, 0].set_title("InterArrival Time")
   plots[0, 1].set_title("InterDeparture Time")
   plots[0, 0].hist(iat)
@@ -159,26 +163,28 @@ def plotStation(station_name: str, db_engine: Engine, batch: Optional[str] = Non
     wipPlot.sharex(plots[1, 1])
     wipPlot.sharey(plots[1, 1])
 
-  plt.show()
+  plt.show()  # pyright: ignore
 
 
 def plotThroughput(station_name: str, n_slots: int, db_engine: Engine) -> None:
-  df: pd.DataFrame = pd.read_sql_query(f"select * from event_record where op_type = 'END' and station = '{station_name}' order by batch, at asc", con=db_engine)
-  t_max: int = int(df['at'].max()) # type: ignore
-  t_min: int = int(df['at'].min()) # type: ignore
+  df: pd.DataFrame = \
+    pd.read_sql_query(f"select * from event_record where op_type = 'END' and station = '{station_name}' order by batch, at asc",
+                      con=db_engine)
+  t_max: int = int(df['at'].max())  # type: ignore
+  t_min: int = int(df['at'].min())  # type: ignore
   window_length = int(float(t_max - t_min)/float(n_slots))
 
   def window_index(at: int) -> int:
     return int(float(n_slots*(at - t_min))/float(window_length))
 
-  df.loc[:, 'time period'] = df['at'].apply(window_index)
+  df.loc[:, 'time period'] = df['at'].apply(window_index)  # pyright: ignore
 
-  th = df.groupby('time period')['job'].count()
+  th = df.groupby('time period')['job'].count()  # pyright: ignore
 
-  plt.title(f"{station_name} Throughput per period")
-  plt.xlabel(f"period = {window_length}")
-  plt.ylabel('Jobs per period')
-  th.plot.bar(rot=45)
+  plt.title(f"{station_name} Throughput per period")  # pyright: ignore
+  plt.xlabel(f"period = {window_length}")  # pyright: ignore
+  plt.ylabel('Jobs per period')  # pyright: ignore
+  th.plot.bar(rot=45)  # pyright: ignore
 
 
 def buuu() -> None:
