@@ -11,12 +11,12 @@ jobs:
 
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: Set up JDK
       uses: ./.github/actions/setup-java
     - name: Build & Run tests
       run: sbt "coverage;test;coverageReport"
     - name: Publish tests
-      uses: ./.github/actions/codecov-publish
+      uses: .github/actions/codecov-publish
       with:
         test-tags: ci_tests
