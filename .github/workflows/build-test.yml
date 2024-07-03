@@ -13,7 +13,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Set up JDK
-      uses: ./.github/actions/setup-java
+      uses: ./.github/actions/setup-java/
     - name: Build & Run tests
       run: sbt "coverage;test;coverageReport"
     - name: Publish tests
