@@ -8,3 +8,4 @@ runs:
       with:
         java-version: '21'
         distribution: corretto
+        cache: sbt

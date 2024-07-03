@@ -119,7 +119,7 @@ object QuillMM1ObservationSpec extends  ZIOSpecDefault
             else FishingOutcomes.fail(s"Too Many messages received $obsFound")
           }
           termProbe.expectNoMessage(300 millis)
-          observerProbe.expectNoMessage(300 millis)
+          observerProbe.expectNoMessage(3000 millis)
           assertTrue(obs.size == expectedNotifications)
           fixture.shutdownTestKit()
           assertCompletes
