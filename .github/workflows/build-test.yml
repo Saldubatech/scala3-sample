@@ -17,6 +17,6 @@ jobs:
     - name: Build & Run tests
       run: sbt "coverage;test;coverageReport"
     - name: Publish tests
-      uses: .github/actions/codecov-publish
+      uses: ./.github/actions/codecov-publish/
       with:
         test-tags: ci_tests
