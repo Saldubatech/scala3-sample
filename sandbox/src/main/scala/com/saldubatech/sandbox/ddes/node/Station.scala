@@ -138,7 +138,8 @@ end Station // object
 class Station[WORK_REQUEST <: DomainMessage, INBOUND <: DomainMessage : Typeable, FINISHED <: DomainMessage, OUTBOUND <: DomainMessage]
   (name: String, val target: SimActor[OUTBOUND])
   (dpFactory: Station.DPFactory[WORK_REQUEST, INBOUND, FINISHED, OUTBOUND], clock: Clock)
-  (using Typeable[Station.PROTOCOL[WORK_REQUEST, INBOUND]]) extends SimActorBehavior[Station.PROTOCOL[WORK_REQUEST, INBOUND]](name, clock) with Subject:
+  (using Typeable[Station.PROTOCOL[WORK_REQUEST, INBOUND]])
+  extends SimActorBehavior[Station.PROTOCOL[WORK_REQUEST, INBOUND]](name, clock) with Subject:
   import Station._
 
   override val domainProcessor: Station.DP[WORK_REQUEST, INBOUND, FINISHED, OUTBOUND] = dpFactory(this)

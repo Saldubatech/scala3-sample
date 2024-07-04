@@ -3,6 +3,7 @@
     "**/target": true
   },
   "cSpell.words": [
+    "codecov",
     "cumsum",
     "DBIO",
     "DBRS",

@@ -54,6 +54,9 @@ object DDE extends LogEnabled:
   case object AOK extends SupervisorResponse
   case object NotInitialized extends SupervisorResponse
 
+  def kickAwake(using to: Timeout, ac: ActorSystem[SupervisorProtocol]): Task[SupervisorResponse] =
+    import AskPattern._
+    ZIO.fromFuture(implicit ec => ac.ask[SupervisorResponse](ref => DDE.Ping(ref)))
 end DDE
 
 class SimulationSupervisor(val name: String, private val maxTime: Option[Tick]):
@@ -134,10 +137,6 @@ class SimulationSupervisor(val name: String, private val maxTime: Option[Tick]):
       root.directRootSend(target)(forTime, msg)
 
   def rootCheck(using Timeout): Task[OAMMessage] = root.rootCheck
-  def ping(using to: Timeout, ac: ActorSystem[SupervisorProtocol]): Task[SupervisorResponse] =
-    import AskPattern._
-    ZIO.fromFuture(implicit ec => ac.ask[SupervisorResponse](ref => DDE.Ping(ref)))
-
 
   def start(simulation: Option[DDE.SimulationComponent]): Behavior[DDE.SupervisorProtocol] =
     Behaviors.setup{

@@ -38,8 +38,9 @@ class GgmSpec extends ScalaTestWithActorTestKit
       val simSupervisor = SimulationSupervisor("ClockSpecSupervisor", None)
       spawn(simSupervisor.start(None))
 
-      val sink = RelayToActor[ProbeMessage]("TheSink", termProbe.ref, simSupervisor.clock)
+      val sink = RelayToActor[ProbeMessage]("TheSink", simSupervisor.clock)
       val sinkRef = spawn(sink.init())
+      sinkRef ! sink.InstallTarget(termProbe.ref)
       val mm1: SimpleStation[ProbeMessage] =
         SimpleStation(sink)(
           "MM1_Station", 1, tau, Distributions.zeroLong, Distributions.zeroLong)(

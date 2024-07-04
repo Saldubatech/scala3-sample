@@ -69,9 +69,9 @@ object MM1Run extends ZIOAppDefault with LogEnabled:
         ZIO.succeed(ActorSystem[DDE.SupervisorProtocol](supervisor.start(Some(simulation)), supervisor.name))
       }
       supPing <- {
-        given ActorSystem[DDE.SupervisorProtocol] = as
-        given Timeout = 1.seconds
-        supervisor.ping
+//        given ActorSystem[DDE.SupervisorProtocol] = as
+//        given Timeout = 1.seconds
+        DDE.kickAwake(using 1.seconds, as)
         // import org.apache.pekko.actor.typed.scaladsl.AskPattern._
         // ZIO.fromFuture(ec => as.ask[DDE.SupervisorResponse](ref => DDE.Ping(ref)))
       }
@@ -85,9 +85,9 @@ object MM1Run extends ZIOAppDefault with LogEnabled:
       source <- ZIO.service[Source[JobMessage, JobMessage]]
       actorSystem <- initializeShopFloor
       supPing <- {
-        given ActorSystem[DDE.SupervisorProtocol] = actorSystem
-        given Timeout = 1.seconds
-        supervisor.ping
+//        given ActorSystem[DDE.SupervisorProtocol] = actorSystem
+//        given Timeout = 1.seconds
+        DDE.kickAwake(using 1.seconds, actorSystem)
         // import org.apache.pekko.actor.typed.scaladsl.AskPattern._
         // ZIO.fromFuture(ec => actorSystem.ask[DDE.SupervisorResponse](ref => DDE.Ping(ref)))
       }

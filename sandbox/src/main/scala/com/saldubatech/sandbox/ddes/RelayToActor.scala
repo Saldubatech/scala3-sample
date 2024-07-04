@@ -8,17 +8,17 @@ import org.apache.pekko.actor.typed.ActorRef
 import zio.{ZIO, RLayer, ZLayer, Tag as ZTag}
 
 import scala.reflect.Typeable
+import com.saldubatech.lang.types.AppSuccess
 
 object RelayToActor:
 
   def layer[JOB <: DomainMessage : Typeable : ZTag]:
-    RLayer[SimulationSupervisor & ActorRef[DomainEvent[JOB]], RelayToActor[JOB]] =
+    RLayer[SimulationSupervisor, RelayToActor[JOB]] =
     ZLayer(
       for {
         supervisor <- ZIO.service[SimulationSupervisor]
-        termProbe <- ZIO.service[ActorRef[DomainEvent[JOB]]]
       } yield {
-        RelayToActor[JOB]("TheSink", termProbe.ref, supervisor.clock)
+        RelayToActor[JOB]("TheSink", supervisor.clock)
       }
     )
 
@@ -26,18 +26,35 @@ object RelayToActor:
   (
     name: String,
     notifier: OperationEventNotification => Unit,
-    private val target: ActorRef[DomainEvent[DM]]
+    relayer: DomainEvent[DM] => Unit
   ) extends Sink.DP[DM](name, notifier):
     override def accept(at: Tick, ev: DomainEvent[DM])
     : ActionResult =
       super.accept(at, ev)
-      Right(target ! ev)
+      Right(relayer(ev))
 
 
 class RelayToActor[DM <: DomainMessage : Typeable]
-(name: Id, val target: ActorRef[DomainEvent[DM]], clock: Clock)
+(name: Id, clock: Clock)
   extends Sink(name, clock):
 
+  case class InstallTarget(target: ActorRef[DomainEvent[DM]]) extends OAMMessage
+
+  private var target: Option[ActorRef[DomainEvent[DM]]] = None
+
+  override def oam(msg: OAMMessage): ActionResult = msg match {
+    case InstallTarget(tg) =>
+      target = Some(tg)
+      AppSuccess.unit
+    case other => super.oam(other)
+  }
+
   override val domainProcessor: DomainProcessor[DM] =
-    RelayToActor.RelayProcessor[DM](name, opEv => eventNotify(opEv), target)
+    RelayToActor.RelayProcessor[DM](name, opEv => eventNotify(opEv), de => target match {
+      case None =>
+        log.warn(s"Received Message $de before installing target")
+        AppSuccess.unit
+      case Some(t) => AppSuccess(t ! de)
+    }
+    )
 

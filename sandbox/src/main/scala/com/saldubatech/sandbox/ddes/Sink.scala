@@ -8,17 +8,20 @@ import com.saldubatech.sandbox.observers.OperationEventNotification
 import com.saldubatech.sandbox.observers.{CompleteJob, Arrival}
 import com.saldubatech.sandbox.observers.Subject.ObserverManagement
 import com.saldubatech.sandbox.observers.Subject
+import org.apache.pekko.actor.typed.ActorRef
 
 object Sink:
+
   class DP[DM <: DomainMessage : Typeable](
     private val name: String,
-    private val notifier: OperationEventNotification => Unit
+    private val notifier: OperationEventNotification => Unit,
   ) extends DomainProcessor[DM] with LogEnabled:
     override def accept(at: Tick, ev: DomainEvent[DM])
     : ActionResult =
       notifier(Arrival(at, ev.payload.job, name, ev.from.name))
       notifier(CompleteJob(at, ev.payload.job, name))
-      Right(log.debug(s"Accepted ${ev} at ${at}"))
+      Right(log.debug(s"Exited ${ev} at ${at}"))
+
 
 
 abstract class Sink[DM <: DomainMessage : Typeable]

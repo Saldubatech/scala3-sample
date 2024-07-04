@@ -60,8 +60,9 @@ class StreamSourceSpec extends ScalaTestWithActorTestKit
       val simSupervisor = SimulationSupervisor("ClockSpecSupervisor", None)
       spawn(simSupervisor.start(None))
 
-      val sink = RelayToActor[ResultMessage]("TheSink", termProbe.ref, simSupervisor.clock)
+      val sink = RelayToActor[ResultMessage]("TheSink", simSupervisor.clock)
       val sinkRef = spawn(sink.init())
+      sinkRef ! sink.InstallTarget(termProbe.ref)
       given ZRuntime[Any] = ZRuntime.default
       val streamSource = ZStreamSource(sink, resultTransformer)(
         "TheStreamingSource",

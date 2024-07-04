@@ -32,6 +32,8 @@ import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.*
 import scala.language.postfixOps
 import com.saldubatech.infrastructure.storage.rdbms.slick.PGExtendedProfile
+import com.saldubatech.sandbox.ddes.RelayToActor
+import com.saldubatech.sandbox.ddes.Tap
 
 object SlickObserverSpec extends  ZIOSpecDefault
 //  with Matchers
@@ -39,21 +41,13 @@ object SlickObserverSpec extends  ZIOSpecDefault
 //  with BeforeAndAfterAll
   with LogEnabled:
 
+  val lambda: Distributions.LongRVar = Distributions.discreteExponential(500.0)
+
+
   private val simulationBatch = s"BATCH::${ZonedDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss.SSS"))}"
 
   val rootForTime: Tick = 3
   val messages: Seq[TestSimulationLayers.ProbeMessage] = 0 to 10 map { n => TestSimulationLayers.ProbeMessage(n, s"TriggerJob[$n]") }
-
-  val probeLayer: URLayer[
-    ActorTestKit,
-    TestProbe[DomainEvent[TestSimulationLayers.ProbeMessage]]
-      with TestProbe[Observer.PROTOCOL]] = ZLayer(
-    ZIO.serviceWith[ActorTestKit]{
-      _.createTestProbe[DomainEvent[TestSimulationLayers.ProbeMessage]]("TermProbe")}
-  ) ++ ZLayer(
-    ZIO.serviceWith[ActorTestKit]{
-      _.createTestProbe[Observer.PROTOCOL]("observerProbe")}
-  )
 
   val postgresProfileLayer: ULayer[JdbcProfile] = PGExtendedProfile.PGExtendedProfileLayer
   val containerLayer: TaskLayer[PostgreSQLContainer] = ZLayer.scoped(PostgresContainer.make("flyway/V001.1__schema.sql"))
@@ -71,10 +65,6 @@ object SlickObserverSpec extends  ZIOSpecDefault
       dbProviderLayer >>>
       SlickPlatform.layer
 
-//  val observerLayer =
-//    ObserverLayers.slickPgRecorderStack(dbConfig)(simulationBatch) >>> ObserverLayers.observerLayer
-
-
   def probeRefLayer[ACTOR_PROTOCOL : ZTag]: URLayer[TestProbe[ACTOR_PROTOCOL], ActorRef[ACTOR_PROTOCOL]] =
     ZLayer(ZIO.serviceWith[TestProbe[ACTOR_PROTOCOL]](_.ref))
 
@@ -83,15 +73,25 @@ object SlickObserverSpec extends  ZIOSpecDefault
     suite("A source")(
       test("Send all the messages it is provided in the constructor") {
         for {
+          supervisor <- ZIO.service[SimulationSupervisor]
           fixture <- ZIO.service[ActorTestKit]
           observerProbe <- ZIO.service[TestProbe[Observer.PROTOCOL]]
           termProbe <- ZIO.service[TestProbe[DomainEvent[TestSimulationLayers.ProbeMessage]]]
-          source <- ZIO.service[Source[TestSimulationLayers.ProbeMessage, TestSimulationLayers.ProbeMessage]]
-          supervisor <- ZIO.service[SimulationSupervisor]
-          _ <- TestSimulationLayers.initializeShopFloor
+          observer <- ZIO.service[RecordingObserver]
+          source <- ZIO.service[Source[ProbeMessage, ProbeMessage]]
+          sink <- ZIO.service[RelayToActor[ProbeMessage]]
           rootResponse <- {
             given ActorSystem[?] = fixture.internalSystem
             given Timeout = 1.second
+            val tap = Tap(Seq(observer.ref, observerProbe.ref))
+            val tapRef = fixture.spawn(tap, "tap")
+
+            observer.ref ! Observer.Initialize
+
+            source.ref ! Subject.InstallObserver("observerTap", tapRef)
+            sink.ref ! Subject.InstallObserver("observerTap", tapRef)
+            sink.ref ! sink.InstallTarget(termProbe.ref)
+
 
             supervisor.rootSend(source)(rootForTime, Source.Trigger("triggerJob", messages))
           }
@@ -131,15 +131,17 @@ object SlickObserverSpec extends  ZIOSpecDefault
         } yield assertTrue(count == expectedNotifications)
       }
     ).provideShared(
-      DDE.simSupervisorLayer("Slick_Observer_Test", None),
-      fixtureStack,
-      probeLayer,
-      probeRefLayer[Observer.PROTOCOL],
-      probeRefLayer[DomainEvent[TestSimulationLayers.ProbeMessage]],
       slickPlatformStack,
       SlickRecorder.layer(simulationBatch),
       RecordingObserver.layer,
-      simpleShopFloorLayer
+      RelayToActor.layer[ProbeMessage],
+      Source.layer[ProbeMessage]("TheSource", lambda),
+      simpleShopFloorConfiguration,
+      DDE.simSupervisorLayer("QuillObserver_Test", None),
+      testActorSystemLayer,
+      fixtureLayer,
+      probeLayer[DomainEvent[ProbeMessage]]("TermProbe"),
+      probeLayer[Observer.PROTOCOL]("ObserverProbe")
     ) @@ sequential
   }
 
