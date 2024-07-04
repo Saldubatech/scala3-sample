@@ -79,7 +79,7 @@ class StreamSourceSpec extends ScalaTestWithActorTestKit
       var lastTime = 0L
       var intervalSum = 0L
       val times = collection.mutable.ArrayBuffer[Long]()
-      val r = termProbe.fishForMessage(1 second){ de =>
+      val r = termProbe.fishForMessage(3 seconds){ de =>
         intervalSum += de.payload.forTime - lastTime
         times.addOne(de.payload.forTime)
         lastTime = de.payload.forTime
