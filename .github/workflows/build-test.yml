@@ -19,4 +19,5 @@ jobs:
     - name: Publish tests
       uses: ./.github/actions/codecov-publish/
       with:
+        token: ${{ secrets.CODECOV_TOKEN }}
         test-tags: ci_tests

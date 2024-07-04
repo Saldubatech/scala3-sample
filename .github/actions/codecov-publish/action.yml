@@ -1,6 +1,9 @@
 name: "CodeCov push"
 description: "Publish Code Coverage to CodeCov"
 inputs:
+  token:
+    description: Token for codecov publishing
+    required: true
   test-tags:
     description: Tags to group coverage in report
     required: false
@@ -14,7 +17,7 @@ runs:
       # https://github.com/codecov/codecov-action
       uses: codecov/codecov-action@v4
       with:
-        token: ${{ secrets.CODECOV_TOKEN }}
+        token: ${{ inputs.token }}
         fail_ci_if_error: false # default false
         # files: ./coverageXX.xml,./coverageYY.xml, [...]
         flags: ci_tests # To group in report
