@@ -1,4 +1,4 @@
-package com.saldubatech.types.datetime
+package com.saldubatech.lang.types.datetime
 
 import java.time.ZoneId
 import scala.collection.mutable

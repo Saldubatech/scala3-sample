@@ -15,7 +15,7 @@ import zio.{Exit, IO, RIO, Scope, Task, ULayer, URIO, URLayer, RLayer, Unsafe, Z
 import java.sql.SQLException
 import javax.sql.DataSource
 import scala.concurrent.duration._
-import com.saldubatech.types.datetime.Epoch
+import com.saldubatech.lang.types.datetime.Epoch
 import com.saldubatech.lang.types.{SIO, AppFail}
 import com.saldubatech.infrastructure.storage.rdbms.PersistenceIO
 import com.saldubatech.infrastructure.storage.rdbms.PGDataSourceBuilder

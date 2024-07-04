@@ -1,6 +1,6 @@
 package com.saldubatech.infrastructure.storage.rdbms
 
-import com.saldubatech.types.datetime.Epoch
+import com.saldubatech.lang.types.datetime.Epoch
 
 case class TimeCoordinates(recordedAt: Epoch, effectiveAt: Epoch) {
   def isVisibleFrom(viewpoint: TimeCoordinates): Boolean =

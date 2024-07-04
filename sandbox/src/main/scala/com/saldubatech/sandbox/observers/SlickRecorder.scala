@@ -25,7 +25,7 @@ import com.saldubatech.infrastructure.storage.rdbms.PGDataSourceBuilder
 import zio.{RLayer, ZIO}
 import com.saldubatech.infrastructure.storage.rdbms.DataSourceBuilder
 import com.saldubatech.infrastructure.storage.rdbms.slick.PGExtendedProfile
-import com.saldubatech.types.datetime.Epoch
+import com.saldubatech.lang.types.datetime.Epoch
 
 object SlickRecorder:
   def layer(simulationBatch: String)(using ec: ExecutionContext): URLayer[SlickPlatform, SlickRecorder] =
