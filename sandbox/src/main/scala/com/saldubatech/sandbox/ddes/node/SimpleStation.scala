@@ -23,13 +23,13 @@ object SimpleStation:
   def simpleStationLayer[JOB <: DomainMessage : Typeable : ZTag]
   (name: String, nServers: Int, processingTime: LongRVar, dischargeDelay:LongRVar, outboundTransportDelay: LongRVar)
   (using Typeable[Station.PROTOCOL[JOB, JOB]]):
-    RLayer[SimActor[JOB] & SimulationSupervisor, SimpleStation[JOB]] =
+    RLayer[SimActor[JOB] & Clock, SimpleStation[JOB]] =
       ZLayer(
         for {
           target <- ZIO.service[SimActor[JOB]]
-          supervisor <- ZIO.service[SimulationSupervisor]
+          clock <- ZIO.service[Clock]
         } yield
-          SimpleStation[JOB](target)(name, nServers, processingTime, dischargeDelay, outboundTransportDelay)(supervisor.clock)
+          SimpleStation[JOB](target)(name, nServers, processingTime, dischargeDelay, outboundTransportDelay)(clock)
       )
 
   class SimpleInductor[JOB <: DomainMessage] extends Inductor[JOB, JOB]:

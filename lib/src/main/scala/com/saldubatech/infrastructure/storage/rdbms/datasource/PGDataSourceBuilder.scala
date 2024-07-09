@@ -11,7 +11,7 @@ class PGDataSourceBuilder(override val dataSource: DataSource) extends DataSourc
 
 
 object PGDataSourceBuilder:
-  
+
   def fromConfig(config: PGDataSourceBuilder.Configuration): DataSourceBuilder =
     val ds = new PGSimpleDataSource()
     ds.setServerNames(Array(config.server))
@@ -24,12 +24,8 @@ object PGDataSourceBuilder:
     PGDataSourceBuilder(ds)
 
 
-  def layerFromConfig(config: Configuration): TaskLayer[DataSourceBuilder] = ZLayer.fromZIO(
-    ZIO.attempt(PGDataSourceBuilder.fromConfig(config))
-  )
-  def layerFromDataSource(ds: DataSource): TaskLayer[DataSourceBuilder] = ZLayer.fromZIO(
-    ZIO.attempt(PGDataSourceBuilder(ds))
-  )
+  def layerFromConfig(config: Configuration): TaskLayer[DataSourceBuilder] =
+    ZLayer.fromZIO(ZIO.attempt(PGDataSourceBuilder.fromConfig(config)))
 
   case class Configuration(
                               override val user: String,
