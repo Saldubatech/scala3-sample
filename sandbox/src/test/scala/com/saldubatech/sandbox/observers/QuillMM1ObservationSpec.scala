@@ -22,7 +22,7 @@ import zio.http.Header.IfRange.DateTime
 import zio.test.*
 import zio.test.Assertion.*
 import zio.test.TestAspect.*
-import zio.{Cause, Exit, IO, RLayer, Scope, Task, TaskLayer, UIO, ULayer, URIO, URLayer, Unsafe, ZEnvironment, ZIO, ZLayer, Runtime as ZRuntime, Tag as ZTag}
+import zio.{Cause, Exit, IO, RIO, RLayer, Scope, Task, TaskLayer, UIO, ULayer, URIO, URLayer, Unsafe, ZEnvironment, ZIO, ZLayer, Runtime as ZRuntime, Tag as ZTag}
 
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
@@ -75,27 +75,10 @@ object QuillMM1ObservationSpec extends  ZIOSpecDefault
           as <- ZIO.service[ActorSystem[DDE.SupervisorProtocol]] // Initializes Actor System with Supervisor as root actor with the given configuration
           fixture <- ZIO.service[ActorTestKit] // Start the TestKit with the provided actor system
           isAwake <-  DDE.kickAwake(using 1.second, as) // Kicks Awake the actor system before doing anything else
-          rootCheck <- supervisor.rootCheck(using 1.second) // Check that the supervisor node has initialized O.K.
           observerProbe <- ZIO.service[TestProbe[Observer.PROTOCOL]]
           termProbe <- ZIO.service[TestProbe[DomainEvent[ProbeMessage]]]
-          observer <- ZIO.service[RecordingObserver]
-          source <- ZIO.service[Source[ProbeMessage, ProbeMessage]]
-          mm1 <- ZIO.service[SimpleStation[ProbeMessage]]
-          sink <- ZIO.service[RelayToActor[ProbeMessage]]
-          rootResponse <- {  // Dynamic initialization
-
-            val tap = Tap(Seq(observer.ref, observerProbe.ref))
-            val tapRef = fixture.spawn(tap, "tap")
-
-            observer.ref ! Observer.Initialize
-
-            source.ref ! Subject.InstallObserver("observerTap", tapRef)
-            mm1.ref !  Subject.InstallObserver("observerTap", tapRef)
-            sink.ref ! Subject.InstallObserver("observerTap", tapRef)
-            sink.ref ! sink.InstallTarget(termProbe.ref)
-
-            supervisor.rootSend(source)(rootForTime, Source.Trigger("triggerJob", messages))(using 1.second) // Kick off the work
-          }
+          tapRef <- wireTap
+          rootResponse <- mm1KickOffRun(tapRef, rootForTime, messages)
         } yield {
           assertTrue(rootResponse == DoneOK)
           val jobId = Id
@@ -133,18 +116,20 @@ object QuillMM1ObservationSpec extends  ZIOSpecDefault
         } yield assertTrue(count == expectedNotifications)
       }
     ).provideShared(
-      DDE.simSupervisorLayer("QuillMM1ObserverTest", None),
-      testActorSystemLayer,
-      fixtureLayer,
+      observerStack(simulationBatch),
+      Clock.zeroStartLayer,
+      mm1SimulationComponents(lambda, tau),
+      mm1ShopFloorConfiguration,
+      DDE.simSupervisorLayer("QuillMM1ObservationSpec_Supervisor"),
+      fixtureStack("QuillMM1ObservationSpec_AS"),
       probeLayer[DomainEvent[ProbeMessage]]("TermProbe"),
-      probeLayer[Observer.PROTOCOL]("ObserverProbe"),
-      dataSourceStack,
-      QuillRecorder.fromDataSourceStack(simulationBatch),
-      RecordingObserver.layer,
-      mm1SystemComponentsLayer(lambda, tau),
-      mm1ShopFloorConfiguration
+      probeLayer[Observer.PROTOCOL]("ObserverProbe")
     ) @@ sequential
   }
+
+  def observerStack(simulationBatch: String): TaskLayer[RecordingObserver & QuillRecorder] =
+    dataSourceStack >>> (QuillRecorder.fromDataSourceStack(simulationBatch) >+> RecordingObserver.layer)
+
 
 
 

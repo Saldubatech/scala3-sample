@@ -23,7 +23,7 @@ import zio.http.Header.IfRange.DateTime
 import zio.test.*
 import zio.test.Assertion.*
 import zio.test.TestAspect.*
-import zio.{Cause, Exit, IO, RLayer, Scope, Task, TaskLayer, UIO, ULayer, URIO, URLayer, Unsafe, ZEnvironment, ZIO, ZLayer, Runtime as ZRuntime, Tag as ZTag}
+import zio.{Cause, Exit, IO, RIO, RLayer, Scope, Task, TaskLayer, UIO, ULayer, URIO, URLayer, Unsafe, ZEnvironment, ZIO, ZLayer, Runtime as ZRuntime, Tag as ZTag}
 
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
@@ -32,7 +32,11 @@ import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.*
 import scala.language.postfixOps
 import com.saldubatech.sandbox.ddes.RelayToActor
-import com.saldubatech.sandbox.ddes.Tap
+import com.saldubatech.sandbox.ddes.{Clock, Tap}
+import com.saldubatech.sandbox.observers.TestSimulationLayers.ProbeMessage
+import com.saldubatech.sandbox.ddes.OAMMessage
+import com.saldubatech.sandbox.observers.Observer.PROTOCOL
+
 
 object QuillObserverSpec extends  ZIOSpecDefault
 //  with Matchers
@@ -67,26 +71,11 @@ object QuillObserverSpec extends  ZIOSpecDefault
     suite("With Quill Observers, a source")(
       test("Will send all the messages it is provided in the constructor") {
         for {
-          supervisor <- ZIO.service[SimulationSupervisor]
           fixture <- ZIO.service[ActorTestKit]
           observerProbe <- ZIO.service[TestProbe[Observer.PROTOCOL]]
           termProbe <- ZIO.service[TestProbe[DomainEvent[TestSimulationLayers.ProbeMessage]]]
-          observer <- ZIO.service[RecordingObserver]
-          source <- ZIO.service[Source[ProbeMessage, ProbeMessage]]
-          sink <- ZIO.service[RelayToActor[ProbeMessage]]
-          rootResponse <- {
-            val tap = Tap(Seq(observer.ref, observerProbe.ref))
-            val tapRef = fixture.spawn(tap, "tap")
-
-            observer.ref ! Observer.Initialize
-
-            source.ref ! Subject.InstallObserver("observerTap", tapRef)
-
-            sink.ref ! Subject.InstallObserver("observerTap", tapRef)
-            sink.ref ! sink.InstallTarget(termProbe.ref)
-
-            supervisor.rootSend(source)(rootForTime, Source.Trigger("triggerJob", messages))(using 1.second)
-          }
+          tapRef <- wireTap
+          rootResponse <- simpleKickOffRun(tapRef, rootForTime, messages)
         } yield {
           assertTrue(rootResponse == DoneOK)
           val jobId = Id
@@ -125,19 +114,18 @@ object QuillObserverSpec extends  ZIOSpecDefault
         } yield assertTrue(count == expectedNotifications)
       }
     ).provideShared(
-      dataSourceStack,
-      QuillRecorder.fromDataSourceStack(simulationBatch),
-      RecordingObserver.layer,
-      RelayToActor.layer[ProbeMessage],
-      Source.layer[ProbeMessage]("TheSource", lambda),
+      observerStack(simulationBatch),
+      Clock.zeroStartLayer,
+      simpleSimulationComponents(lambda),
       simpleShopFloorConfiguration,
-      DDE.simSupervisorLayer("QuillObserver_Test", None),
-      testActorSystemLayer,
-      fixtureLayer,
+      DDE.simSupervisorLayer("QuillObserver_Test_Supervisor"),
+      fixtureStack("QuillObserverSpec_AS"),
       probeLayer[DomainEvent[ProbeMessage]]("TermProbe"),
       probeLayer[Observer.PROTOCOL]("ObserverProbe")
     ) @@ sequential
   }
 
+  def observerStack(simulationBatch: String): TaskLayer[QuillRecorder & RecordingObserver] =
+    dataSourceStack >>> (QuillRecorder.fromDataSourceStack(simulationBatch) >+> RecordingObserver.layer)
 
 

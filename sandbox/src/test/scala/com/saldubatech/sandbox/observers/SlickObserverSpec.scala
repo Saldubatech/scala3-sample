@@ -34,6 +34,7 @@ import scala.language.postfixOps
 import com.saldubatech.infrastructure.storage.rdbms.slick.PGExtendedProfile
 import com.saldubatech.sandbox.ddes.RelayToActor
 import com.saldubatech.sandbox.ddes.Tap
+import com.saldubatech.sandbox.ddes.Clock
 
 object SlickObserverSpec extends  ZIOSpecDefault
 //  with Matchers
@@ -73,28 +74,14 @@ object SlickObserverSpec extends  ZIOSpecDefault
     suite("A source")(
       test("Send all the messages it is provided in the constructor") {
         for {
-          supervisor <- ZIO.service[SimulationSupervisor]
           fixture <- ZIO.service[ActorTestKit]
           observerProbe <- ZIO.service[TestProbe[Observer.PROTOCOL]]
           termProbe <- ZIO.service[TestProbe[DomainEvent[TestSimulationLayers.ProbeMessage]]]
           observer <- ZIO.service[RecordingObserver]
+          tapRef <- wireTap
           source <- ZIO.service[Source[ProbeMessage, ProbeMessage]]
           sink <- ZIO.service[RelayToActor[ProbeMessage]]
-          rootResponse <- {
-            given ActorSystem[?] = fixture.internalSystem
-            given Timeout = 1.second
-            val tap = Tap(Seq(observer.ref, observerProbe.ref))
-            val tapRef = fixture.spawn(tap, "tap")
-
-            observer.ref ! Observer.Initialize
-
-            source.ref ! Subject.InstallObserver("observerTap", tapRef)
-            sink.ref ! Subject.InstallObserver("observerTap", tapRef)
-            sink.ref ! sink.InstallTarget(termProbe.ref)
-
-
-            supervisor.rootSend(source)(rootForTime, Source.Trigger("triggerJob", messages))
-          }
+          rootResponse <- simpleKickOffRun(tapRef, rootForTime, messages)
         } yield {
           assertTrue(rootResponse == DoneOK)
           var termFound = 0
@@ -131,19 +118,17 @@ object SlickObserverSpec extends  ZIOSpecDefault
         } yield assertTrue(count == expectedNotifications)
       }
     ).provideShared(
-      slickPlatformStack,
-      SlickRecorder.layer(simulationBatch),
-      RecordingObserver.layer,
-      RelayToActor.layer[ProbeMessage],
-      Source.layer[ProbeMessage]("TheSource", lambda),
+      observerStack(simulationBatch),
+      Clock.zeroStartLayer,
+      simpleSimulationComponents(lambda),
       simpleShopFloorConfiguration,
-      DDE.simSupervisorLayer("QuillObserver_Test", None),
-      testActorSystemLayer,
-      fixtureLayer,
+      DDE.simSupervisorLayer("SlickObserverSpec_Supervisor"),
+      fixtureStack("SlickObserverSpec_AS"),
       probeLayer[DomainEvent[ProbeMessage]]("TermProbe"),
       probeLayer[Observer.PROTOCOL]("ObserverProbe")
     ) @@ sequential
   }
 
-
+  def observerStack(simulationBatch: String): TaskLayer[RecordingObserver & SlickRecorder] =
+    slickPlatformStack >>> (SlickRecorder.layer(simulationBatch) >+> RecordingObserver.layer)
 

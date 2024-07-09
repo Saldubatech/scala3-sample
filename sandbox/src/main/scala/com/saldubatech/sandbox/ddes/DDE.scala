@@ -17,8 +17,14 @@ import com.saldubatech.util.LogEnabled
 
 
 object DDE extends LogEnabled:
-  def simSupervisorLayer(name: String, maxTime: Option[Tick]): ULayer[SimulationSupervisor] =
-    ZLayer.succeed(SimulationSupervisor(name, maxTime))
+  def simSupervisorLayer(name: String): URLayer[Clock & SimulationComponent, SimulationSupervisor] =
+    ZLayer(
+      for {
+        clk <- ZIO.service[Clock]
+        simConf <- ZIO.service[SimulationComponent]
+      } yield SimulationSupervisor(name, clk, Some(simConf))
+    )
+
 
   def simEnd(tick: Tick, ctx: ActorContext[?]): Unit =
     log.info(s"Calling for termination at Virtual Time: $tick")
@@ -56,10 +62,10 @@ object DDE extends LogEnabled:
 
   def kickAwake(using to: Timeout, ac: ActorSystem[SupervisorProtocol]): Task[SupervisorResponse] =
     import AskPattern._
-    ZIO.fromFuture(implicit ec => ac.ask[SupervisorResponse](ref => DDE.Ping(ref)))
+    ZIO.fromFuture(implicit ec => ac.ask[SupervisorResponse](ref => Ping(ref)))
 end DDE
 
-class SimulationSupervisor(val name: String, private val maxTime: Option[Tick]):
+class SimulationSupervisor(val name: String, val clock: Clock, private val simulationConfiguration: Option[DDE.SimulationComponent]):
   import DDE._
 
   private var _ctx: Option[ActorContext[DDE.SupervisorProtocol]] = None
@@ -68,11 +74,11 @@ class SimulationSupervisor(val name: String, private val maxTime: Option[Tick]):
   private var _components: Option[Map[Id, ActorRef[?]]] = None
   lazy val components: Map[Id, ActorRef[?]] = _components.get
 
-  val clock: Clock = Clock(maxTime)
   private var _clkRef: Option[ActorRef[Clock.PROTOCOL]] = None
   private lazy val clockRef: ActorRef[Clock.PROTOCOL] = _clkRef.get
 
 
+  // Just a place holder to be able to use in sending simulation messages from "outside" the system.
   private final class ROOT extends SimActor[DomainMessage] with SimActorContext[DomainMessage]:
     selfRoot =>
       override val name: String = "ROOT"
@@ -85,65 +91,45 @@ class SimulationSupervisor(val name: String, private val maxTime: Option[Tick]):
           Behaviors.receiveMessage {
             msg =>
               msg match
-                case FinalizeInit(ref) => ref ! DoneOK
                 case msg@OAMRequest(ref) => ref ! Fail(AppError(s"Message not supported by ROOT: $msg"))
                 case msg@DomainAction(action, forEpoch, from, target, payload) => from.ref ! Fail(AppError(s"Message not supported by ROOT: $msg"))
-                case other => ()
+                case other => log.error(s"Unknown Message: $other")
             Behaviors.same
           }
       }
 
-    def rootCheck(using Timeout): Task[OAMMessage] =
-      import AskPattern._
-      given ActorSystem[?] = this.ctx.system
-      ZIO.fromFuture(implicit ec => this.ctx.self.ask[OAMMessage](ref => FinalizeInit(ref)))
-      // this._ctx match
-      //   case None => ZIO.succeed(Fail(AppError(s"ROOT SimNode Not Initialized"))) //ZIO.fail(AppError(s"ROOT SimNode Not Initialized"))
-      //   case Some(ctx) => ZIO.fromFuture(implicit ec => ctx.self.ask[OAMMessage](ref => FinalizeInit(ref)))
 
+  private val root: ROOT = ROOT()
+  private var _rootRef: Option[ActorRef[DomainAction[DomainMessage] | OAMMessage]] = None
+  private lazy val rootRef: ActorRef[DomainAction[DomainMessage] | OAMMessage] = _rootRef.get
 
-
-    // For use in some testing scenarios only.
-    def directRootSend[TARGET_DM <: DomainMessage]
-      (target: SimActor[TARGET_DM])
-      (forTime: Tick, msg: TARGET_DM): Unit = clock.request(target.command(forTime, this, msg))
-
-
-    def rootSend[TARGET_DM <: DomainMessage]
-      (target: SimActor[TARGET_DM])
-      (forTime: Tick, msg: TARGET_DM)
-      (using Timeout): Task[OAMMessage] =
-        for {
+  // To be used sparingly, only at initialization time.
+  def rootSend[TARGET_DM <: DomainMessage](target: SimActor[TARGET_DM])(forTime: Tick, msg: TARGET_DM)
+    (using Timeout): Task[OAMMessage] =
+      for {
           rs <- rootCheck
         } yield {
           directRootSend(target)(forTime, msg)
           rs
         }
 
-  private val root: ROOT = ROOT()
-  private var _rootRef: Option[ActorRef[DomainAction[DomainMessage] | OAMMessage]] = None
-  private lazy val rootRef: ActorRef[DomainAction[DomainMessage] | OAMMessage] = _rootRef.get
+  // To be used **ONLY** in testing situations.
+  def directRootSend[TARGET_DM <: DomainMessage](target: SimActor[TARGET_DM])(forTime: Tick, msg: TARGET_DM)
+    (using Timeout): Unit = clock.request(target.command(forTime, root, msg))
 
-  def rootSend[TARGET_DM <: DomainMessage]
-    (target: SimActor[TARGET_DM])
-    (forTime: Tick, msg: TARGET_DM)
-    (using Timeout): Task[OAMMessage] =
-      root.rootSend(target)(forTime, msg)
+  def rootCheck(using to: Timeout): Task[OAMMessage] =
+    import AskPattern._
+    given ActorSystem[?] = ctx.system
+    ZIO.fromFuture(implicit ec => ctx.self.ask[OAMMessage](ref => Ping(ref)))
 
-  def directRootSend[TARGET_DM <: DomainMessage]
-    (target: SimActor[TARGET_DM])
-    (forTime: Tick, msg: TARGET_DM)
-    (using Timeout): Unit =
-      root.directRootSend(target)(forTime, msg)
+  lazy val ctx: ActorContext[SupervisorProtocol] = _ctx.get
 
-  def rootCheck(using Timeout): Task[OAMMessage] = root.rootCheck
-
-  def start(simulation: Option[DDE.SimulationComponent]): Behavior[DDE.SupervisorProtocol] =
+  val start: Behavior[DDE.SupervisorProtocol] =
     Behaviors.setup{
       context =>
         _ctx = Some(context)
         _clkRef = Some(context.spawn[Clock.PROTOCOL](clock.start(), "Clock"))
-        _components = simulation.map{s => s.initialize(context)}
+        _components = simulationConfiguration.map{s => s.initialize(context)}
         _rootRef = Some(context.spawn[DomainAction[DomainMessage] | OAMMessage](root.init(), "ROOT"))
         Behaviors.receiveMessage[DDE.SupervisorProtocol]{
           case Ping(ref) =>

@@ -19,9 +19,8 @@ object Clock:
 
   type PROTOCOL = ClockMessage | Command
 
-  val withTickLayer: RLayer[Option[Tick], Clock] = ZLayer.fromFunction { (maxTime: Option[Tick]) => Clock(maxTime) }
-  def startTimeLayer(at: Tick): TaskLayer[Clock] = ZLayer.succeed { Clock(Some(at)) }
-  val zeroStartLayer: TaskLayer[Clock] = startTimeLayer(0L)
+  def startTimeLayer(maxTime: Option[Tick], at: Tick): TaskLayer[Clock] = ZLayer.succeed { Clock(maxTime, at) }
+  val zeroStartLayer: TaskLayer[Clock] = startTimeLayer(None, 0L)
 
 
 class Clock(
@@ -114,7 +113,7 @@ class Clock(
           _timers = Some(tt)
           Behaviors.receiveMessage {
             case cmd: Command =>
-              log.debug(s"Clock Receiving")
+              log.debug(s"Clock Receiving $cmd")
               scheduleCommand(ctx, cmd)
               idleCount = 0
               Behaviors.same
@@ -138,21 +137,5 @@ class Clock(
       }
     }
 
-  // def start(): Behavior[PROTOCOL] =
-  //   Behaviors.setup { ctx =>
-  //     log.debug(s"> Clock Starting")
-  //     _ctx = Some(ctx)
-  //     Behaviors.receiveMessage {
-  //       case cmd: Command =>
-  //         log.debug(s"Clock Receiving")
-  //         scheduleCommand(ctx, cmd)
-  //         Behaviors.same
-  //       case ActionComplete(action, by) =>
-  //         log.debug(s"Complete Action $action received from ${by.name}")
-  //         doCompleteAction(action)
-  //         Behaviors.same
-  //     }
-  //   }
-
-  def request(cmd: Command): Unit = this.ctx.self ! cmd
-  def complete(action: Id, by: SimActor[?]): Unit = this.ctx.self ! ActionComplete(action, by)
+  def request(cmd: Command): Unit = selfClock.ctx.self ! cmd
+  def complete(action: Id, by: SimActor[?]): Unit = selfClock.ctx.self ! ActionComplete(action, by)

@@ -11,17 +11,19 @@ import org.scalatest.wordspec.AnyWordSpecLike
 
 import scala.concurrent.duration.*
 import scala.language.postfixOps
+import org.apache.pekko.actor.typed.scaladsl.ActorContext
+import org.apache.pekko.actor.typed.ActorRef
+import com.saldubatech.sandbox.ddes.DDE.SupervisorProtocol
+import com.saldubatech.test.BaseSpec
+import org.apache.pekko.actor.typed.ActorSystem
+import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
 
 
 object ClockSpec:
   case class ProbeMessage(number: Int, override val job: Id, override val id: Id = Id) extends DomainMessage
   case class NotAProbeMessage(number: Int, override val job: Id, override val id: Id = Id) extends DomainMessage
 
-class ClockSpec extends ScalaTestWithActorTestKit
-  with Matchers
-  with AnyWordSpecLike
-  with BeforeAndAfterAll
-  with LogEnabled:
+class ClockSpec extends BaseSpec:
   import ClockSpec.*
 
   "A Source" must {
@@ -47,28 +49,42 @@ class ClockSpec extends ScalaTestWithActorTestKit
               succeed
     }
     "Send all the messages it is provided" in {
-      val termProbe = createTestProbe[DomainEvent[ProbeMessage]]()
+      val clock = Clock(None)
+      val sink = RelayToActor[ProbeMessage]("TheSink", clock)
+      val source = Source(sink, (t: Tick, s: ProbeMessage) => s)(
+                      "TheSource",
+                      Distributions.toLong(Distributions.exponential(500.0)),
+                      clock
+                    )
+
+      val config = new DDE.SimulationComponent {
+
+        def initialize(ctx: ActorContext[SupervisorProtocol]): Map[Id, ActorRef[?]] = {
+          val sinkEntry = sink.simulationComponent.initialize(ctx)
+          val sourceEntry = source.simulationComponent.initialize(ctx)
+
+
+          sinkEntry ++ sourceEntry
+        }
+      }
+
+      val simSupervisor = SimulationSupervisor("ClockSpecSupervisor", clock, Some(config))
+
+      val actorSystem = ActorSystem(simSupervisor.start, "TestActorSystem")
+
+      val fixture = ActorTestKit(actorSystem)
+
+      val termProbe = fixture.createTestProbe[DomainEvent[ProbeMessage]]()
+
+      sink.ref ! sink.InstallTarget(termProbe.ref)
+
+
       val probes = 0 to 10 map {n => ProbeMessage(n, s"Job[$n]") }
 
-      val simSupervisor = SimulationSupervisor("ClockSpecSupervisor", None)
-      spawn(simSupervisor.start(None))
-
-      val sink = RelayToActor[ProbeMessage]("TheSink", simSupervisor.clock)
-      val sinkRef = spawn(sink.init())
-      sinkRef ! sink.InstallTarget(termProbe.ref)
-      val source =
-        Source(sink, (t: Tick, s: ProbeMessage) => s)(
-          "TheSource",
-          Distributions.toLong(Distributions.exponential(500.0)),
-          simSupervisor.clock
-        )
-      val sourceRef = spawn(source.init())
-
       log.debug("Root Sending message for time: 3 (InstallTarget)")
-      //root.send[InstallTarget[ProbeMessage]](source)(3, InstallTarget(sink, Some(10)))
       val jobId = Id
       val trigger = Trigger[ProbeMessage](jobId, probes)
-      simSupervisor.directRootSend[Trigger[ProbeMessage]](source)(3, trigger)
+      simSupervisor.directRootSend[Trigger[ProbeMessage]](source)(3, trigger)(using 1.second)
       var found = 0
       val r = termProbe.fishForMessage(1 second){ de =>
         de.payload.number match

@@ -4,7 +4,7 @@
 
 ### Scala Code Build
 
-![Scala Build](https://github.com/Saldubatech/scala3-sample/.github/actions/workflows/build-test.yml/badge.svg)
+<!-- ![Scala Build](https://github.com/Saldubatech/scala3-sample/.github/workflows/build-test.yml/badge.svg) -->
 
 ### Code Coverage
 

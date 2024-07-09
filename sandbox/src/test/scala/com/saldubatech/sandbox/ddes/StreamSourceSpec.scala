@@ -12,6 +12,12 @@ import scala.concurrent.duration.*
 import scala.language.postfixOps
 import zio.{ZIO, Runtime as ZRuntime, IO}
 import zio.stream.{ZStream, UStream}
+import com.saldubatech.test.BaseSpec
+import org.apache.pekko.actor.typed.scaladsl.ActorContext
+import com.saldubatech.sandbox.ddes.DDE.SupervisorProtocol
+import org.apache.pekko.actor.typed.ActorRef
+import org.apache.pekko.actor.typed.ActorSystem
+import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
 
 
 object StreamSourceSpec:
@@ -23,11 +29,7 @@ object StreamSourceSpec:
 
 
 
-class StreamSourceSpec extends ScalaTestWithActorTestKit
-  with Matchers
-  with AnyWordSpecLike
-  with BeforeAndAfterAll
-  with LogEnabled:
+class StreamSourceSpec extends BaseSpec:
   import StreamSourceSpec.*
 
 
@@ -51,30 +53,41 @@ class StreamSourceSpec extends ScalaTestWithActorTestKit
     }
     "Send all the messages it is provided" in {
       val intervalMean: Double = 500.0
-      val termProbe = createTestProbe[DomainEvent[ResultMessage]]()
       val nProbes = 10000
       val probes = 0 to nProbes map {n => ProbeMessage(n, s"Job[$n]") }
       val zProbes: UStream[ProbeMessage] = ZStream.fromIterable(probes)
 
-
-      val simSupervisor = SimulationSupervisor("ClockSpecSupervisor", None)
-      spawn(simSupervisor.start(None))
-
-      val sink = RelayToActor[ResultMessage]("TheSink", simSupervisor.clock)
-      val sinkRef = spawn(sink.init())
-      sinkRef ! sink.InstallTarget(termProbe.ref)
+      val clock = Clock(None)
+      val sink: RelayToActor[ResultMessage] = RelayToActor[ResultMessage]("TheSink", clock)
       given ZRuntime[Any] = ZRuntime.default
-      val streamSource = ZStreamSource(sink, resultTransformer)(
+      val streamSource: ZStreamSource[ProbeMessage, ResultMessage] = ZStreamSource(sink, resultTransformer)(
         "TheStreamingSource",
           Distributions.toLong(Distributions.exponential(500.0)),
-          simSupervisor.clock
+          clock
       )
-      val streamSourceRef = spawn(streamSource.init())
+
+      val config = new DDE.SimulationComponent {
+
+        def initialize(ctx: ActorContext[SupervisorProtocol]): Map[Id, ActorRef[?]] = {
+          val sinkEntry = sink.simulationComponent.initialize(ctx)
+          val sourceEntry = streamSource.simulationComponent.initialize(ctx)
+          sinkEntry ++ sourceEntry
+        }
+      }
+
+      val simSupervisor = SimulationSupervisor("StreamSourceSpecSupervisor", clock, Some(config))
+      val actorSystem = ActorSystem(simSupervisor.start, "StreamSourceSpecActorSystem")
+
+      val fixture = ActorTestKit(actorSystem)
+
+      val termProbe = fixture.createTestProbe[DomainEvent[ResultMessage]]()
+
+      sink.ref ! sink.InstallTarget(termProbe.ref)
 
       log.debug("Root Sending message for time: 0 (InstallTarget)")
       val jobId = Id
       val trigger = StreamTrigger[ProbeMessage](jobId, zProbes)
-      simSupervisor.directRootSend[StreamTrigger[ProbeMessage]](streamSource)(0, trigger)
+      simSupervisor.directRootSend[StreamTrigger[ProbeMessage]](streamSource)(0, trigger)(using 1.second)
       var found = 0
       var lastTime = 0L
       var intervalSum = 0L

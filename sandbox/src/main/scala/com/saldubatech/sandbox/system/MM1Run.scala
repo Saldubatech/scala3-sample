@@ -28,6 +28,11 @@ import com.saldubatech.infrastructure.storage.rdbms.quill.QuillPostgres
 import com.saldubatech.lang.predicate.platforms.QuillPlatform
 import org.apache.commons.math3.analysis.function.Abs
 import com.saldubatech.sandbox.ddes.node.SimpleStation
+import com.saldubatech.sandbox.ddes.Sink
+import com.saldubatech.math.randomvariables.Distributions.LongRVar
+import zio.Supervisor
+import com.saldubatech.sandbox.observers.Subject.InstallObserver
+import com.saldubatech.sandbox.ddes.DDE.SupervisorProtocol
 
 object MM1Run extends ZIOAppDefault with LogEnabled:
   case class JobMessage(number: Int, override val job: Id, override val id: Id = Id) extends DomainMessage
@@ -42,85 +47,71 @@ object MM1Run extends ZIOAppDefault with LogEnabled:
   private val dbConfig = config.getConfig("db")
   private val pgConfig = PGDataSourceBuilder.Configuration(dbConfig)
 
-  private val initializeShopFloor: RIO[
-    SimulationSupervisor & AbsorptionSink[JobMessage] & Station[JobMessage, JobMessage, JobMessage, JobMessage] & Source[JobMessage, JobMessage] & RecordingObserver,
-    ActorSystem[DDE.SupervisorProtocol]
-  ] =
-    for {
-      supervisor <- ZIO.service[SimulationSupervisor]
-      sink <- ZIO.service[AbsorptionSink[JobMessage]]
-      mm1 <- ZIO.service[Station[JobMessage, JobMessage, JobMessage, JobMessage]]
-      source <- ZIO.service[Source[JobMessage, JobMessage]]
-      observer <- ZIO.service[RecordingObserver]
-      as <- {
-        val simulation = new DDE.SimulationComponent {
-          def initialize(ctx: ActorContext[DDE.SupervisorProtocol]): Map[Id, ActorRef[?]] =
-            val sinkEntry = sink.simulationComponent.initialize(ctx)
-            val mm1Entry = mm1.simulationComponent.initialize(ctx)
-            val sourceEntry = source.simulationComponent.initialize(ctx)
-            val observerEntry = observer.simulationComponent.initialize(ctx)
-
-            observer.ref ! Observer.Initialize
-
-            val installObserver = Subject.InstallObserver("Observer", observer.ref)
-            Seq(source, mm1, sink).foreach{ case s: Subject => s.ref ! installObserver }
-            sinkEntry ++ mm1Entry ++ sourceEntry ++ observerEntry
-        }
-        ZIO.succeed(ActorSystem[DDE.SupervisorProtocol](supervisor.start(Some(simulation)), supervisor.name))
-      }
-      supPing <- {
-        DDE.kickAwake(using 1.seconds, as)
-      }
-      rs <- if supPing == DDE.AOK then ZIO.succeed(as) else ZIO.fail(AppError("Supervisor did not initialize O.K."))
-    } yield rs
-
-  private def simulation(nMessages: Int): RIO[
-    SimulationSupervisor & AbsorptionSink[JobMessage] & Station[JobMessage, JobMessage, JobMessage, JobMessage] & Source[JobMessage, JobMessage] & RecordingObserver,
-    ActorSystem[Nothing]] = for {
-      supervisor <- ZIO.service[SimulationSupervisor]
-      source <- ZIO.service[Source[JobMessage, JobMessage]]
-      actorSystem <- initializeShopFloor
-      supPing <- {
-        DDE.kickAwake(using 1.seconds, actorSystem)
-      }
-      rootCheck <- {
-        if supPing == DDE.AOK then
-          given ActorSystem[DDE.SupervisorProtocol] = actorSystem
-          given Timeout = 1.seconds
-          val jobId = Id
-          val messages: Seq[JobMessage] = 0 to nMessages map { n => JobMessage(n, s"TriggerJob[$n]") }
-          supervisor.rootSend(source)(0, Source.Trigger(jobId, messages))
-        else ZIO.fail(AppError("Supervisor did not initialize O.K."))
-      }
-      rs <- if rootCheck == DoneOK then ZIO.succeed(actorSystem) else ZIO.fail(AppError("Root Node did not initialize O.K."))
-  } yield rs
-
   override val run: Task[Done] = {
     given ZRuntime[Any] = this.runtime
     for {
-      actorSystem <- simulation(nJobs).provide(
-                      dataSourceStack(pgConfig),
-                      recorderStack(simulationBatch),
-                      DDE.simSupervisorLayer("MM1Run", None),
-                      RecordingObserver.layer,
-                      shopFloorLayer(lambda, tau))
+      actorSystem <- runSimulation(nJobs).provide(
+                      observerStack(pgConfig, simulationBatch),
+                      Clock.zeroStartLayer,
+                      simulationComponents(lambda, tau),
+                      simulationConfigurator,
+                      DDE.simSupervisorLayer("MM1Run"))
       _ <- ZConsole.printLine(s">> Waiting for Actor System to finish")
       done <- ZIO.fromFuture(implicit ec => actorSystem.whenTerminated)
       _ <- ZConsole.printLine(s">> Actor System is Done[$Done]")
      } yield done
   }
 
-  def shopFloorLayer(lambda: Distributions.LongRVar, tau: Distributions.LongRVar):
-    RLayer[SimulationSupervisor, AbsorptionSink[JobMessage] & Source[JobMessage, JobMessage] & Station[JobMessage, JobMessage, JobMessage, JobMessage]] =
-     (AbsorptionSink.layer[JobMessage]("AbsorptionSink") >+>
+  def observerStack(configuration: PGDataSourceBuilder.Configuration, simulationBatch: String)(using ZRuntime[?]) =
+    PGDataSourceBuilder.layerFromConfig(configuration) >>> DataSourceBuilder.dataSourceLayer >>> QuillRecorder.fromDataSourceStack(simulationBatch) >>> RecordingObserver.layer
+
+  private def runSimulation(nMessages: Int): RIO[SimulationSupervisor & Source[JobMessage, JobMessage], ActorSystem[SupervisorProtocol]] =
+    for {
+      supervisor <- ZIO.service[SimulationSupervisor]
+      as <- ZIO.succeed(ActorSystem[DDE.SupervisorProtocol](supervisor.start, supervisor.name))
+      supervisorPing <- DDE.kickAwake(using 1.second, as)
+      source <- ZIO.service[Source[JobMessage, JobMessage]]
+      startResult <- if supervisorPing == DDE.AOK then
+              val messages: Seq[JobMessage] = 0 to nMessages map { n => JobMessage(n, s"TriggerJob[$n]") }
+              supervisor.rootSend(source)(0, Source.Trigger(Id, messages))(using 1.second)
+            else
+              ZIO.fail(AppError(s"Actor System did not initialize O.K.: $supervisorPing"))
+      rs <- if startResult == DoneOK then ZIO.succeed(as) else ZIO.fail(AppError(s"Simulation Start resulted in Failure: $startResult"))
+    } yield rs
+
+  def simulationComponents(lambda: LongRVar, tau: LongRVar): RLayer[Clock & Observer,
+    Sink[JobMessage] & Source[JobMessage, JobMessage] & Station[JobMessage, JobMessage, JobMessage, JobMessage]] =
+      AbsorptionSink.layer[JobMessage]("AbsorptionSink") >+>
         SimpleStation.simpleStationLayer[JobMessage]("MM1_Station", 1, tau, Distributions.zeroLong, Distributions.zeroLong) >+>
-        Source.layer[JobMessage]("MM1_Source", lambda))
+        Source.layer[JobMessage]("MM1_Source", lambda)
 
-  def dataSourceStack(configuration: PGDataSourceBuilder.Configuration): TaskLayer[DataSource] =
-      PGDataSourceBuilder.layerFromConfig(configuration) >>>
-        DataSourceBuilder.dataSourceLayer
+  val simulationConfigurator: RLayer[
+    Observer & Sink[JobMessage] & Source[JobMessage, JobMessage] & Station[JobMessage, JobMessage, JobMessage, JobMessage],
+     DDE.SimulationComponent] =
+      ZLayer(
+        for {
+          sink <- ZIO.service[Sink[JobMessage]]
+          station <- ZIO.service[Station[JobMessage, JobMessage, JobMessage, JobMessage]]
+          source <- ZIO.service[Source[JobMessage, JobMessage]]
+          observer <- ZIO.service[Observer]
+        } yield {
+          new DDE.SimulationComponent {
+            def initialize(ctx: ActorContext[DDE.SupervisorProtocol]): Map[Id, ActorRef[?]] =
+                val sinkEntry = sink.simulationComponent.initialize(ctx)
+                val stationEntry = station.simulationComponent.initialize(ctx)
+                val sourceEntry = source.simulationComponent.initialize(ctx)
+                val observerEntry = observer.simulationComponent.initialize(ctx)
 
-  def recorderStack(simulationBatch: String): RLayer[DataSource, QuillRecorder] =
-      QuillPostgres.layer >>>
-      QuillPlatform.layer >>>
-      QuillRecorder.layer(simulationBatch)
+                observer.ref ! Observer.Initialize
+
+                sink.ref ! InstallObserver(observer.name, observer.ref)
+                station.ref ! InstallObserver(observer.name, observer.ref)
+                source.ref ! InstallObserver(observer.name, observer.ref)
+
+                sinkEntry ++ stationEntry ++ sourceEntry ++ observerEntry
+          }
+        }
+      )
+
+
+

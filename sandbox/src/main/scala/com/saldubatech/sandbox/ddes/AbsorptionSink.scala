@@ -10,13 +10,13 @@ import zio.{ZIO, RLayer, ZLayer, Tag as ZTag}
 
 object AbsorptionSink:
   def layer[DM <: DomainMessage : Typeable : ZTag](name: String):
-    RLayer[SimulationSupervisor, AbsorptionSink[DM]] =
-    ZLayer( ZIO.serviceWith[SimulationSupervisor]( s => AbsorptionSink(name, s.clock)) )
+    RLayer[Clock, AbsorptionSink[DM]] =
+    ZLayer( ZIO.serviceWith[Clock]( clk => AbsorptionSink(name, clk)) )
 end AbsorptionSink // object
 
 class AbsorptionSink[DM <: DomainMessage : Typeable]
 (name: Id, clock: Clock)
-  extends Sink(name, clock):
+  extends Sink[DM](name, clock):
   sink =>
 
   override val domainProcessor: DomainProcessor[DM] = Sink.DP[DM](name, opEv => eventNotify(opEv))

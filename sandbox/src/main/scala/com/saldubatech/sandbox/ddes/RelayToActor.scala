@@ -12,15 +12,8 @@ import com.saldubatech.lang.types.AppSuccess
 
 object RelayToActor:
 
-  def layer[JOB <: DomainMessage : Typeable : ZTag]:
-    RLayer[SimulationSupervisor, RelayToActor[JOB]] =
-    ZLayer(
-      for {
-        supervisor <- ZIO.service[SimulationSupervisor]
-      } yield {
-        RelayToActor[JOB]("TheSink", supervisor.clock)
-      }
-    )
+  def layer[JOB <: DomainMessage : Typeable : ZTag](name: String): RLayer[Clock, RelayToActor[JOB]] =
+    ZLayer( ZIO.serviceWith[Clock](clock => RelayToActor[JOB](name, clock)))
 
   class RelayProcessor[DM <: DomainMessage : Typeable]
   (

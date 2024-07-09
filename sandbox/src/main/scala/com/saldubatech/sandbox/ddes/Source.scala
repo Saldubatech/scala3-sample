@@ -19,12 +19,12 @@ import com.saldubatech.math.randomvariables.Distributions
 
 object Source:
   def layer[DM <: DomainMessage : Typeable : ZTag](name: String, distribution: Distributions.LongRVar):
-  RLayer[SimulationSupervisor & SimActor[DM], Source[DM, DM]] =
+  RLayer[Clock & SimActor[DM], Source[DM, DM]] =
     ZLayer(
       for {
-        supervisor <- ZIO.service[SimulationSupervisor]
+        clock <- ZIO.service[Clock]
         target <- ZIO.service[SimActor[DM]]
-      } yield Source(target, (t: Tick, s: DM) => s)(name, distribution, supervisor.clock)
+      } yield Source(target, (t: Tick, s: DM) => s)(name, distribution, clock)
     )
 
   case class Trigger[SOURCED <: DomainMessage : Typeable] private (
@@ -71,17 +71,16 @@ object Source:
 
 
     override def accept(at: Tick, ev: DomainEvent[Trigger[SOURCED]]): ActionResult =
-        var forTime = ev.payload.startDelay match {
-          case None => at
-          case Some(withDelay) => at + withDelay
+      var forTime = ev.payload.startDelay match {
+        case None => at
+        case Some(withDelay) => at + withDelay
+      }
+      ev.payload.supply.foreach {
+        msg =>
+          scheduleSend(at, forTime, transform(forTime, msg), target)
+          forTime += interval()
         }
-        ev.payload.supply.foreach {
-          msg =>
-            log.debug(s"Source Sending: $msg for time $forTime")
-            scheduleSend(at, forTime, transform(forTime, msg), target)
-            forTime += interval()
-          }
-        Right(())
+      Right(())
 
 
 class Source[SOURCED <: DomainMessage : Typeable, TARGETED <: DomainMessage : Typeable]

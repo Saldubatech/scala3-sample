@@ -14,17 +14,19 @@ import scala.concurrent.duration.*
 import scala.language.postfixOps
 import com.saldubatech.sandbox.ddes.Tick
 import com.saldubatech.math.randomvariables.Distributions.LongRVar
+import com.saldubatech.test.BaseSpec
+import org.apache.pekko.actor.typed.scaladsl.ActorContext
+import org.apache.pekko.actor.typed.ActorRef
+import com.saldubatech.sandbox.ddes.DDE.SupervisorProtocol
+import org.apache.pekko.actor.typed.ActorSystem
+import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
 
 
 object GgmSpec:
   case class ProbeMessage(number: Int, override val job: Id, override val id: Id = Id) extends DomainMessage
   case class NotAProbeMessage(number: Int, override val job: Id, override val id: Id = Id) extends DomainMessage
 
-class GgmSpec extends ScalaTestWithActorTestKit
-  with Matchers
-  with AnyWordSpecLike
-  with BeforeAndAfterAll
-  with LogEnabled:
+class GgmSpec extends BaseSpec:
   import GgmSpec.*
 
   "An MM1 Station" must {
@@ -32,32 +34,39 @@ class GgmSpec extends ScalaTestWithActorTestKit
     val tau: Distributions.LongRVar = Distributions.discreteExponential(100.0)
     val lambda: Distributions.LongRVar = Distributions.discreteExponential(80.0)
     "Process all messages through Source->mm1->Sink" in {
-      val termProbe = createTestProbe[DomainEvent[ProbeMessage]]()
       val probes = 0 to 10 map {n => ProbeMessage(n, s"Job[$n]") }
 
-      val simSupervisor = SimulationSupervisor("ClockSpecSupervisor", None)
-      spawn(simSupervisor.start(None))
-
-      val sink = RelayToActor[ProbeMessage]("TheSink", simSupervisor.clock)
-      val sinkRef = spawn(sink.init())
-      sinkRef ! sink.InstallTarget(termProbe.ref)
+      val clock = Clock(None)
+      val sink = RelayToActor[ProbeMessage]("TheSink", clock)
       val mm1: SimpleStation[ProbeMessage] =
-        SimpleStation(sink)(
-          "MM1_Station", 1, tau, Distributions.zeroLong, Distributions.zeroLong)(
-            simSupervisor.clock)
-      val mm1Ref = spawn(mm1.init())
-      val source =
+        SimpleStation(sink)("MM1_Station", 1, tau, Distributions.zeroLong, Distributions.zeroLong)(clock)
+      val source: Source[ProbeMessage, ProbeMessage] =
         Source[ProbeMessage, ProbeMessage](mm1, (t: Tick, s: ProbeMessage) => s)(
           "TheSource",
           Distributions.toLong(Distributions.exponential(500.0)),
-          simSupervisor.clock
+          clock
         )
-      val sourceRef = spawn(source.init())
+
+      val config = new DDE.SimulationComponent {
+        override def initialize(ctx: ActorContext[SupervisorProtocol]): Map[Id, ActorRef[?]] = {
+          val sinkEntry = sink.simulationComponent.initialize(ctx)
+          val mm1Entry = mm1.simulationComponent.initialize(ctx)
+          val sourceEntry = source.simulationComponent.initialize(ctx)
+          sinkEntry ++ mm1Entry ++ sourceEntry
+        }
+      }
+
+      val simSupervisor = SimulationSupervisor("MM1SpecSupervisor", clock, Some(config))
+      val actorSystem = ActorSystem(simSupervisor.start, "MM1_Spec_ActorSystem")
+      val fixture = ActorTestKit(actorSystem)
+
+      val termProbe = fixture.createTestProbe[DomainEvent[ProbeMessage]]()
+      sink.ref ! sink.InstallTarget(termProbe.ref)
 
       log.debug("Root Sending message for time: 0 (InstallTarget)")
       val jobId = Id
       val trigger = Trigger[ProbeMessage](jobId, probes)
-      simSupervisor.directRootSend[Trigger[ProbeMessage]](source)(0, trigger)
+      simSupervisor.directRootSend[Trigger[ProbeMessage]](source)(0, trigger)(using 1.second)
       var found = 0
       val r = termProbe.fishForMessage(1 second){ de =>
         de.payload.number match
