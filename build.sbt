@@ -8,6 +8,7 @@ resolvers += GhPackages.repo
 
 enablePlugins (
   //  WebsitePlugin,
+//  ZioSbtWebsitePlugin,
   ZioSbtEcosystemPlugin,
   ZioSbtCiPlugin,
   JavaAppPackaging

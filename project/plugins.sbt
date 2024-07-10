@@ -13,7 +13,7 @@ addDependencyTreePlugin
 
 // ZIO Support
 // ===================
-val zioSbtVersion = "0.4.0-alpha.22" // "0.4.0-alpha.6+15-525bdf8e-SNAPSHOT"
+val zioSbtVersion = "0.4.0-alpha.28" // "0.4.0-alpha.6+15-525bdf8e-SNAPSHOT"
 
 addSbtPlugin("dev.zio" % "zio-sbt-ecosystem" % zioSbtVersion)
 addSbtPlugin("dev.zio" % "zio-sbt-website" % zioSbtVersion)

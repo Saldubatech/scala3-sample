@@ -93,6 +93,7 @@ libraryDependencies ++= Seq(
   Dependencies.Zio.Testing.sbt % Test,
   Dependencies.Zio.Testing.junit % Test,
   Dependencies.Zio.Testing.mock % Test,
+  Dependencies.Zio.Testing.magnolia % Test,
   Dependencies.Zio.Ecosystem.schemaTest % Test,
   Dependencies.Testing.containersPostgres % Test,
   Dependencies.Zio.Testing.magnolia % Test,

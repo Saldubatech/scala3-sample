@@ -20,7 +20,7 @@ import slick.interop.zio.DatabaseProvider
 import slick.jdbc.JdbcBackend.JdbcDatabaseDef
 import slick.jdbc.JdbcProfile
 import zio.http.Header.IfRange.DateTime
-import zio.test.*
+import zio.test.{assertTrue, ZIOSpecDefault, Spec, TestEnvironment, assertCompletes}
 import zio.test.Assertion.*
 import zio.test.TestAspect.*
 import zio.{Cause, Exit, IO, RIO, RLayer, Scope, Task, TaskLayer, UIO, ULayer, URIO, URLayer, Unsafe, ZEnvironment, ZIO, ZLayer, Runtime as ZRuntime, Tag as ZTag}

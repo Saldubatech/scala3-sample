@@ -18,40 +18,21 @@ import com.saldubatech.sandbox.ddes.DDE.SupervisorProtocol
 import org.apache.pekko.actor.typed.ActorRef
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
+import zio.test.{ZIOSpecDefault, assertTrue, assertCompletes, assertNever}
 
 
-object StreamSourceSpec:
+object StreamSourceSpec extends ZIOSpecDefault with LogEnabled with Matchers:
   case class ProbeMessage(number: Int, override val job: Id, override val id: Id = Id) extends DomainMessage
   case class ResultMessage(forTime: Tick, number: Int, override val job: Id, override val id: Id = Id) extends DomainMessage
   def resultTransformer(t: Tick, s: ProbeMessage): ResultMessage = ResultMessage(t, s.number, s.job, s.id)
   case class NotAProbeMessage(number: Int, override val job: Id, override val id: Id = Id) extends DomainMessage
 
 
-
-
-class StreamSourceSpec extends BaseSpec:
-  import StreamSourceSpec.*
-
-
   import com.saldubatech.sandbox.ddes.ZStreamSource.StreamTrigger
   import com.saldubatech.sandbox.ddes.ZStreamSource.given
-  "A Source" must {
-    "Match the type" in {
-      val probes = 0 to 1 map {n => ProbeMessage(n, s"Job[$n]") }
-      val zProbes: UStream[ProbeMessage] = ZStream.fromIterable(probes)
-      val trigger1: StreamTrigger[ProbeMessage] = StreamTrigger[ProbeMessage]("Job1", zProbes)
-      val trigger2: StreamTrigger[NotAProbeMessage] = StreamTrigger[NotAProbeMessage]("Job2", ZStream.fromIterable(0 to 1 map {n => NotAProbeMessage(n, s"Job[$n]")}))
-
-      trigger1 match
-        case t : StreamTrigger[ProbeMessage] =>
-          log.info(s"Success: It matched.....")
-          succeed
-      trigger2 match
-        case t : StreamTrigger[NotAProbeMessage] =>
-          log.info(s"Success: It did not match.....")
-          succeed
-    }
-    "Send all the messages it is provided" in {
+  override def spec = {
+  suite("A StreamSource must") (
+    test("Send all the messages it is provided") {
       val intervalMean: Double = 500.0
       val nProbes = 10000
       val probes = 0 to nProbes map {n => ProbeMessage(n, s"Job[$n]") }
@@ -82,29 +63,35 @@ class StreamSourceSpec extends BaseSpec:
 
       val termProbe = fixture.createTestProbe[DomainEvent[ResultMessage]]()
 
-      sink.ref ! sink.InstallTarget(termProbe.ref)
+      for {
+        rootRs <- DDE.kickAwake(using 1.second, actorSystem)
+      } yield {
+        sink.ref ! sink.InstallTarget(termProbe.ref)
 
-      log.debug("Root Sending message for time: 0 (InstallTarget)")
-      val jobId = Id
-      val trigger = StreamTrigger[ProbeMessage](jobId, zProbes)
-      simSupervisor.directRootSend[StreamTrigger[ProbeMessage]](streamSource)(0, trigger)(using 1.second)
-      var found = 0
-      var lastTime = 0L
-      var intervalSum = 0L
-      val times = collection.mutable.ArrayBuffer[Long]()
-      val r = termProbe.fishForMessage(3 seconds){ de =>
-        intervalSum += de.payload.forTime - lastTime
-        times.addOne(de.payload.forTime)
-        lastTime = de.payload.forTime
-        de.payload.number match
-          case c if c <= nProbes =>
-           found += 1
-           if found == probes.size then FishingOutcomes.complete else FishingOutcomes.continue
-          case other => FishingOutcomes.fail(s"Incorrect message received: $other")
+        log.debug("Root Sending message for time: 0 (InstallTarget)")
+        val jobId = Id
+        val trigger = StreamTrigger[ProbeMessage](jobId, zProbes)
+        simSupervisor.directRootSend[StreamTrigger[ProbeMessage]](streamSource)(0, trigger)(using 1.second)
+        var found = 0
+        var lastTime = 0L
+        var intervalSum = 0L
+        val times = collection.mutable.ArrayBuffer[Long]()
+        val r = termProbe.fishForMessage(3 seconds){ de =>
+          intervalSum += de.payload.forTime - lastTime
+          times.addOne(de.payload.forTime)
+          lastTime = de.payload.forTime
+          de.payload.number match
+            case c if c <= nProbes =>
+              found += 1
+              if found == probes.size then FishingOutcomes.complete else FishingOutcomes.continue
+            case other => FishingOutcomes.fail(s"Incorrect message received: $other")
+        }
+        assertTrue(r.size == probes.size)
+        assertTrue(intervalSum.toDouble/(found.toDouble - 1.0) === intervalMean +- 30.0)
+        termProbe.expectNoMessage(300 millis)
+        fixture.shutdownTestKit()
+        assertCompletes
       }
-      assert(r.size == probes.size)
-      assert(intervalSum.toDouble/(found.toDouble - 1.0) === intervalMean +- 30.0)
-
-      termProbe.expectNoMessage(300 millis)
     }
-  }
+  )
+}
