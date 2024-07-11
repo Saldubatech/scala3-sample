@@ -81,10 +81,10 @@ object Station:
         for {
           completedWp <- processorResource.completedJob(job)
           finished <- process(completedWp) // Virtual Execution is done at the time of completion. In Between, it is "in-limbo", In the future, the work package could track the "in progress state."
-          departureDelay <- discharger.pack(job, finished)
+          packingDelay <- discharger.pack(host.currentTime, job, finished)
         } yield {
           host.eventNotify(End(host.currentTime, ecEv.job, host.name))
-          host.env.scheduleDelay(host)(departureDelay, DepartureReady(Id, job))
+          host.env.scheduleDelay(host)(packingDelay, DepartureReady(Id, job))
         }
     }
     protected val dischargeBehavior: PartialFunction[DomainEvent[PROTOCOL[WORK_REQUEST, INBOUND]], ActionResult] =

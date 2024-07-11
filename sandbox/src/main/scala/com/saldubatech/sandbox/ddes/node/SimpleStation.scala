@@ -119,7 +119,11 @@ object SimpleStation:
     // Indexed and sorted by time so that the order of discharge is maintained w.r.t. to the "ready" status.
     private val ready: collection.mutable.SortedMap[Tick, collection.mutable.Set[JOB]] = collection.mutable.SortedMap()
 
-    def dischargeReady(at: Tick, job: Id): AppResult[Unit] =
+    override def pack(at: Tick, job: Id, finished: JOB): AppResult[Tick] =
+      outbound.getOrElseUpdate(job, collection.mutable.Set()) += finished
+      AppSuccess(dischargeDelay())
+
+    override def dischargeReady(at: Tick, job: Id): AppResult[Unit] =
       outbound.get(job) match
         case None => AppFail(AppError(s"Job $job is not in the discharge step"))
         case Some(set) if set.size == 1 =>
@@ -129,16 +133,13 @@ object SimpleStation:
         case Some(emptySet) if emptySet.isEmpty => AppFail(AppError(s"Empty Set"))
         case Some(otherSet) => AppFail(AppError(s"Multiple Jobs in Set not supported for SimpleDischarger"))
 
-    def doDischarge(at: Tick): Iterable[JOB] =
+    override def doDischarge(at: Tick): Iterable[JOB] =
       ready.filter{(readyAt, _) => at >= readyAt}.flatMap{
         (atKey, outboundJobs) =>
           ready -= atKey
           outboundJobs
       }
 
-    def pack(job: Id, finished: JOB): AppResult[Tick] =
-      outbound.getOrElseUpdate(job, collection.mutable.Set()) += finished
-      AppSuccess(dischargeDelay())
   end SimpleDischarger
 
   class SimpleDomainProcessor[JOB <: DomainMessage : Typeable](

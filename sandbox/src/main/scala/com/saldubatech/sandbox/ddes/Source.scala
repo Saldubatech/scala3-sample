@@ -54,7 +54,7 @@ object Source:
     def withId[SOURCED <: DomainMessage : Typeable](id: Id, job: Id, supply: Seq[SOURCED], startDelay: Option[Tick] = None)
     : Trigger[SOURCED] = Trigger(id, job, supply, startDelay)
 
-  class DP[SOURCED <: DomainMessage : Typeable, TARGETED <: DomainMessage : Typeable]
+  class DP[SOURCED <: DomainMessage : Typeable, TARGETED <: DomainMessage]
   (private val target: SimActor[TARGETED],
    private val transform: (Tick, SOURCED) => TARGETED,
    private val name: String,
@@ -83,7 +83,7 @@ object Source:
       Right(())
 
 
-class Source[SOURCED <: DomainMessage : Typeable, TARGETED <: DomainMessage : Typeable]
+class Source[SOURCED <: DomainMessage : Typeable, TARGETED <: DomainMessage]
 (val target: SimActor[TARGETED], transformation: (Tick, SOURCED) => TARGETED)(name: String, val interval: LongRVar, clock: Clock)
   extends SimActorBehavior[Source.Trigger[SOURCED]](name, clock) with Subject:
   node =>
@@ -97,4 +97,5 @@ class Source[SOURCED <: DomainMessage : Typeable, TARGETED <: DomainMessage : Ty
     msg match
       case obsMsg: ObserverManagement => observerManagement(obsMsg)
       case _ => Right(())
+
 
