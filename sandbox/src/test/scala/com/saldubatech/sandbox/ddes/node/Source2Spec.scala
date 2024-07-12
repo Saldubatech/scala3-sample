@@ -25,7 +25,7 @@ object Source2Spec extends ZIOSpecDefault with LogEnabled:
       test("All messages must travel to the Sink") {
         val interArrivalTime = Distributions.toLong(Distributions.exponential(500.0))
         val clock = Clock(None)
-        val sink = RelayToActor[ProbeMessage]("TheSink", clock)
+        val sink = RelaySink[ProbeMessage]("TheSink", clock)
         val source = Source("TheSource", clock, sink, Distributions.zeroLong, Distributions.zeroLong){
           (tick: Tick, trigger: Source.Trigger[ProbeMessage]) => trigger.supply
         }

@@ -27,12 +27,6 @@ import com.saldubatech.sandbox.observers.{Departure, End, Arrival, Start, WorkRe
 object Station:
   import ProcessorResource.WorkPackage
 
-  // sealed trait Materials extends DomainMessage
-  // case class MaterialTransfer(override val id: Id, override val job: Id) extends Materials
-
-  // sealed trait Command extends DomainMessage
-  // case class WorkRequest(override val id: Id, override val job: Id) extends Command
-
   sealed trait ExecutionMessage extends DomainMessage
   case class ExecutionComplete(override val id: Id, override val job: Id) extends ExecutionMessage
   case class DepartureReady(override val id: Id, override val job: Id) extends ExecutionMessage

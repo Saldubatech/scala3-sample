@@ -16,8 +16,8 @@ end AbsorptionSink // object
 
 class AbsorptionSink[DM <: DomainMessage : Typeable]
 (name: Id, clock: Clock)
-  extends Sink[DM](name, clock):
+  extends SinkOld[DM](name, clock):
   sink =>
 
-  override val domainProcessor: DomainProcessor[DM] = Sink.DP[DM](name, opEv => eventNotify(opEv))
+  override val domainProcessor: DomainProcessor[DM] = SinkOld.DP[DM](name, opEv => eventNotify(opEv))
 

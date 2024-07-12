@@ -10,7 +10,7 @@ import com.saldubatech.sandbox.observers.Subject.ObserverManagement
 import com.saldubatech.sandbox.observers.Subject
 import org.apache.pekko.actor.typed.ActorRef
 
-object Sink:
+object SinkOld:
 
   class DP[DM <: DomainMessage : Typeable](
     private val name: String,
@@ -24,7 +24,7 @@ object Sink:
 
 
 
-abstract class Sink[DM <: DomainMessage : Typeable]
+abstract class SinkOld[DM <: DomainMessage : Typeable]
 (name: String, clock: Clock)
   extends SimActorBehavior[DM](name, clock) with Subject:
 

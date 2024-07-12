@@ -7,7 +7,7 @@ import org.apache.pekko.actor.typed.{ActorRef, Behavior}
 import scala.reflect.Typeable
 import com.saldubatech.lang.Id
 
-trait DomainProcessor[-DM <: DomainMessage : Typeable]:
+trait DomainProcessor[-DM <: DomainMessage : Typeable] extends LogEnabled:
   def accept(at: Tick, ev: DomainEvent[DM]): ActionResult
 
 trait SimActor[-DM <: DomainMessage : Typeable] extends LogEnabled:

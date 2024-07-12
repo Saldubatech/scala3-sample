@@ -5,7 +5,7 @@ import com.saldubatech.lang.Id
 import com.saldubatech.lang.predicate.SlickPlatform
 import com.saldubatech.math.randomvariables.Distributions
 import com.saldubatech.math.randomvariables.Distributions.LongRVar
-import com.saldubatech.sandbox.ddes.{Clock, Tap, DomainMessage, SimulationSupervisor, Sink, RelayToActor, OAMMessage, DDE}
+import com.saldubatech.sandbox.ddes.{Clock, Tap, DomainMessage, SimulationSupervisor, SinkOld, RelayToActor, OAMMessage, DDE}
 import com.saldubatech.sandbox.ddes.node.{Station, SimpleStation, Source}
 import com.saldubatech.sandbox.observers.{Observer, Subject}
 import org.apache.pekko.actor.testkit.typed.scaladsl.{ActorTestKit, TestProbe}
@@ -60,12 +60,12 @@ object TestSimulationLayers:
 
   val simpleShopFloorConfiguration:
     RLayer[
-        Sink[ProbeMessage] &
+        SinkOld[ProbeMessage] &
         Source[ProbeMessage, ProbeMessage] &
         RecordingObserver,
       DDE.SimulationComponent] = ZLayer(
         for {
-          sink <- ZIO.service[Sink[ProbeMessage]]
+          sink <- ZIO.service[SinkOld[ProbeMessage]]
           source <- ZIO.service[Source[ProbeMessage, ProbeMessage]]
           observer <- ZIO.service[RecordingObserver]
         } yield {

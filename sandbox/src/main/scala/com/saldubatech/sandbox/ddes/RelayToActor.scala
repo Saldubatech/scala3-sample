@@ -20,7 +20,7 @@ object RelayToActor:
     name: String,
     notifier: OperationEventNotification => Unit,
     relayer: DomainEvent[DM] => Unit
-  ) extends Sink.DP[DM](name, notifier):
+  ) extends SinkOld.DP[DM](name, notifier):
     override def accept(at: Tick, ev: DomainEvent[DM])
     : ActionResult =
       super.accept(at, ev)
@@ -29,7 +29,7 @@ object RelayToActor:
 
 class RelayToActor[DM <: DomainMessage : Typeable]
 (name: Id, clock: Clock)
-  extends Sink(name, clock):
+  extends SinkOld(name, clock):
 
   case class InstallTarget(target: ActorRef[DomainEvent[DM]]) extends OAMMessage
 

@@ -51,7 +51,7 @@ object Source:
     extends Protocol
 
   // Needed to resolve the indirection of `Seq[SOURCED]` in particular the empty Sequence case.
-  implicit def source2triggerTT[S <: DomainMessage : Typeable]: TypeTest[Any, Trigger[S]] =
+  implicit def triggerTT[S <: DomainMessage : Typeable]: TypeTest[Any, Trigger[S]] =
     new TypeTest[Any, Trigger[S]] with LogEnabled {
       override def unapply(x: Any): Option[x.type & Trigger[S]] =
         x match {
@@ -112,8 +112,6 @@ object Source:
     (packingDelay: LongRVar, interArrival: LongRVar, transformation: (Tick, Source.Trigger[SOURCED]) => Seq[TARGETED])
     (using tt : Typeable[Trigger[SOURCED]])
       extends DomainProcessor[Source.Protocol]:
-        type TRIGGER = Source.Trigger[SOURCED]
-
         // In the future, this can go in the constructor to allow for pluggable behaviors.
         private val discharger: Discharger[Source.Trigger[SOURCED], TARGETED] = SourceDischarger(packingDelay, transformation)
 

@@ -28,7 +28,7 @@ import com.saldubatech.infrastructure.storage.rdbms.quill.QuillPostgres
 import com.saldubatech.lang.predicate.platforms.QuillPlatform
 import org.apache.commons.math3.analysis.function.Abs
 import com.saldubatech.sandbox.ddes.node.SimpleStation
-import com.saldubatech.sandbox.ddes.Sink
+import com.saldubatech.sandbox.ddes.SinkOld
 import com.saldubatech.math.randomvariables.Distributions.LongRVar
 import zio.Supervisor
 import com.saldubatech.sandbox.observers.Subject.InstallObserver
@@ -80,17 +80,17 @@ object MM1Run extends ZIOAppDefault with LogEnabled:
     } yield rs
 
   def simulationComponents(lambda: LongRVar, tau: LongRVar): RLayer[Clock & Observer,
-    Sink[JobMessage] & Source[JobMessage, JobMessage] & Station[SimpleStation.WorkRequestToken, JobMessage, JobMessage, JobMessage]] =
+    SinkOld[JobMessage] & Source[JobMessage, JobMessage] & Station[SimpleStation.WorkRequestToken, JobMessage, JobMessage, JobMessage]] =
       AbsorptionSink.layer[JobMessage]("AbsorptionSink") >+>
         SimpleStation.simpleStationLayer[JobMessage]("MM1_Station", 1, tau, Distributions.zeroLong, Distributions.zeroLong) >+>
         Source.simpleLayer[JobMessage]("MM1_Source", lambda)
 
   val simulationConfigurator: RLayer[
-    Observer & Sink[JobMessage] & Source[JobMessage, JobMessage] & Station[SimpleStation.WorkRequestToken, JobMessage, JobMessage, JobMessage],
+    Observer & SinkOld[JobMessage] & Source[JobMessage, JobMessage] & Station[SimpleStation.WorkRequestToken, JobMessage, JobMessage, JobMessage],
      DDE.SimulationComponent] =
       ZLayer(
         for {
-          sink <- ZIO.service[Sink[JobMessage]]
+          sink <- ZIO.service[SinkOld[JobMessage]]
           station <- ZIO.service[Station[SimpleStation.WorkRequestToken, JobMessage, JobMessage, JobMessage]]
           source <- ZIO.service[Source[JobMessage, JobMessage]]
           observer <- ZIO.service[Observer]

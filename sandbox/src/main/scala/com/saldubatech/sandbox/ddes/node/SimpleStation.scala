@@ -34,23 +34,6 @@ object SimpleStation:
           SimpleStation[JOB](target)(name, nServers, processingTime, dischargeDelay, outboundTransportDelay)(clock)
       )
 
-  class SimpleInductor[JOB <: DomainMessage] extends Inductor[WorkRequestToken, JOB]:
-    import Inductor._
-    // Indexed by the job they are assigned to.
-    private val materials: collection.mutable.Map[Id, collection.mutable.Set[JOB]] = collection.mutable.Map()
-
-    override def prepareKit(currentTime: Tick, request: WorkRequestToken): AppResult[WorkPackage[WorkRequestToken, JOB]] =
-      AppSuccess(WorkPackage(currentTime, request).addAll(
-        materials.get(request.job) match
-          case None => List.empty
-          case Some(materials) => materials
-        ))
-
-    override def arrival(at: Tick, material: JOB): AppResult[Unit] =
-      materials.getOrElseUpdate(material.job, collection.mutable.Set()) += material
-      AppSuccess.unit
-  end SimpleInductor
-
   class SimpleNProcessorResource[JOB <: DomainMessage](val processingTime: LongRVar, val nServers: Int)
   extends ProcessorResource[WorkRequestToken, JOB]:
     override def isBusy: Boolean = State.isBusy
@@ -163,7 +146,7 @@ object SimpleStation:
     )
   (using Typeable[Station.PROTOCOL[WorkRequestToken, JOB]])
   extends Station.DP[WorkRequestToken, JOB, JOB, JOB](target)(
-    SimpleInductor(),
+    Inductor.Simple(),
     SimpleNProcessorResource(processingTime, nServers),
     SimpleDischarger(dischargeDelay),
     FIFOWorkQueue[WorkRequestToken]()
