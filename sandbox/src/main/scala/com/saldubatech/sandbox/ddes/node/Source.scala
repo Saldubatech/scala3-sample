@@ -13,7 +13,6 @@ import scala.collection.SortedMap
 import scala.reflect.TypeTest
 import com.saldubatech.util.LogEnabled
 
-import zio.stream.{UStream, ZStream, ZSink}
 import zio.{ZIO, Runtime as ZRuntime, Unsafe, Tag as ZTag, RLayer, ZLayer}
 import zio.Exit.Success
 import zio.Exit.Failure
@@ -105,7 +104,7 @@ object Source:
           AppSuccess.unit
 
     // one at a time
-    override def doDischarge(at: Tick): Iterable[TARGETED] = List(ready.dequeue())
+    override def doDischarge(at: Tick): Iterator[TARGETED] = Iterator(ready.dequeue())
 
   class DP[SOURCED <: DomainMessage : Typeable, TARGETED <: DomainMessage]
     (host: Source[SOURCED, TARGETED], target: SimActor[TARGETED])
@@ -153,12 +152,12 @@ object Source:
               AppSuccess.unit
 
 class Source[SOURCED <: DomainMessage : Typeable, TARGETED <: DomainMessage]
-  (name: String, clock: Clock, val target: SimActor[TARGETED], packingDelay: LongRVar, transportationDelay: LongRVar)
+  (name: String, clock: Clock, val target: SimActor[TARGETED], initialDelay: LongRVar, interArrivalDelay: LongRVar)
   (transformation: (Tick, Source.Trigger[SOURCED]) => Seq[TARGETED])
     extends SimActorBehavior[Source.Protocol](name, clock) with Subject:
 
   override protected val domainProcessor: DomainProcessor[Source.Protocol] =
-    Source.DP(this, target)(packingDelay, transportationDelay, transformation)
+    Source.DP(this, target)(initialDelay, interArrivalDelay, transformation)
 
   override def oam(msg: OAMMessage): ActionResult =
     msg match

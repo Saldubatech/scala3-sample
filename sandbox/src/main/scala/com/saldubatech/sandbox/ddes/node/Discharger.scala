@@ -45,5 +45,5 @@ trait Discharger[FINISHED <: DomainMessage, OUTBOUND <: DomainMessage]:
     * @param at: The time at which the discharge is to happen
     * @return The list of `OUTBOUND` Items that is ready for discharge. They will all be discharged at this time.
     */
-  def doDischarge(at: Tick): Iterable[OUTBOUND]
+  def doDischarge(at: Tick): Iterator[OUTBOUND]
 

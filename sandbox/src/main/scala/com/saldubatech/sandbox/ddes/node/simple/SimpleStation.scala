@@ -117,12 +117,12 @@ object SimpleStation:
           outbound -= job
           AppFail(AppError(s"Multiple Jobs in Set not supported for SimpleDischarger"))
 
-    override def doDischarge(at: Tick): Iterable[JOB] =
+    override def doDischarge(at: Tick): Iterator[JOB] =
       ready.filter{(readyAt, _) => at >= readyAt}.flatMap{
         (atKey, outboundJobs) =>
           ready -= atKey
           outboundJobs
-      }
+      }.iterator
 
   end SimpleDischarger
 
