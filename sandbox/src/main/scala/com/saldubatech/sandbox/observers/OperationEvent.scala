@@ -26,6 +26,7 @@ import com.saldubatech.lang.types.AppError
 enum OperationEventType:
   case NEW
   case ARRIVE
+  case WORK_REQUEST
   case START
   case END
   case DEPART
@@ -51,6 +52,7 @@ object OperationEventType:
     ev match
       case OperationEventType.NEW => None
       case OperationEventType.ARRIVE => None
+      case OperationEventType.WORK_REQUEST => None
       case OperationEventType.START => Some(OperationEventType.ARRIVE)
       case OperationEventType.END => Some(OperationEventType.START)
       case OperationEventType.DEPART => Some(OperationEventType.END)
@@ -76,6 +78,7 @@ object OperationType:
   def partialTimeOperation(ev: OperationEventType): Option[OperationType] =
     ev match
       case OperationEventType.NEW => None
+      case OperationEventType.WORK_REQUEST => None
       case OperationEventType.ARRIVE => Some(OperationType.TRANSFER)
       case OperationEventType.START => Some(OperationType.INDUCT)
       case OperationEventType.END => Some(OperationType.PROCESS)
@@ -86,6 +89,7 @@ object OperationEventNotification:
 
   def apply(opType: OperationEventType, id: Id, at: Tick, job: Id, station: Id, fromStation: Id): OperationEventNotification =
     opType match
+      case OperationEventType.WORK_REQUEST => WorkRequestJob.withId(id, at, job, station)
       case OperationEventType.NEW => NewJob.withId(id, at, job, station)
       case OperationEventType.COMPLETE => CompleteJob.withId(id, at, job, station)
       case OperationEventType.ARRIVE => Arrival.withId(id, at, job, station, fromStation)
@@ -96,6 +100,7 @@ object OperationEventNotification:
   def hydrate(opType: OperationEventType, id: Id, at: Tick, job: Id, station: Id, fromStation: Id, realTime: Epoch): OperationEventNotification =
     opType match
       case OperationEventType.NEW => NewJob.withId(id, at, job, station)
+      case OperationEventType.WORK_REQUEST => WorkRequestJob.withId(id, at, job, station)
       case OperationEventType.COMPLETE => CompleteJob.withId(id, at, job, station)
       case OperationEventType.ARRIVE => Arrival.withId(id, at, job, station, fromStation)
       case OperationEventType.START => Start.withId(id, at, job, station)
@@ -128,6 +133,27 @@ sealed trait OperationEventNotification extends Product with Serializable:
   type SELF <: OperationEventNotification
 
   def withRealTimeOverride(t: Epoch): SELF
+
+case class WorkRequestJob private
+(
+  override val id: Id,
+  override val at: Tick,
+  override val job: Id,
+  override val station: Id,
+  override val realTime: Epoch,
+  override val operation: OperationEventType.WORK_REQUEST.type = OperationEventType.WORK_REQUEST
+) extends OperationEventNotification:
+  type SELF = WorkRequestJob
+  override val fromStation: Id = station
+
+  override def withRealTimeOverride(t: Epoch): SELF = copy(realTime = t)
+
+object WorkRequestJob:
+  def apply(at: Tick, job: Id, station: Id): WorkRequestJob = WorkRequestJob.withId(Id, at, job, station)
+
+  def withId(id: Id, at: Tick, job: Id, station: Id): WorkRequestJob = WorkRequestJob(id, at, job, station, Epoch.now)
+
+
 
 // For New Job Notifications, the fromStation is the same at this one.
 case class NewJob private
@@ -182,10 +208,30 @@ case class Arrival private
 ) extends OperationEventNotification:
   type SELF = Arrival
   override def withRealTimeOverride(t: Epoch): SELF = copy(realTime = t)
+
 object Arrival:
   def apply(at: Tick, job: Id, station: Id, fromStation: Id): Arrival = Arrival.withId(Id, at, job, station, fromStation)
 
   def withId(id: Id, at: Tick, job: Id, station: Id, fromStation: Id): Arrival = Arrival(id, at, job, station, fromStation, Epoch.now)
+
+case class WorkRequest private
+(
+  override val id: Id,
+  override val at: Tick,
+  override val job: Id,
+  override val station: Id,
+  override val realTime: Epoch,
+  override val operation: OperationEventType.WORK_REQUEST.type = OperationEventType.WORK_REQUEST
+) extends OperationEventNotification:
+  override val fromStation: Id = station
+  type SELF = WorkRequest
+  override def withRealTimeOverride(t: Epoch): SELF = copy(realTime = t)
+
+object WorkRequest:
+  def apply(at: Tick, job: Id, station: Id): WorkRequest = WorkRequest.withId(Id, at, job, station)
+
+  def withId(id: Id, at: Tick, job: Id, station: Id): WorkRequest = WorkRequest(id, at, job, station, Epoch.now)
+
 
 // The from station is the current station, as the previous event must have been Arrival to it.
 case class Start private

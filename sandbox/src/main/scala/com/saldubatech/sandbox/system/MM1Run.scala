@@ -2,8 +2,8 @@ package com.saldubatech.sandbox.system
 
 import com.saldubatech.lang.Id
 import com.saldubatech.math.randomvariables.Distributions
-import com.saldubatech.sandbox.ddes.{Source, DDE, DomainMessage, AbsorptionSink, DoneOK}
-import com.saldubatech.sandbox.ddes.node.Station
+import com.saldubatech.sandbox.ddes.{DDE, DomainMessage, AbsorptionSink, DoneOK}
+import com.saldubatech.sandbox.ddes.node.{Source, Station}
 import com.saldubatech.sandbox.observers.{RecordingObserver, Observer, Subject}
 import com.saldubatech.infrastructure.storage.rdbms.PGDataSourceBuilder
 import com.typesafe.config.{Config, ConfigFactory}
@@ -80,18 +80,18 @@ object MM1Run extends ZIOAppDefault with LogEnabled:
     } yield rs
 
   def simulationComponents(lambda: LongRVar, tau: LongRVar): RLayer[Clock & Observer,
-    Sink[JobMessage] & Source[JobMessage, JobMessage] & Station[JobMessage, JobMessage, JobMessage, JobMessage]] =
+    Sink[JobMessage] & Source[JobMessage, JobMessage] & Station[SimpleStation.WorkRequestToken, JobMessage, JobMessage, JobMessage]] =
       AbsorptionSink.layer[JobMessage]("AbsorptionSink") >+>
         SimpleStation.simpleStationLayer[JobMessage]("MM1_Station", 1, tau, Distributions.zeroLong, Distributions.zeroLong) >+>
-        Source.layer[JobMessage]("MM1_Source", lambda)
+        Source.simpleLayer[JobMessage]("MM1_Source", lambda)
 
   val simulationConfigurator: RLayer[
-    Observer & Sink[JobMessage] & Source[JobMessage, JobMessage] & Station[JobMessage, JobMessage, JobMessage, JobMessage],
+    Observer & Sink[JobMessage] & Source[JobMessage, JobMessage] & Station[SimpleStation.WorkRequestToken, JobMessage, JobMessage, JobMessage],
      DDE.SimulationComponent] =
       ZLayer(
         for {
           sink <- ZIO.service[Sink[JobMessage]]
-          station <- ZIO.service[Station[JobMessage, JobMessage, JobMessage, JobMessage]]
+          station <- ZIO.service[Station[SimpleStation.WorkRequestToken, JobMessage, JobMessage, JobMessage]]
           source <- ZIO.service[Source[JobMessage, JobMessage]]
           observer <- ZIO.service[Observer]
         } yield {

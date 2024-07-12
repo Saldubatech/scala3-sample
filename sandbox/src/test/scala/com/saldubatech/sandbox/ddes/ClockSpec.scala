@@ -3,7 +3,8 @@ package com.saldubatech.sandbox.ddes
 import zio.test._
 import com.saldubatech.util.LogEnabled
 import zio.ZIO
-import com.saldubatech.sandbox.ddes.Source.Trigger
+import com.saldubatech.sandbox.ddes.node.Source.Trigger
+import com.saldubatech.sandbox.ddes.node.Source
 import com.saldubatech.lang.Id
 import com.saldubatech.math.randomvariables.Distributions
 import org.apache.pekko.actor.typed.scaladsl.ActorContext
@@ -46,11 +47,13 @@ object ClockSpec extends ZIOSpecDefault with LogEnabled:
       test("All messages must travel to the Sink") {
         val clock = Clock(None)
         val sink = RelayToActor[ProbeMessage]("TheSink", clock)
-        val source = Source(sink, (t: Tick, s: ProbeMessage) => s)(
-                        "TheSource",
-                        Distributions.toLong(Distributions.exponential(500.0)),
-                        clock
-                      )
+        val source = Source(
+          "TheSource",
+          clock,
+          sink,
+          Distributions.toLong(Distributions.exponential(500.0)),
+          Distributions.zeroLong)
+          ((t: Tick, s: Trigger[ProbeMessage]) => s.supply)
 
         val config = new DDE.SimulationComponent {
           def initialize(ctx: ActorContext[SupervisorProtocol]): Map[Id, ActorRef[?]] = {

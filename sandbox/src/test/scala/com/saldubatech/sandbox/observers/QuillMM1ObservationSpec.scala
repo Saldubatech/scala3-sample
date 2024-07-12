@@ -95,6 +95,7 @@ object QuillMM1ObservationSpec extends  ZIOSpecDefault
           assertTrue(r.size == expectedTerminalJobs)
           val expectedNotifications = messages.size * 8
           var obsFound = 0
+
           val obs = observerProbe.fishForMessage(1 second) { ev =>
             obsFound += 1
             if obsFound < expectedNotifications then FishingOutcomes.continue

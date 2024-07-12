@@ -14,6 +14,13 @@ object Discharger
 
 trait Discharger[FINISHED <: DomainMessage, OUTBOUND <: DomainMessage]:
   /**
+    * Whether there are any materials within the Discharger that have not been sent
+    * out yet.
+    *
+    * @return
+    */
+  def isIdle: Boolean
+  /**
     * Invoked  when the station processing finishes and "delivers" a `FINISHED` item to
     * the Discharger
     *
@@ -39,32 +46,4 @@ trait Discharger[FINISHED <: DomainMessage, OUTBOUND <: DomainMessage]:
     * @return The list of `OUTBOUND` Items that is ready for discharge. They will all be discharged at this time.
     */
   def doDischarge(at: Tick): Iterable[OUTBOUND]
-
-
-// class PassThroughFIFODischarger[FINISHED <: DomainMessage, OUTBOUND <: DomainMessage]
-// (private val transformer: (Tick, FINISHED) => OUTBOUND, private val dischargeDelay: LongRVar = Distributions.zeroLong)
-// extends Discharger[FINISHED, OUTBOUND]:
-//   private val dischargeQueueByFinishTime: collection.mutable.SortedMap[Tick, FINISHED] = collection.mutable.SortedMap()
-//   private val readyJobs: collection.mutable.Set[Id] = collection.mutable.Set()
-
-//   override def pack(currentTime: Tick, finished: FINISHED): AppResult[Tick] =
-//     if dischargeQueueByFinishTime.contains(currentTime) then
-//       AppFail(AppError(s"Two Jobs cannot finish at $currentTime: [${finished.job}]<>[${dischargeQueueByFinishTime.get(currentTime)}]"))
-//     else
-//       dischargeQueueByFinishTime += currentTime -> finished
-//       AppSuccess(dischargeDelay())
-
-//   override def dischargeReady(job: Id): AppResult[Unit] =
-//     dischargeQueueByFinishTime.find{ (_, f) => f.job == job} match
-//       case Some((notBefore, finished)) if finished.job == job =>
-//         readyJobs += finished.id
-//         AppSuccess(())
-//       case other => AppFail(AppError(s"Job $job not enqueued for departure"))
-
-//   override def doDischarge(at: Tick): Iterable[OUTBOUND] =
-//     val candidates = dischargeQueueByFinishTime.filter((t, f) => t < at && readyJobs.contains(f.id))
-//     readyJobs --= candidates.values.map(_.id)
-//     dischargeQueueByFinishTime --= candidates.keys
-//     candidates.map((t, f) => transformer(t, f))
-
 

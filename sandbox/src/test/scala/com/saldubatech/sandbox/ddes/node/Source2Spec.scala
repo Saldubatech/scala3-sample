@@ -3,7 +3,6 @@ package com.saldubatech.sandbox.ddes.node
 import zio.test._
 import com.saldubatech.util.LogEnabled
 import zio.ZIO
-import com.saldubatech.sandbox.ddes.Source.Trigger
 import com.saldubatech.lang.Id
 import com.saldubatech.math.randomvariables.Distributions
 import org.apache.pekko.actor.typed.scaladsl.ActorContext
@@ -15,14 +14,7 @@ import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
 import scala.concurrent.duration._
 import scala.collection.SortedMap
 import org.apache.pekko.actor.testkit.typed.scaladsl.FishingOutcomes
-import com.saldubatech.sandbox.ddes.Clock
-import com.saldubatech.sandbox.ddes.RelayToActor
-import com.saldubatech.sandbox.ddes.DDE
-import com.saldubatech.sandbox.ddes.SimulationSupervisor
-import com.saldubatech.sandbox.ddes.DomainEvent
-import com.saldubatech.sandbox.ddes.Tick
-import com.saldubatech.sandbox.ddes.Source
-import com.saldubatech.sandbox.ddes.DomainMessage
+import com.saldubatech.sandbox.ddes.{Tick, DomainMessage, DomainEvent, SimulationSupervisor, DDE, RelayToActor, Clock}
 
 object Source2Spec extends ZIOSpecDefault with LogEnabled:
   case class ProbeMessage(number: Int, override val job: Id, override val id: Id = Id) extends DomainMessage
@@ -34,12 +26,8 @@ object Source2Spec extends ZIOSpecDefault with LogEnabled:
         val interArrivalTime = Distributions.toLong(Distributions.exponential(500.0))
         val clock = Clock(None)
         val sink = RelayToActor[ProbeMessage]("TheSink", clock)
-        val source = Source2("TheSource", clock, sink, Distributions.zeroLong, Distributions.zeroLong){
-          (tick: Tick, trigger: Source.Trigger[ProbeMessage]) =>
-            val triggerTime: Tick = trigger.startDelay match
-              case None => 0
-              case Some(value) => value
-            SortedMap(triggerTime -> trigger.supply)
+        val source = Source("TheSource", clock, sink, Distributions.zeroLong, Distributions.zeroLong){
+          (tick: Tick, trigger: Source.Trigger[ProbeMessage]) => trigger.supply
         }
 
         val config = new DDE.SimulationComponent {
@@ -62,8 +50,8 @@ object Source2Spec extends ZIOSpecDefault with LogEnabled:
           sink.ref ! sink.InstallTarget(termProbe.ref)
           log.debug("Root Sending message for time: 3 (InstallTarget)")
           val jobId = Id
-          val trigger = Trigger[ProbeMessage](jobId, probes)
-          simSupervisor.directRootSend[Trigger[ProbeMessage]](source)(3, trigger)(using 1.second)
+          val trigger = Source.Trigger[ProbeMessage](jobId, probes)
+          simSupervisor.directRootSend[Source.Trigger[ProbeMessage]](source)(3, trigger)(using 1.second)
           var found = 0
           val r = termProbe.fishForMessage(1.second){ de =>
             de.payload.number match

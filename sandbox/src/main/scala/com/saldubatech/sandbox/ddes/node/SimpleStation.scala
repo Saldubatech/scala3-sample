@@ -20,9 +20,11 @@ import com.saldubatech.sandbox.ddes.SimulationSupervisor
 
 object SimpleStation:
 
+  case class WorkRequestToken(override val id: Id, override val job: Id) extends DomainMessage
+
   def simpleStationLayer[JOB <: DomainMessage : Typeable : ZTag]
   (name: String, nServers: Int, processingTime: LongRVar, dischargeDelay:LongRVar, outboundTransportDelay: LongRVar)
-  (using Typeable[Station.PROTOCOL[JOB, JOB]]):
+  (using Typeable[Station.PROTOCOL[WorkRequestToken, JOB]]):
     RLayer[SimActor[JOB] & Clock, SimpleStation[JOB]] =
       ZLayer(
         for {
@@ -32,17 +34,17 @@ object SimpleStation:
           SimpleStation[JOB](target)(name, nServers, processingTime, dischargeDelay, outboundTransportDelay)(clock)
       )
 
-  class SimpleInductor[JOB <: DomainMessage] extends Inductor[JOB, JOB]:
+  class SimpleInductor[JOB <: DomainMessage] extends Inductor[WorkRequestToken, JOB]:
     import Inductor._
-
     // Indexed by the job they are assigned to.
     private val materials: collection.mutable.Map[Id, collection.mutable.Set[JOB]] = collection.mutable.Map()
 
-    override def prepareKit(currentTime: Tick, request: JOB): AppResult[WorkPackage[JOB, JOB]] =
-      materials.get(request.job) match
-        case None => AppSuccess(WorkPackage(currentTime, request))
-        case Some(materials) => AppSuccess(WorkPackage(currentTime, request))
-
+    override def prepareKit(currentTime: Tick, request: WorkRequestToken): AppResult[WorkPackage[WorkRequestToken, JOB]] =
+      AppSuccess(WorkPackage(currentTime, request).addAll(
+        materials.get(request.job) match
+          case None => List.empty
+          case Some(materials) => materials
+        ))
 
     override def arrival(at: Tick, material: JOB): AppResult[Unit] =
       materials.getOrElseUpdate(material.job, collection.mutable.Set()) += material
@@ -50,15 +52,15 @@ object SimpleStation:
   end SimpleInductor
 
   class SimpleNProcessorResource[JOB <: DomainMessage](val processingTime: LongRVar, val nServers: Int)
-  extends ProcessorResource[JOB, JOB]:
+  extends ProcessorResource[WorkRequestToken, JOB]:
     override def isBusy: Boolean = State.isBusy
     override def isNotBusy: Boolean = !State.isBusy
 
-    override def completedJob(jobId: Id): AppResult[WorkPackage[JOB, JOB]] =
+    override def completedJob(jobId: Id): AppResult[WorkPackage[WorkRequestToken, JOB]] =
       State.freeResource
       WIP.completeJob(jobId)
 
-    override def startingWork(wp: WorkPackage[JOB, JOB]): AppResult[Tick] =
+    override def startingWork(wp: WorkPackage[WorkRequestToken, JOB]): AppResult[Tick] =
       if State.captureResource then
         for {
           _ <- WIP.registerWorkStart(wp)
@@ -67,26 +69,26 @@ object SimpleStation:
 
     // Support Inner Objects.
     private object WIP:
-      private val workInProgress: collection.mutable.Map[Id, WorkPackage[JOB, JOB]] = collection.mutable.Map()
+      private val workInProgress: collection.mutable.Map[Id, WorkPackage[WorkRequestToken, JOB]] = collection.mutable.Map()
 
-      def registerWorkStart(wp: WorkPackage[JOB, JOB]): AppResult[WorkPackage[JOB, JOB]] =
+      def registerWorkStart(wp: WorkPackage[WorkRequestToken, JOB]): AppResult[WorkPackage[WorkRequestToken, JOB]] =
         if workInProgress.contains(wp.wr.job) then
           AppFail(SimulationError(s"WorkPackage for Ev.Id[${wp.wr.job}] is already registered"))
         else
           workInProgress += wp.wr.job -> wp
           AppSuccess(wp)
 
-      def completeWork(wp: WorkPackage[JOB, JOB]): AppResult[WorkPackage[JOB, JOB]] =
+      def completeWork(wp: WorkPackage[WorkRequestToken, JOB]): AppResult[WorkPackage[WorkRequestToken, JOB]] =
         workInProgress.remove(wp.wr.job) match
           case None => AppFail(SimulationError(s"WorkPackage not in Progress for job: ${wp.wr.job}"))
           case Some(r) => AppSuccess(r)
 
-      def getWIP(job: Id): AppResult[WorkPackage[JOB, JOB]] =
+      def getWIP(job: Id): AppResult[WorkPackage[WorkRequestToken, JOB]] =
         workInProgress.get(job) match
           case None => AppFail(SimulationError(s"WorkPackage not in Progress for job: $job"))
           case Some(r) => AppSuccess(r)
 
-      def completeJob(jobId: Id): AppResult[WorkPackage[JOB, JOB]] =
+      def completeJob(jobId: Id): AppResult[WorkPackage[WorkRequestToken, JOB]] =
         for {
           wip <- getWIP(jobId)
           rs <- completeWork(wip)
@@ -119,19 +121,26 @@ object SimpleStation:
     // Indexed and sorted by time so that the order of discharge is maintained w.r.t. to the "ready" status.
     private val ready: collection.mutable.SortedMap[Tick, collection.mutable.Set[JOB]] = collection.mutable.SortedMap()
 
+    override def isIdle: Boolean = outbound.isEmpty && ready.isEmpty
+
     override def pack(at: Tick, job: Id, finished: JOB): AppResult[Tick] =
       outbound.getOrElseUpdate(job, collection.mutable.Set()) += finished
       AppSuccess(dischargeDelay())
 
     override def dischargeReady(at: Tick, job: Id): AppResult[Unit] =
+      println(s"Discharge Ready: $job::${outbound.get(job)}")
       outbound.get(job) match
         case None => AppFail(AppError(s"Job $job is not in the discharge step"))
+        case Some(emptySet) if emptySet.isEmpty =>
+          outbound -= job
+          AppFail(AppError(s"Empty Set"))
         case Some(set) if set.size == 1 =>
           ready.getOrElseUpdate(at, collection.mutable.Set()) += set.head
           outbound -= job
           AppSuccess.unit
-        case Some(emptySet) if emptySet.isEmpty => AppFail(AppError(s"Empty Set"))
-        case Some(otherSet) => AppFail(AppError(s"Multiple Jobs in Set not supported for SimpleDischarger"))
+        case Some(otherSet) =>
+          outbound -= job
+          AppFail(AppError(s"Multiple Jobs in Set not supported for SimpleDischarger"))
 
     override def doDischarge(at: Tick): Iterable[JOB] =
       ready.filter{(readyAt, _) => at >= readyAt}.flatMap{
@@ -150,41 +159,44 @@ object SimpleStation:
     dischargeDelay: LongRVar,
     // Outbound
     target: SimActor[JOB],
-    val transportDelay: LongRVar)(host: Station[JOB, JOB, JOB, JOB]
+    val transportDelay: LongRVar)(host: Station[WorkRequestToken, JOB, JOB, JOB]
     )
-  (using Typeable[Station.PROTOCOL[JOB, JOB]])
-  extends Station.DP[JOB, JOB, JOB, JOB](target)(
+  (using Typeable[Station.PROTOCOL[WorkRequestToken, JOB]])
+  extends Station.DP[WorkRequestToken, JOB, JOB, JOB](target)(
     SimpleInductor(),
     SimpleNProcessorResource(processingTime, nServers),
     SimpleDischarger(dischargeDelay),
-    FIFOWorkQueue()
+    FIFOWorkQueue[WorkRequestToken]()
     )(host):
 
-    protected def discharge(at: Tick, outbound: JOB): AppResult[Unit] =
+    override protected def arrivalSignal(at: Tick, action: Id, fromName: Id, ib: JOB): AppResult[Unit] =
+      pendingWork.enqueueWorkRequest(at, action, fromName, WorkRequestToken(ib.id, ib.job)).map{_ => ()}
+
+    override protected def dischargeSignal(at: Tick, outbound: JOB): AppResult[Unit] =
       host.env.scheduleDelay(target)(transportDelay(), outbound)
       AppSuccess.unit
 
-    protected def process(wp: ProcessorResource.WorkPackage[JOB, JOB]): AppResult[JOB] = AppSuccess(wp.wr)
-
-    private lazy val overrideInboundBehavior: PartialFunction[DomainEvent[Station.PROTOCOL[JOB, JOB]], ActionResult] =
-      {
-        case evFromUpstream@DomainEvent(action, from, ib: JOB) =>
-          host.eventNotify(Arrival(host.currentTime, ib.job, host.name, evFromUpstream.from.name))
-          pendingWork.enqueueWorkRequest(host.currentTime, action, from.name, ib).map{_ => ()}
-          // TODO
-          // materialFlowNotifier(MaterialArrival(host.currentTime, ib.job, host.name, ib.from.name))
-          inductor.arrival(host.currentTime, ib)
-      }
-
-    override lazy val processingBehavior: PartialFunction[DomainEvent[Station.PROTOCOL[JOB, JOB]], ActionResult] =
-      overrideInboundBehavior orElse
-      executionCompleteBehavior orElse
-      dischargeBehavior orElse {
-        case other =>  AppFail(AppError(s"Unknown Domain Event received $other"))
-      }
+    override protected def processCompleteSignal(wp: ProcessorResource.WorkPackage[WorkRequestToken, JOB]): AppResult[JOB] =
+      wp.materials.headOption match
+        case None => AppFail(AppError(s"No materials for Job: $wp"))
+        case Some(job) => AppSuccess(job)
 
 end SimpleStation // object
 
+/**
+  * A Station that does not receive explicit "Commands" from a controller. It simply reacts to inbound materials
+  * and processes them in the order they arrive. This behavior is implemented in the SimpleDomain Processor by
+  * having the `arrivalSignal` trigger the `enqueueWorkRequest` itself.
+  *
+  * @param target The downstream Node to send the completed jobs.
+  * @param name The name of the Station
+  * @param nServers The number of jobs that can be processed simultaneously
+  * @param processingTime A Stochastic variable for the processing time of an individual job.
+  * @param dischargeDelay A Stochastic variable for the delay in "packing" the outbound jobs.
+  * @param outboundTransportDelay The time to transport the completed jobs to the downstream node. This is needed only until
+  * explicit transport systems are modeled.
+  * @param clock The simulation Clock.
+  */
 class SimpleStation[JOB <: DomainMessage : Typeable](target: SimActor[JOB])
 (
   name: String,
@@ -194,9 +206,9 @@ class SimpleStation[JOB <: DomainMessage : Typeable](target: SimActor[JOB])
   outboundTransportDelay: LongRVar
   )
   (clock: Clock)
-  (using Typeable[Station.PROTOCOL[JOB, JOB]])
-extends Station[JOB, JOB, JOB, JOB](name, target)(
-  (h: Station[JOB, JOB, JOB, JOB]) =>
+  (using Typeable[Station.PROTOCOL[SimpleStation.WorkRequestToken, JOB]])
+extends Station[SimpleStation.WorkRequestToken, JOB, JOB, JOB](name, target)(
+  (h: Station[SimpleStation.WorkRequestToken, JOB, JOB, JOB]) =>
     SimpleStation.SimpleDomainProcessor[JOB](nServers, processingTime, dischargeDelay, target, outboundTransportDelay)(h), clock
   )
 end SimpleStation // class
