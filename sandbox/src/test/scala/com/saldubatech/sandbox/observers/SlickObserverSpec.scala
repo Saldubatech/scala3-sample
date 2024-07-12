@@ -33,7 +33,7 @@ import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.*
 import scala.language.postfixOps
 import com.saldubatech.infrastructure.storage.rdbms.slick.PGExtendedProfile
-import com.saldubatech.sandbox.ddes.RelayToActor
+import com.saldubatech.sandbox.ddes.node.simple.RelaySink
 import com.saldubatech.sandbox.ddes.Tap
 import com.saldubatech.sandbox.ddes.Clock
 
@@ -81,7 +81,7 @@ object SlickObserverSpec extends  ZIOSpecDefault
           observer <- ZIO.service[RecordingObserver]
           tapRef <- wireTap
           source <- ZIO.service[Source[ProbeMessage, ProbeMessage]]
-          sink <- ZIO.service[RelayToActor[ProbeMessage]]
+          sink <- ZIO.service[RelaySink[ProbeMessage]]
           rootResponse <- simpleKickOffRun(tapRef, rootForTime, messages)
         } yield {
           assertTrue(rootResponse == DoneOK)

@@ -8,9 +8,8 @@ import com.saldubatech.math.randomvariables.Distributions.LongRVar
 import com.saldubatech.sandbox.ddes.node.Station.ExecutionComplete
 
 object ProcessorResource:
-  case class WorkPackage[WORK_REQUEST <: DomainMessage, INBOUND <: DomainMessage](
-    at: Tick, wr: WORK_REQUEST):
-      private val _materials: collection.mutable.Map[Id, INBOUND] = collection.mutable.Map() // [MaterialId, INBOUND]
+  case class WorkPackage[WORK_REQUEST <: DomainMessage, INBOUND <: DomainMessage](at: Tick, wr: WORK_REQUEST):
+      private val _materials: collection.mutable.Map[Id, INBOUND] = collection.mutable.Map()
       def addMaterial(m: INBOUND): WorkPackage[WORK_REQUEST, INBOUND] = {_materials += m.id -> m; this}
       def addAll(materials: Iterable[INBOUND]): WorkPackage[WORK_REQUEST, INBOUND] = {_materials ++= materials.map{m => m.id -> m}; this}
       def materials: Iterable[INBOUND] = _materials.values
@@ -23,7 +22,6 @@ trait ProcessorResource[WORK_REQUEST <: DomainMessage, INBOUND <: DomainMessage]
 
   def startingWork(wp: WorkPackage[WORK_REQUEST, INBOUND]): AppResult[Tick]
   def completedJob(jobId: Id): AppResult[WorkPackage[WORK_REQUEST, INBOUND]]
-
 
 class SimpleNProcessor[DM <: DomainMessage](
   val processingTime: LongRVar,
@@ -44,7 +42,6 @@ class SimpleNProcessor[DM <: DomainMessage](
         _ <- WIP.registerWorkStart(wp)
       } yield processingTime()
     else AppFail(SimulationError(s"Cannot obtain Processor Resources"))
-
 
   // Support Inner Objects.
   object WIP:
@@ -75,10 +72,8 @@ class SimpleNProcessor[DM <: DomainMessage](
 
   end WIP
 
-
   object State:
     private var resourcesBusy: Int = 0
-
 
     def isNotBusy: Boolean = resourcesBusy < nServers
     def isBusy: Boolean = resourcesBusy == nServers
@@ -95,5 +90,4 @@ class SimpleNProcessor[DM <: DomainMessage](
         resourcesBusy -= 1
         true
   end State
-
 end SimpleNProcessor

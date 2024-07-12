@@ -20,7 +20,6 @@ import zio.Exit.Failure
 
 import scala.reflect.{ClassTag, Typeable, TypeTest}
 import com.saldubatech.math.randomvariables.Distributions
-import com.saldubatech.sandbox.ddes.AbsorptionSink
 import com.saldubatech.sandbox.observers.CompleteJob
 import com.saldubatech.sandbox.observers.Arrival
 import com.saldubatech.sandbox.ddes.node.ProcessorResource.WorkPackage
@@ -59,6 +58,8 @@ object Sink2:
               wp <- inductor.prepareKit(at, payload)
               _ <- executeCompletion(at, payload, wp)
             } yield host.eventNotify(CompleteJob(at, payload.job, host.name))
+
+  class SimpleSink
 
 end Sink2 // object
 

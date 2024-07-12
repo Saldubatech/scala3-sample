@@ -14,7 +14,9 @@ import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
 import scala.concurrent.duration._
 import scala.collection.SortedMap
 import org.apache.pekko.actor.testkit.typed.scaladsl.FishingOutcomes
-import com.saldubatech.sandbox.ddes.{Tick, DomainMessage, DomainEvent, SimulationSupervisor, DDE, RelayToActor, Clock}
+import com.saldubatech.sandbox.ddes.{Tick, DomainMessage, DomainEvent, SimulationSupervisor, DDE, Clock}
+import com.saldubatech.sandbox.ddes.node.simple.RelaySink
+
 
 object Source2Spec extends ZIOSpecDefault with LogEnabled:
   case class ProbeMessage(number: Int, override val job: Id, override val id: Id = Id) extends DomainMessage

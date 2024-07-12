@@ -32,7 +32,7 @@ import javax.sql.DataSource
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.*
 import scala.language.postfixOps
-import com.saldubatech.sandbox.ddes.RelayToActor
+import com.saldubatech.sandbox.ddes.node.simple.RelaySink
 import com.saldubatech.sandbox.ddes.{Clock, Tap}
 import com.saldubatech.sandbox.observers.TestSimulationLayers.ProbeMessage
 import com.saldubatech.sandbox.ddes.OAMMessage

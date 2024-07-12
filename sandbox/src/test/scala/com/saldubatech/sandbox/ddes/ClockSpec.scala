@@ -5,6 +5,7 @@ import com.saldubatech.util.LogEnabled
 import zio.ZIO
 import com.saldubatech.sandbox.ddes.node.Source.Trigger
 import com.saldubatech.sandbox.ddes.node.Source
+import com.saldubatech.sandbox.ddes.node.simple.RelaySink
 import com.saldubatech.lang.Id
 import com.saldubatech.math.randomvariables.Distributions
 import org.apache.pekko.actor.typed.scaladsl.ActorContext
@@ -46,7 +47,7 @@ object ClockSpec extends ZIOSpecDefault with LogEnabled:
       },
       test("All messages must travel to the Sink") {
         val clock = Clock(None)
-        val sink = RelayToActor[ProbeMessage]("TheSink", clock)
+        val sink = RelaySink[ProbeMessage]("TheSink", clock)
         val source = Source(
           "TheSource",
           clock,

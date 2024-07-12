@@ -2,11 +2,12 @@ package com.saldubatech.sandbox.observers
 
 import com.saldubatech.infrastructure.storage.rdbms.{DataSourceBuilder, PGDataSourceBuilder}
 import com.saldubatech.lang.Id
-import com.saldubatech.lang.predicate.SlickPlatform
 import com.saldubatech.math.randomvariables.Distributions
 import com.saldubatech.math.randomvariables.Distributions.LongRVar
-import com.saldubatech.sandbox.ddes.{Clock, Tap, DomainMessage, SimulationSupervisor, SinkOld, RelayToActor, OAMMessage, DDE}
+import com.saldubatech.sandbox.ddes.{Clock, Tap, DomainMessage, SimulationSupervisor, OAMMessage, DDE}
+import com.saldubatech.sandbox.ddes.node.simple.RelaySink
 import com.saldubatech.sandbox.ddes.node.{Station, SimpleStation, Source}
+import com.saldubatech.sandbox.ddes.node.simple.SimpleSink
 import com.saldubatech.sandbox.observers.{Observer, Subject}
 import org.apache.pekko.actor.testkit.typed.scaladsl.{ActorTestKit, TestProbe}
 import org.apache.pekko.actor.typed.{ActorRef, ActorSystem}
@@ -55,17 +56,17 @@ object TestSimulationLayers:
     )
 
 
-  def simpleSimulationComponents(lambda: LongRVar): ZLayer[Clock, Throwable, RelayToActor[ProbeMessage] & Source[ProbeMessage, ProbeMessage]] =
-    RelayToActor.layer[ProbeMessage]("TheSink") >+> Source.simpleLayer[ProbeMessage]("TheSource", lambda)
+  def simpleSimulationComponents(lambda: LongRVar): ZLayer[Clock, Throwable, RelaySink[ProbeMessage] & Source[ProbeMessage, ProbeMessage]] =
+    RelaySink.layer[ProbeMessage]("TheSink") >+> Source.simpleLayer[ProbeMessage]("TheSource", lambda)
 
   val simpleShopFloorConfiguration:
     RLayer[
-        SinkOld[ProbeMessage] &
+        SimpleSink[ProbeMessage] &
         Source[ProbeMessage, ProbeMessage] &
         RecordingObserver,
       DDE.SimulationComponent] = ZLayer(
         for {
-          sink <- ZIO.service[SinkOld[ProbeMessage]]
+          sink <- ZIO.service[SimpleSink[ProbeMessage]]
           source <- ZIO.service[Source[ProbeMessage, ProbeMessage]]
           observer <- ZIO.service[RecordingObserver]
         } yield {
@@ -85,14 +86,14 @@ object TestSimulationLayers:
       )
 
   def simpleKickOffRun(withObserver: ActorRef[Observer.PROTOCOL], rootForTime: Tick, messages: Seq[ProbeMessage]): RIO[
-    SimulationSupervisor & ActorSystem[DDE.SupervisorProtocol] & TestProbe[DomainEvent[ProbeMessage]] & RelayToActor[ProbeMessage] & Source[ProbeMessage, ProbeMessage],
+    SimulationSupervisor & ActorSystem[DDE.SupervisorProtocol] & TestProbe[DomainEvent[ProbeMessage]] & RelaySink[ProbeMessage] & Source[ProbeMessage, ProbeMessage],
     OAMMessage] =
     for {
           supervisor <- ZIO.service[SimulationSupervisor]
           as <- ZIO.service[ActorSystem[DDE.SupervisorProtocol]]
           termProbe <- ZIO.service[TestProbe[DomainEvent[TestSimulationLayers.ProbeMessage]]]
           source <- ZIO.service[Source[ProbeMessage, ProbeMessage]]
-          sink <- ZIO.service[RelayToActor[ProbeMessage]]
+          sink <- ZIO.service[RelaySink[ProbeMessage]]
           supervisorPing <- DDE.kickAwake(using 1.second, as)
           rootResponse <- {
 
@@ -107,20 +108,20 @@ object TestSimulationLayers:
 
   def mm1SimulationComponents(lambda: LongRVar, tau: LongRVar): ZLayer[
     Clock, Throwable,
-    RelayToActor[ProbeMessage] & Station[SimpleStation.WorkRequestToken, ProbeMessage, ProbeMessage, ProbeMessage] & Source[ProbeMessage, ProbeMessage]] =
-    RelayToActor.layer[ProbeMessage]("TheSink") >+>
+    RelaySink[ProbeMessage] & Station[SimpleStation.WorkRequestToken, ProbeMessage, ProbeMessage, ProbeMessage] & Source[ProbeMessage, ProbeMessage]] =
+    RelaySink.layer[ProbeMessage]("TheSink") >+>
       SimpleStation.simpleStationLayer[ProbeMessage]("MM1_Station", 1, tau, Distributions.zeroLong, Distributions.zeroLong) >+>
       Source.simpleLayer[ProbeMessage]("TheSource", lambda)
 
   val mm1ShopFloorConfiguration:
     RLayer[
-        RelayToActor[ProbeMessage] &
+        RelaySink[ProbeMessage] &
         Station[SimpleStation.WorkRequestToken, ProbeMessage, ProbeMessage, ProbeMessage] &
         Source[ProbeMessage, ProbeMessage] &
         RecordingObserver,
       DDE.SimulationComponent] = ZLayer(
         for {
-          sink <- ZIO.service[RelayToActor[ProbeMessage]]
+          sink <- ZIO.service[RelaySink[ProbeMessage]]
           mm1 <- ZIO.service[Station[SimpleStation.WorkRequestToken, ProbeMessage, ProbeMessage, ProbeMessage]]
           source <- ZIO.service[Source[ProbeMessage, ProbeMessage]]
           observer <- ZIO.service[RecordingObserver]
@@ -145,7 +146,7 @@ object TestSimulationLayers:
   def mm1KickOffRun(withObserver: ActorRef[Observer.PROTOCOL], rootForTime: Tick, messages: Seq[ProbeMessage]): RIO[
     SimulationSupervisor &
       TestProbe[DomainEvent[ProbeMessage]] &
-      RelayToActor[ProbeMessage] &
+      RelaySink[ProbeMessage] &
       Station[SimpleStation.WorkRequestToken, ProbeMessage, ProbeMessage, ProbeMessage] &
       Source[ProbeMessage, ProbeMessage],
     OAMMessage] =
@@ -154,7 +155,7 @@ object TestSimulationLayers:
           termProbe <- ZIO.service[TestProbe[DomainEvent[TestSimulationLayers.ProbeMessage]]]
           source <- ZIO.service[Source[ProbeMessage, ProbeMessage]]
           station <- ZIO.service[Station[SimpleStation.WorkRequestToken, ProbeMessage, ProbeMessage, ProbeMessage]]
-          sink <- ZIO.service[RelayToActor[ProbeMessage]]
+          sink <- ZIO.service[RelaySink[ProbeMessage]]
           rootResponse <- {
 
             source.ref ! Subject.InstallObserver("observerTap", withObserver)

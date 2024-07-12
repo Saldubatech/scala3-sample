@@ -1,10 +1,11 @@
 package com.saldubatech.sandbox.ddes.node
 
 import com.saldubatech.lang.Id
-import com.saldubatech.sandbox.ddes.{DomainMessage, DDE, SimulationSupervisor, Clock, RelayToActor, DomainEvent, SimActor}
+import com.saldubatech.sandbox.ddes.{DomainMessage, DDE, SimulationSupervisor, Clock, DomainEvent, SimActor}
 import com.saldubatech.math.randomvariables.Distributions
 import com.saldubatech.sandbox.ddes.node.Source.Trigger
 import com.saldubatech.sandbox.ddes.node.Source
+import com.saldubatech.sandbox.ddes.node.simple.RelaySink
 import com.saldubatech.util.LogEnabled
 import org.apache.pekko.actor.testkit.typed.scaladsl.{FishingOutcomes, ScalaTestWithActorTestKit}
 import org.scalatest.BeforeAndAfterAll
@@ -37,7 +38,7 @@ object GgmSpec extends ZIOSpecDefault with LogEnabled with Matchers:
         val probes = 0 to 10 map {n => ProbeMessage(n, s"Job[$n]") }
 
         val clock = Clock(None)
-        val sink = RelayToActor[ProbeMessage]("TheSink", clock)
+        val sink = RelaySink[ProbeMessage]("TheSink", clock)
         val mm1: SimpleStation[ProbeMessage] =
           SimpleStation(sink)("MM1_Station", 1, tau, Distributions.zeroLong, Distributions.zeroLong)(clock)
         val source: Source[ProbeMessage, ProbeMessage] = Source(
