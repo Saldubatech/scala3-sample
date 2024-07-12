@@ -2,7 +2,7 @@ package com.saldubatech.sandbox.ddes.node
 
 import com.saldubatech.sandbox.ddes.DomainMessage
 import com.saldubatech.lang.types.{AppResult, AppSuccess}
-import com.saldubatech.sandbox.ddes.node.ProcessorResource.WorkPackage
+import com.saldubatech.sandbox.ddes.node.WorkPackage
 import com.saldubatech.lang.types.AppSuccess
 import com.saldubatech.sandbox.ddes.Tick
 import com.saldubatech.lang.Id

@@ -32,7 +32,7 @@ import scala.concurrent.duration.*
 import scala.language.postfixOps
 import com.saldubatech.infrastructure.storage.rdbms.quill.QuillPostgres
 import com.saldubatech.lang.predicate.platforms.QuillPlatform
-import com.saldubatech.sandbox.ddes.node.SimpleStation
+import com.saldubatech.sandbox.ddes.node.simple.SimpleStation
 
 object QuillMM1ObservationSpec extends  ZIOSpecDefault
 //  with Matchers

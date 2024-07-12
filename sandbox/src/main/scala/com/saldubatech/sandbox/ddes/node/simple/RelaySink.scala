@@ -22,8 +22,8 @@ import scala.reflect.{ClassTag, Typeable}
 import com.saldubatech.math.randomvariables.Distributions
 import com.saldubatech.sandbox.observers.CompleteJob
 import com.saldubatech.sandbox.observers.Arrival
-import com.saldubatech.sandbox.ddes.node.ProcessorResource.WorkPackage
-import com.saldubatech.sandbox.ddes.node.Sink2
+import com.saldubatech.sandbox.ddes.node.WorkPackage
+import com.saldubatech.sandbox.ddes.node.Sink
 import org.apache.pekko.actor.typed.ActorRef
 
 object RelaySink:
@@ -43,7 +43,7 @@ class RelaySink[INBOUND <: DomainMessage : Typeable]
     override protected val domainProcessor: DomainProcessor[WorkRequestToken | INBOUND] =
       new SimpleSink.DP[INBOUND](sink) {
         override protected def executeCompletion
-          (at: Tick, wp: WorkPackage[WorkRequestToken, INBOUND]): AppResult[Unit] =
+          (at: Tick, wp: SimpleWorkPackage[INBOUND]): AppResult[Unit] =
             target match {
               case None =>
                 log.warn(s"Completed Sink of $wp before installing target")

@@ -22,9 +22,9 @@ import scala.reflect.{ClassTag, Typeable, TypeTest}
 import com.saldubatech.math.randomvariables.Distributions
 import com.saldubatech.sandbox.observers.CompleteJob
 import com.saldubatech.sandbox.observers.Arrival
-import com.saldubatech.sandbox.ddes.node.ProcessorResource.WorkPackage
+import com.saldubatech.sandbox.ddes.node.WorkPackage
 
-object Sink2:
+object Sink:
 
   def spTT[WR : Typeable, JOB : Typeable]: Typeable[WR | JOB] =
     new TypeTest[Any, WR | JOB] {
@@ -36,7 +36,7 @@ object Sink2:
     }
 
   abstract class DP[WORK_REQUEST <: DomainMessage , INBOUND <: DomainMessage]
-    (private val host: Sink2[WORK_REQUEST, INBOUND])
+    (private val host: Sink[WORK_REQUEST, INBOUND])
     (using TypeTest[Any, WORK_REQUEST | INBOUND])
     (using TypeTest[WORK_REQUEST | INBOUND, WORK_REQUEST], TypeTest[WORK_REQUEST | INBOUND, INBOUND])
     extends DomainProcessor[WORK_REQUEST | INBOUND]:
@@ -61,18 +61,18 @@ object Sink2:
 
   class SimpleSink
 
-end Sink2 // object
+end Sink // object
 
-abstract class Sink2[WORK_REQUEST <: DomainMessage : Typeable, INBOUND <: DomainMessage : Typeable]
+abstract class Sink[WORK_REQUEST <: DomainMessage : Typeable, INBOUND <: DomainMessage : Typeable]
   (name: String, clock: Clock)
   // (using Typeable[WORK_REQUEST | INBOUND])
-    extends SimActorBehavior[WORK_REQUEST | INBOUND](name, clock)(using Sink2.spTT[WORK_REQUEST, INBOUND]) with Subject:
+    extends SimActorBehavior[WORK_REQUEST | INBOUND](name, clock)(using Sink.spTT[WORK_REQUEST, INBOUND]) with Subject:
   sink =>
 
-  protected given Typeable[WORK_REQUEST| INBOUND] = Sink2.spTT[WORK_REQUEST, INBOUND]
+  protected given Typeable[WORK_REQUEST| INBOUND] = Sink.spTT[WORK_REQUEST, INBOUND]
 
   override def oam(msg: OAMMessage): ActionResult =
     msg match
       case obsMsg: Subject.ObserverManagement => observerManagement(obsMsg)
       case _ => Right(())
-end Sink2 // class
+end Sink // class

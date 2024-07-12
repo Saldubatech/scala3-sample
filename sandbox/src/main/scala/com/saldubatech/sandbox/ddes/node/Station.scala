@@ -25,7 +25,6 @@ import com.saldubatech.sandbox.ddes.SimActorBehavior
 import com.saldubatech.sandbox.observers.{Departure, End, Arrival, Start, WorkRequest}
 
 object Station:
-  import ProcessorResource.WorkPackage
 
   sealed trait ExecutionMessage extends DomainMessage
   case class ExecutionComplete(override val id: Id, override val job: Id) extends ExecutionMessage

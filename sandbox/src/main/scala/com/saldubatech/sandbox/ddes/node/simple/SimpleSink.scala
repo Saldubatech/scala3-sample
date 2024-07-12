@@ -20,21 +20,21 @@ import zio.Exit.Failure
 
 import scala.reflect.{ClassTag, Typeable}
 import com.saldubatech.math.randomvariables.Distributions
-import com.saldubatech.sandbox.ddes.node.Sink2
+import com.saldubatech.sandbox.ddes.node.Sink
 import com.saldubatech.sandbox.observers.CompleteJob
 import com.saldubatech.sandbox.observers.Arrival
-import com.saldubatech.sandbox.ddes.node.ProcessorResource.WorkPackage
+import com.saldubatech.sandbox.ddes.node.WorkPackage
 import org.apache.pekko.actor.typed.ActorRef
 import zio.Tag as ZTag
 
 object SimpleSink:
 
-  abstract class DP[INBOUND <: DomainMessage : Typeable](sink: SimpleSink[INBOUND]) extends Sink2.DP[WorkRequestToken, INBOUND](sink) {
+  abstract class DP[INBOUND <: DomainMessage : Typeable](sink: SimpleSink[INBOUND]) extends Sink.DP[WorkRequestToken, INBOUND](sink) {
     protected def executeCompletion(
-          at: Tick, wp: WorkPackage[WorkRequestToken, INBOUND]): AppResult[Unit]
+          at: Tick, wp: SimpleWorkPackage[INBOUND]): AppResult[Unit]
 
     override final protected def executeCompletion(
-      at: Tick, wr: WorkRequestToken, wp: WorkPackage[WorkRequestToken, INBOUND])
+      at: Tick, wr: WorkRequestToken, wp: SimpleWorkPackage[INBOUND])
       : AppResult[Unit] = executeCompletion(at, wp)
 
     override protected def executeArrival(at: Tick, ib: INBOUND): AppResult[Unit] =
@@ -45,7 +45,7 @@ end SimpleSink // object
 
 
 abstract class SimpleSink[INBOUND <: DomainMessage : Typeable](name: String, clock: Clock)
-  extends Sink2[WorkRequestToken, INBOUND](name, clock):
+  extends Sink[WorkRequestToken, INBOUND](name, clock):
     sink =>
 
 end SimpleSink // class

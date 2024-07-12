@@ -1,4 +1,4 @@
-package com.saldubatech.sandbox.ddes.node
+package com.saldubatech.sandbox.ddes.node.simple
 
 import com.saldubatech.lang.Id
 import com.saldubatech.sandbox.ddes.{DomainMessage, DDE, SimulationSupervisor, Clock, DomainEvent, SimActor}

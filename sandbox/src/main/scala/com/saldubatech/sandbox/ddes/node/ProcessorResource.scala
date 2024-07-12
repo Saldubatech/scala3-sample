@@ -8,14 +8,8 @@ import com.saldubatech.math.randomvariables.Distributions.LongRVar
 import com.saldubatech.sandbox.ddes.node.Station.ExecutionComplete
 
 object ProcessorResource:
-  case class WorkPackage[WORK_REQUEST <: DomainMessage, INBOUND <: DomainMessage](at: Tick, wr: WORK_REQUEST):
-      private val _materials: collection.mutable.Map[Id, INBOUND] = collection.mutable.Map()
-      def addMaterial(m: INBOUND): WorkPackage[WORK_REQUEST, INBOUND] = {_materials += m.id -> m; this}
-      def addAll(materials: Iterable[INBOUND]): WorkPackage[WORK_REQUEST, INBOUND] = {_materials ++= materials.map{m => m.id -> m}; this}
-      def materials: Iterable[INBOUND] = _materials.values
-
+end ProcessorResource // object
 trait ProcessorResource[WORK_REQUEST <: DomainMessage, INBOUND <: DomainMessage]:
-  import ProcessorResource.WorkPackage
 
   def isBusy: Boolean
   def isNotBusy: Boolean
@@ -27,7 +21,6 @@ class SimpleNProcessor[DM <: DomainMessage](
   val processingTime: LongRVar,
   val nServers: Int)
     extends ProcessorResource[DM, DM]:
-  import ProcessorResource.WorkPackage
 
   override def isBusy: Boolean = State.isBusy
   override def isNotBusy: Boolean = !State.isBusy

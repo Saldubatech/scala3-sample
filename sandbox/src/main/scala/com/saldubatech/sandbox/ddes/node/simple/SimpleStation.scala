@@ -1,8 +1,8 @@
-package com.saldubatech.sandbox.ddes.node
+package com.saldubatech.sandbox.ddes.node.simple
 
 import com.saldubatech.sandbox.ddes.{Tick, Clock, DomainMessage, SimActor, DomainProcessor, SimulationError, DomainEvent, ActionResult}
 import com.saldubatech.sandbox.observers.OperationEventNotification
-import com.saldubatech.sandbox.ddes.node.ProcessorResource.WorkPackage
+import com.saldubatech.sandbox.ddes.node.{WorkPackage, ProcessorResource, Station, Discharger, Inductor, FIFOWorkQueue}
 
 import com.saldubatech.math.randomvariables.Distributions.LongRVar
 import com.saldubatech.lang.types.{AppResult, AppSuccess, AppFail, AppError}
@@ -13,8 +13,6 @@ import zio.{Tag as ZTag, ZIO, ZLayer, RLayer}
 import scala.reflect.Typeable
 
 object SimpleStation:
-
-  case class WorkRequestToken(override val id: Id, override val job: Id) extends DomainMessage
 
   def simpleStationLayer[JOB <: DomainMessage : Typeable : ZTag]
   (name: String, nServers: Int, processingTime: LongRVar, dischargeDelay:LongRVar, outboundTransportDelay: LongRVar)
@@ -33,11 +31,11 @@ object SimpleStation:
     override def isBusy: Boolean = State.isBusy
     override def isNotBusy: Boolean = !State.isBusy
 
-    override def completedJob(jobId: Id): AppResult[WorkPackage[WorkRequestToken, JOB]] =
+    override def completedJob(jobId: Id): AppResult[SimpleWorkPackage[JOB]] =
       State.freeResource
       WIP.completeJob(jobId)
 
-    override def startingWork(wp: WorkPackage[WorkRequestToken, JOB]): AppResult[Tick] =
+    override def startingWork(wp: SimpleWorkPackage[JOB]): AppResult[Tick] =
       if State.captureResource then
         for {
           _ <- WIP.registerWorkStart(wp)
@@ -46,26 +44,26 @@ object SimpleStation:
 
     // Support Inner Objects.
     private object WIP:
-      private val workInProgress: collection.mutable.Map[Id, WorkPackage[WorkRequestToken, JOB]] = collection.mutable.Map()
+      private val workInProgress: collection.mutable.Map[Id, SimpleWorkPackage[JOB]] = collection.mutable.Map()
 
-      def registerWorkStart(wp: WorkPackage[WorkRequestToken, JOB]): AppResult[WorkPackage[WorkRequestToken, JOB]] =
+      def registerWorkStart(wp: SimpleWorkPackage[JOB]): AppResult[SimpleWorkPackage[JOB]] =
         if workInProgress.contains(wp.wr.job) then
           AppFail(SimulationError(s"WorkPackage for Ev.Id[${wp.wr.job}] is already registered"))
         else
           workInProgress += wp.wr.job -> wp
           AppSuccess(wp)
 
-      def completeWork(wp: WorkPackage[WorkRequestToken, JOB]): AppResult[WorkPackage[WorkRequestToken, JOB]] =
+      def completeWork(wp: SimpleWorkPackage[JOB]): AppResult[SimpleWorkPackage[JOB]] =
         workInProgress.remove(wp.wr.job) match
           case None => AppFail(SimulationError(s"WorkPackage not in Progress for job: ${wp.wr.job}"))
           case Some(r) => AppSuccess(r)
 
-      def getWIP(job: Id): AppResult[WorkPackage[WorkRequestToken, JOB]] =
+      def getWIP(job: Id): AppResult[SimpleWorkPackage[JOB]] =
         workInProgress.get(job) match
           case None => AppFail(SimulationError(s"WorkPackage not in Progress for job: $job"))
           case Some(r) => AppSuccess(r)
 
-      def completeJob(jobId: Id): AppResult[WorkPackage[WorkRequestToken, JOB]] =
+      def completeJob(jobId: Id): AppResult[SimpleWorkPackage[JOB]] =
         for {
           wip <- getWIP(jobId)
           rs <- completeWork(wip)
@@ -153,7 +151,7 @@ object SimpleStation:
       host.env.scheduleDelay(target)(transportDelay(), outbound)
       AppSuccess.unit
 
-    override protected def processCompleteSignal(wp: ProcessorResource.WorkPackage[WorkRequestToken, JOB]): AppResult[JOB] =
+    override protected def processCompleteSignal(wp: SimpleWorkPackage[JOB]): AppResult[JOB] =
       wp.materials.headOption match
         case None => AppFail(AppError(s"No materials for Job: $wp"))
         case Some(job) => AppSuccess(job)
@@ -183,9 +181,9 @@ class SimpleStation[JOB <: DomainMessage : Typeable](target: SimActor[JOB])
   outboundTransportDelay: LongRVar
   )
   (clock: Clock)
-  (using Typeable[Station.PROTOCOL[SimpleStation.WorkRequestToken, JOB]])
-extends Station[SimpleStation.WorkRequestToken, JOB, JOB, JOB](name, target)(
-  (h: Station[SimpleStation.WorkRequestToken, JOB, JOB, JOB]) =>
+  (using Typeable[Station.PROTOCOL[WorkRequestToken, JOB]])
+extends Station[WorkRequestToken, JOB, JOB, JOB](name, target)(
+  (h: Station[WorkRequestToken, JOB, JOB, JOB]) =>
     SimpleStation.SimpleDomainProcessor[JOB](nServers, processingTime, dischargeDelay, target, outboundTransportDelay)(h), clock
   )
 end SimpleStation // class

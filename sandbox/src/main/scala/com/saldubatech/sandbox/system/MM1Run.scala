@@ -28,11 +28,12 @@ import com.saldubatech.infrastructure.storage.rdbms.DataSourceBuilder
 import com.saldubatech.infrastructure.storage.rdbms.quill.QuillPostgres
 import com.saldubatech.lang.predicate.platforms.QuillPlatform
 import org.apache.commons.math3.analysis.function.Abs
-import com.saldubatech.sandbox.ddes.node.SimpleStation
+import com.saldubatech.sandbox.ddes.node.simple.SimpleStation
 import com.saldubatech.math.randomvariables.Distributions.LongRVar
 import zio.Supervisor
 import com.saldubatech.sandbox.observers.Subject.InstallObserver
 import com.saldubatech.sandbox.ddes.DDE.SupervisorProtocol
+import com.saldubatech.sandbox.ddes.node.simple.WorkRequestToken
 
 object MM1Run extends ZIOAppDefault with LogEnabled:
   case class JobMessage(number: Int, override val job: Id, override val id: Id = Id) extends DomainMessage
@@ -80,18 +81,18 @@ object MM1Run extends ZIOAppDefault with LogEnabled:
     } yield rs
 
   def simulationComponents(lambda: LongRVar, tau: LongRVar): RLayer[Clock & Observer,
-    SimpleSink[JobMessage] & Source[JobMessage, JobMessage] & Station[SimpleStation.WorkRequestToken, JobMessage, JobMessage, JobMessage]] =
+    SimpleSink[JobMessage] & Source[JobMessage, JobMessage] & Station[WorkRequestToken, JobMessage, JobMessage, JobMessage]] =
       AbsorptionSink.layer[JobMessage]("AbsorptionSink") >+>
         SimpleStation.simpleStationLayer[JobMessage]("MM1_Station", 1, tau, Distributions.zeroLong, Distributions.zeroLong) >+>
         Source.simpleLayer[JobMessage]("MM1_Source", lambda)
 
   val simulationConfigurator: RLayer[
-    Observer & SimpleSink[JobMessage] & Source[JobMessage, JobMessage] & Station[SimpleStation.WorkRequestToken, JobMessage, JobMessage, JobMessage],
+    Observer & SimpleSink[JobMessage] & Source[JobMessage, JobMessage] & Station[WorkRequestToken, JobMessage, JobMessage, JobMessage],
      DDE.SimulationComponent] =
       ZLayer(
         for {
           sink <- ZIO.service[SimpleSink[JobMessage]]
-          station <- ZIO.service[Station[SimpleStation.WorkRequestToken, JobMessage, JobMessage, JobMessage]]
+          station <- ZIO.service[Station[WorkRequestToken, JobMessage, JobMessage, JobMessage]]
           source <- ZIO.service[Source[JobMessage, JobMessage]]
           observer <- ZIO.service[Observer]
         } yield {

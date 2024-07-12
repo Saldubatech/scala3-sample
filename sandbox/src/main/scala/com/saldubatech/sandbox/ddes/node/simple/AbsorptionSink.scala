@@ -22,8 +22,8 @@ import scala.reflect.{ClassTag, Typeable}
 import com.saldubatech.math.randomvariables.Distributions
 import com.saldubatech.sandbox.observers.CompleteJob
 import com.saldubatech.sandbox.observers.Arrival
-import com.saldubatech.sandbox.ddes.node.ProcessorResource.WorkPackage
-import com.saldubatech.sandbox.ddes.node.Sink2
+import com.saldubatech.sandbox.ddes.node.WorkPackage
+import com.saldubatech.sandbox.ddes.node.Sink
 import org.apache.pekko.actor.typed.ActorRef
 import zio.Tag as ZTag
 
@@ -36,6 +36,6 @@ class AbsorptionSink[INBOUND <: DomainMessage: Typeable](name: String, clock: Cl
     sink =>
     override protected val domainProcessor = new SimpleSink.DP(sink) {
       override protected def executeCompletion
-        (at: Tick, wp: WorkPackage[WorkRequestToken, INBOUND]): AppResult[Unit] = AppSuccess.unit
+        (at: Tick, wp: SimpleWorkPackage[INBOUND]): AppResult[Unit] = AppSuccess.unit
   }
 
