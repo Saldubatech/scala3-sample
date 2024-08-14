@@ -24,3 +24,5 @@ def TODO: Nothing = {
 
 type INJECTOR[O, D] = TypeTest[O, D] ?=> O => D
 
+object Convenience:
+  implicit def optional[A](a: A): Option[A] = Some(a)

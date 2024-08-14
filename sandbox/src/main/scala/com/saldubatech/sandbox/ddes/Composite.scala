@@ -24,7 +24,7 @@ object Composite:
 
   class DP[DOMAIN_TUPLE](components: Seq[Component[DOMAIN_MESSAGE[DOMAIN_TUPLE], ?]], env: SimEnvironment)
   (using Typeable[DOMAIN_MESSAGE[DOMAIN_TUPLE]])
-    extends DomainProcessor[DOMAIN_MESSAGE[DOMAIN_TUPLE]]:
+  extends DomainProcessor[DOMAIN_MESSAGE[DOMAIN_TUPLE]]:
     type PF = PartialFunction[DomainEvent[DOMAIN_MESSAGE[DOMAIN_TUPLE]], ActionResult]
     private val fallThrough: PF =
       { case other => Left(SimulationError(s"No Component to handle the message $other"))}
@@ -45,5 +45,5 @@ trait Composite[DOMAIN_TUPLE <: Tuple : Typeable]
   extends SimActorBehavior[Composite.DOMAIN_MESSAGE[DOMAIN_TUPLE]]:
   import Composite.*
 
-  override val domainProcessor: DP[DOMAIN_TUPLE] = DP(components, this.Env)
+  override val domainProcessor: DP[DOMAIN_TUPLE] = DP(components, this.env)
 

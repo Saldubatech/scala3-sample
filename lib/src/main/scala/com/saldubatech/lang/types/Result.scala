@@ -11,29 +11,38 @@ class AppError(val msg: String, val cause: Option[Throwable] = None)
     }
 )
 
-case class CollectedError(override val msg: String, causes: Option[Seq[AppError]])
-  extends AppError(msg,
-    cause = {
-    causes match
-      case None => None
-      case Some(Seq()) => None
-      case other => Some(CollectedError(msg, other))
-    }
-  )
-
-object Result:
-  val wkw: Either[String, Int] = Left("asdf")
+case class CollectedError(override val msg: String, val causes: List[Throwable] = List())
+  extends AppError(msg)
 
 // For now just an alias for Either...
 type Result[+ER <: AppError, +R] = Either[ER, R]
 type AppResult[R] = Result[AppError, R]
+
+implicit def fromOption[A](a: Option[A]): AppResult[A] = a.fold(AppFail.fail(s"No value in Option"))(AppSuccess(_))
+
+extension [R] (elements: List[AppResult[R]])
+  def collectResults: AppResult[List[R]] =
+    elements.foldLeft(AppSuccess[List[R]](List.empty)){
+      case (Right(acc), Right(element)) => AppSuccess(element :: acc)
+      case (Right(acc), Left(err)) => AppFail(err)
+      case (Left(errAcc), Right(_)) => AppFail(errAcc)
+      case (Left(errAcc), Left(err)) =>
+        err match
+          case ce : CollectedError => AppFail(CollectedError("Multiple Errors", ce.causes :+ err ))
+          case other => AppFail(CollectedError("Multiple Errors", List(other, err)))
+    }
+
 type AppSuccess[+ER <: AppError, +R] = Right[ER, R]
-inline def AppSuccess[ER <: AppError, R](r: R) = Right[ER, R](r)
 object AppSuccess:
-  val unit: AppSuccess[? <: AppError, Unit] = AppSuccess(())
+  inline def apply[R](r: R): AppResult[R] = Right(r)
+  val unit: AppResult[Unit] = AppSuccess(())
 
 type AppFail[+ER <: AppError, +R] = Left[ER, R]
-inline def AppFail[ER <: AppError, R](e: ER) = Left[ER, R](e)
+//inline def AppFail[ER <: AppError, R](e: ER) = Left[ER, R](e)
+object AppFail:
+  inline def apply[ER <: AppError, R](e: ER) = Left[ER, R](e)
+  inline def fail[R](msg: String, cause: Option[Throwable] = None): AppFail[AppError, R] = AppFail(AppError(msg, cause))
+
 
 
 // Specialized ZIO Effects with the "S" to signify "Salduba"

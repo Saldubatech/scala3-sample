@@ -54,9 +54,10 @@ lazy val root = (project in file("."))
   .settings(
     name            := "m-service-root",
     testFrameworks  ++= Seq(new TestFramework("zio.test.sbt.ZTestFramework")),
-  ).aggregate(libProject, sandboxProject, appProject, imageProject)
+  ).aggregate(libProject, sandboxProject, dcfProject, appProject, imageProject)
 
 val libProject = (project in file("lib"))
 val appProject = (project in file("app")).dependsOn(libProject)
 val sandboxProject = (project in file("sandbox")).dependsOn(libProject)
+val dcfProject = (project in file("dcf")).dependsOn(sandboxProject).dependsOn(libProject)
 val imageProject = (project in file("image")).dependsOn(appProject)

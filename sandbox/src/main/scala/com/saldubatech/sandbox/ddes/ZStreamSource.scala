@@ -4,6 +4,7 @@ package com.saldubatech.sandbox.ddes
 import com.saldubatech.math.randomvariables.Distributions.LongRVar
 import com.saldubatech.sandbox.observers.Subject.ObserverManagement
 import com.saldubatech.sandbox.observers.{NewJob, Departure, OperationEventNotification, Subject}
+import com.saldubatech.lang.types.CollectedError
 import com.saldubatech.lang.Id
 
 import com.saldubatech.util.LogEnabled
@@ -81,7 +82,7 @@ object ZStreamSource:
         }
       Unsafe.unsafe{implicit u =>
         rt.unsafe.run(ev.payload.supply.run(sink)) match
-          case Failure(cause) => Left(CollectedError(cause.defects, "Error processing the source stream"))
+          case Failure(cause) => Left(CollectedError("Error processing the source stream", cause.defects))
           case Success(value) => Right(())
       }
 

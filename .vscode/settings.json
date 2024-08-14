@@ -167,5 +167,6 @@
   ],
   "python.analysis.diagnosticSeverityOverrides": {
     "reportUnknownMembertype": "info"
-  }
+  },
+  "plantuml.render": "Local"
 }

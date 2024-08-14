@@ -8,7 +8,7 @@ class UnlimitedTransportWithDelay0[C]
   extends AbstractTransport[C]:
   class Induct(private val binding: SimActorBehavior[?]) extends BaseInduct:
     override def induct(l: Load[C]): Unit =
-      binding.Env.schedule(target)(binding.currentTime+delay(), l)
+      binding.env.schedule(target)(binding.currentTime+delay(), l)
 
   class Discharge(override val discharge: Intake[C]) extends BaseDischarge
 

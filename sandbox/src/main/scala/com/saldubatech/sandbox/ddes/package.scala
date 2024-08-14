@@ -13,8 +13,6 @@ import com.saldubatech.lang.types.AppResult
 package object ddes {
   sealed class SimulationError(msg: String, cause: Option[Throwable] = None) extends AppError(msg, cause)
 
-  case class CollectedError(errors: Seq[Throwable], override val msg: String = "") extends SimulationError(msg)
-
   case class FatalError(override val msg: String, override val cause: Option[Throwable] = None)
     extends SimulationError(msg, cause)
 
@@ -79,6 +77,7 @@ package object ddes {
   trait SimEnvironment:
     def currentTime: Tick
     def schedule[TARGET_DM <: DomainMessage](target: SimActor[TARGET_DM])(forTime: Tick, targetMsg: TARGET_DM): Unit
+
     final def scheduleDelay[TARGET_DM <: DomainMessage](target: SimActor[TARGET_DM])(withDelay: Tick, targetMsg: TARGET_DM): Tick =
       val forTime = currentTime+withDelay
       schedule(target)(forTime, targetMsg)

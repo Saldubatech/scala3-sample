@@ -10,30 +10,39 @@ import com.saldubatech.lang.Id
 trait DomainProcessor[-DM <: DomainMessage : Typeable] extends LogEnabled:
   def accept(at: Tick, ev: DomainEvent[DM]): ActionResult
 
+/**
+  * The External view of a participant in the simulation. This allows it to be
+  * contra-variant on the DomainMessage (acts as a pure "Consumer" of DomainMessages)
+  */
 trait SimActor[-DM <: DomainMessage : Typeable] extends LogEnabled:
   selfSimActor =>
-    val name: String
-    protected lazy val ctx: ActorContext[? >: DomainAction[DM] | OAMMessage]
-    final lazy val ref: ActorRef[DomainAction[DM] | OAMMessage] = ctx.self
 
-    private var _currentTime: Option[Tick] = Some(0)
-    protected def setTime(t: Tick): Unit = _currentTime = Some(t)
-    def currentTime: Tick = _currentTime.get
+  val name: String
+  protected lazy val ctx: ActorContext[? >: DomainAction[DM] | OAMMessage]
+  final lazy val ref: ActorRef[DomainAction[DM] | OAMMessage] = ctx.self
 
-    def command(forTime: Tick, from: SimActor[?], message: DM): Command =
-      new Command:
-        override val issuedAt: Tick = currentTime
-        override val forEpoch: Tick = forTime
-        override val id: Id = Id
+  val env: SimEnvironment
 
-        override def toString: String = s"${selfSimActor.name}@Command(At[$currentTime], For[$forTime], Msg:${message.getClass().getName()})"
+  private var _currentTime: Option[Tick] = Some(0)
+  protected def setTime(t: Tick): Unit = _currentTime = Some(t)
+  def currentTime: Tick = _currentTime.get
 
-        override def send: Id =
-          log.debug(s"Sending command at $currentTime from ${from.name} to $name")
-          ctx.self ! DomainAction(id, forEpoch, from, selfSimActor, message)
-          id
+  def command(forTime: Tick, from: SimActor[?], message: DM): Command =
+    new Command:
+      override val issuedAt: Tick = currentTime
+      override val forEpoch: Tick = forTime
+      override val id: Id = Id
 
-// Separate to allow contravariance in the main interface
+      override def toString: String = s"${selfSimActor.name}@Command(At[$currentTime], For[$forTime], Msg:${message.getClass().getName()})"
+
+      override def send: Id =
+        log.debug(s"Sending command at $currentTime from ${from.name} to $name")
+        ctx.self ! DomainAction(id, forEpoch, from, selfSimActor, message)
+        id
+
+/**
+  * The support for behaviors by providing the context management.
+  */
 trait SimActorContext[DM <: DomainMessage : Typeable]:
  selfSimActor: SimActor[DM] =>
   protected var _ctx: Option[ActorContext[DomainAction[DM] | OAMMessage]] = None
@@ -44,6 +53,14 @@ trait SimActorContext[DM <: DomainMessage : Typeable]:
       log.error(s"Initializing: Accessing Context before Initialization for $name ($selfSimActor)")
       _ctx.get
 
+/**
+  * Provides the "Protocol Adaptor" to the Actor System through the `accept` (in the DomainProcessor)
+  * and `oam` methods as well as
+  * a way to retrieve the "SimulationComponent" associated with it for initialization purposes.
+  *
+  * @param name
+  * @param clock
+  */
 abstract class SimActorBehavior[DM <: DomainMessage : Typeable]
 (override val name: String, protected val clock: Clock)
 extends SimActor[DM] with SimActorContext[DM]:
@@ -56,14 +73,15 @@ extends SimActor[DM] with SimActorContext[DM]:
       override def initialize(ctx: ActorContext[DDE.SupervisorProtocol]): Map[Id, ActorRef[?]] =
         Map(name -> ctx.spawn[DomainAction[DM] | OAMMessage](selfActorBehavior.init(), name))
     }
-  object Env extends SimEnvironment:
+  override val env  = new SimEnvironment() {
     override def currentTime: Tick = selfActorBehavior.currentTime
 
     override def schedule[TARGET_DM <: DomainMessage]
     (target: SimActor[TARGET_DM])(forTime: Tick, targetMsg: TARGET_DM): Unit =
       clock.request(target.command(forTime, selfActorBehavior, targetMsg))
+  }
 
-  given env: SimEnvironment = Env
+  given _env: SimEnvironment = env
 
   def init(): Behavior[DomainAction[DM] | OAMMessage] =
     Behaviors.setup {
