@@ -10,18 +10,19 @@ enum JobProcessingState:
   case IN_PROGRESS
   case COMPLETE
 
-trait JobSpec[+INPUT <: Material]:
+trait JobSpec:
   val id: Id
-  val rawMaterials: List[INPUT]
+  val rawMaterials: List[Id]
 
-case class SimpleJobSpec[INPUT <: Material](override val id: Id, override val rawMaterials: List[INPUT]) extends JobSpec[INPUT]
+case class SimpleJobSpec(override val id: Id, override val rawMaterials: List[Id]) extends JobSpec
 
-trait JobResult[+INPUT <: Material, +OUTPUT <: Material]:
+trait JobResult:
   val id: Id
-  val spec: JobSpec[INPUT]
-  val result: OUTPUT
+  val spec: JobSpec
+  val result: Id
 
-case class SimpleJobResult[INPUT <: Material, OUTPUT <: Material](
+case class SimpleJobResult(
   override val id: Id,
-  override val spec: JobSpec[INPUT], override val result: OUTPUT
-  ) extends JobResult[INPUT, OUTPUT]
+  override val spec: JobSpec,
+  override val result: Id
+  ) extends JobResult

@@ -25,12 +25,26 @@ abstract class StationBehavior[INBOUND <: Material, INTERNAL <: Material, OUTBOU
 extends SimActorBehavior[Station.PROTOCOL](name, clock)
 
 object LinearStation:
-  def transform[M <: Material](hostName: String): (Tick, JobSpec[M]) => AppResult[JobResult[M, M]] =
-    (at: Tick, js: JobSpec[M]) =>
-      js.rawMaterials match
-        case Nil => AppFail.fail(s"No Raw Materials for Job[${js.id}] in $hostName")
-        case h :: Nil => AppSuccess(SimpleJobResult(s"${js.id}_RS", js, h))
-        case other => AppFail.fail(s"Too many raw materials for Job[${js.id}] in $hostName")
+  def transform[M <: Material : Typeable](hostName: String): (Tick, JobSpec, List[Material]) => AppResult[(JobResult, M)] =
+    (at: Tick, js: JobSpec, materials: List[Material]) =>
+      val matSet = materials.map{_.id}.toSet
+      if js.rawMaterials.forall{mId => matSet(mId)} then
+        materials match
+          case Nil => AppFail.fail(s"No Raw Materials for Job[${js.id}] in $hostName")
+          case h :: Nil =>
+            h match
+              case hm: M => AppSuccess(SimpleJobResult(s"${js.id}_RS", js, h.id) -> hm)
+              case other => AppFail.fail(s"Product not of the right type for Station[$hostName]")
+          case other => AppFail.fail(s"Too many raw materials for Job[${js.id}] in $hostName")
+      else
+        AppFail.fail(s"Not all materials required by Job[${js.id} are available in Station[$hostName]]")
+
+  object DP extends DomainProcessor[Station.PROTOCOL]:
+    override def accept(at: Tick, ev: DomainEvent[Station.PROTOCOL]): AppResult[Unit] =
+      ev.payload match
+        case sc: Station.StationControl => ???
+        case mat: Buffer.MaterialMessage => ???
+        case pc: Processor.EquipmentSignal => ???
 
 class LinearStation[M <: Material : Typeable](
   override val id: Id,
@@ -76,7 +90,7 @@ with Processor.Listener:
       case bId if bId == outboundBuffer.id => outboundBuffer.pack(at, List(stock.id))
       case pId if pId == processor.id => // If it gets here, it is because it can load it.
         stock.material match
-          case m: M => processor.loadJob(at, SimpleJobSpec(Id, List(m)))
+          case m: M => processor.loadJob(at, SimpleJobSpec(Id, List(m.id)))
           case other => // Not of type M... do nothing
             log.warn(s"Unexpected material ready: $other inbound in Station[$id]")
       case other => // Do nothing
@@ -122,8 +136,10 @@ with Processor.Listener:
         _ <- completes.map{
           jb =>
             for {
-              product <- fromOption(jb.result)
-              accepted <- outboundBuffer.accept(at, product.result)
+              product <- fromOption(jb.product)
+              accepted <- product match
+                case mProduct: M => outboundBuffer.accept(at, mProduct)
+                case other => AppFail.fail(s"Product is of the wrong type for Station[$id]")
               jr <- processor.unloadJob(at, jb.jobSpec.id)
             } yield()
           }.collectResults
@@ -138,15 +154,14 @@ with Processor.Listener:
 
   private def attemptWork(at: Tick): AppResult[Unit] =
     for {
-      availableWork <- inboundBuffer.peekOutbound(at)
-      _ <- availableWork.headOption match
-        case None =>
+      maybeAvailable <- processor.peekAvailableMaterials()
+      _ <- maybeAvailable match
+        case Nil =>
           log.info(s"No pending work at Station[$id]")
           AppFail.fail(s"No pending work at Station($id)")
-        case Some(value) =>
+        case available =>
           for {
-            canLoad <- processor.canLoad(at, SimpleJobSpec(Id, List(value.material)))
-            rs <- if canLoad then inboundBuffer.release(at, Some(value.id))
-                  else AppFail.fail(s"Station[$id] cannot load $value")
+            canLoad <- processor.canLoad(at, SimpleJobSpec(Id, available.map(_.id)))
+            rs <- inboundBuffer.release(at, available.headOption.map(_.id))
           } yield rs
     } yield ()

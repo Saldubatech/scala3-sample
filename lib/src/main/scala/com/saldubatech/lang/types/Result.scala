@@ -17,6 +17,13 @@ case class CollectedError(override val msg: String, val causes: List[Throwable] 
 // For now just an alias for Either...
 type Result[+ER <: AppError, +R] = Either[ER, R]
 type AppResult[R] = Result[AppError, R]
+type UnitResult = AppResult[Unit]
+
+extension [A] (rs: AppResult[A])
+  def isSuccess: Boolean = rs.isRight
+
+extension [A] (rs: AppResult[A])
+  def isError: Boolean = rs.isLeft
 
 implicit def fromOption[A](a: Option[A]): AppResult[A] = a.fold(AppFail.fail(s"No value in Option"))(AppSuccess(_))
 

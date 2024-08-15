@@ -34,15 +34,18 @@ trait ProcessorControl[INBOUND <: Material, OUTBOUND <: Material]:
   val id: Id
 
   case class WIP(
-    jobSpec: JobSpec[INBOUND],
+    jobSpec: JobSpec,
+    rawMaterials: List[Material],
     state: JobProcessingState,
     loaded: Tick,
     started: Option[Tick] = None,
     completed: Option[Tick] = None,
     released: Option[Tick] = None,
-    result: Option[JobResult[INBOUND, OUTBOUND]] = None
+    result: Option[JobResult] = None,
+    product: Option[Material] = None
   )
 
+  def peekAvailableMaterials(): AppResult[List[INBOUND]]
   def processingState(jobId: Id): JobProcessingState
   def wipCount: Int
   def inWip(jobId: Id): Boolean
@@ -53,8 +56,8 @@ trait ProcessorControl[INBOUND <: Material, OUTBOUND <: Material]:
 
   def peekComplete(at: Tick, jobId: Option[Id]): AppResult[List[WIP]]
 
-  def canLoad(at: Tick, job: JobSpec[INBOUND]): AppResult[Boolean]
-  def loadJob(at: Tick, job: JobSpec[INBOUND]): AppResult[Unit]
+  def canLoad(at: Tick, job: JobSpec): AppResult[Unit]
+  def loadJob(at: Tick, job: JobSpec): AppResult[Unit]
   /**
     * Check whether the processor can start the provided job
     *
@@ -65,13 +68,13 @@ trait ProcessorControl[INBOUND <: Material, OUTBOUND <: Material]:
   def canStart(at: Tick, jobId: Id): AppResult[Boolean]
   def startJob(at: Tick, jobId: Id): AppResult[Unit]
   def peekStarted(at: Tick, jobId: Option[Id]): AppResult[List[WIP]]
-  def completeJob(at: Tick, jobId: Id): AppResult[JobResult[INBOUND, OUTBOUND]]
-  def unloadJob(at: Tick, jobId: Id): AppResult[JobResult[INBOUND, OUTBOUND]]
+  def completeJob(at: Tick, jobId: Id): AppResult[(JobResult, OUTBOUND)]
+  def unloadJob(at: Tick, jobId: Id): AppResult[JobResult]
 
 
 abstract class AbstractProcessorBase[INBOUND <: Material, OUTBOUND <: Material](
   override val id: Id,
-  perform: (Tick, JobSpec[INBOUND]) => AppResult[JobResult[INBOUND, OUTBOUND]])
+  perform: (Tick, JobSpec, List[Material]) => AppResult[(JobResult, OUTBOUND)])
 extends Sink[INBOUND] with ProcessorControl[INBOUND, OUTBOUND] with ProcessorManagement:
   private val listeners: collection.mutable.Map[Id, Processor.Listener] = collection.mutable.Map()
 
@@ -102,13 +105,12 @@ extends Sink[INBOUND] with ProcessorControl[INBOUND, OUTBOUND] with ProcessorMan
       rs <- _doAccept(at, load)
     } yield notifyArrival(at, rs)
 
-  protected def _doLoad(at: Tick, job: JobSpec[INBOUND]): AppResult[Unit]
-  override final def loadJob(at: Tick, job: JobSpec[INBOUND]): AppResult[Unit] =
+  protected def _doLoad(at: Tick, job: JobSpec): AppResult[Unit]
+
+  override final def loadJob(at: Tick, job: JobSpec): AppResult[Unit] =
     for {
       able <- canLoad(at, job)
-      _ <- able match
-          case false => AppFail.fail(s"Cannot load job ${job.id} in Processor[$id] at $at")
-          case true => _doLoad(at, job)
+      _ <- _doLoad(at, job)
     } yield notifyLoading(at, job.id)
 
   protected def _doStart(at: Tick, jobId: Id): AppResult[Unit]
@@ -120,22 +122,22 @@ extends Sink[INBOUND] with ProcessorControl[INBOUND, OUTBOUND] with ProcessorMan
               case true => _doStart(at, jobId)
     } yield notifyJobStarted(at, jobId)
 
-  protected def _doComplete(at: Tick, wip: WIP): AppResult[JobResult[INBOUND, OUTBOUND]]
+  protected def _doComplete(at: Tick, wip: WIP): AppResult[JobResult]
 
-  def completeJob(at: Tick, jobId: Id): AppResult[JobResult[INBOUND, OUTBOUND]] =
+  def completeJob(at: Tick, jobId: Id): AppResult[(JobResult, OUTBOUND)] =
     for {
       wipList <- peekStarted(at, jobId)
       wip <- wipList match
         case Nil => AppFail.fail(s"No job[$jobId] started for Station[$id]")
         case lWip :: Nil => AppSuccess(lWip)
         case other => AppFail.fail(s"More than one Job with id[$jobId] for Station[$id]")
-      jobResult <- perform(at, wip.jobSpec)
-      rs <- _doComplete(at, wip.copy(completed=at, state=JobProcessingState.COMPLETE, result=jobResult))
+      jobResult <- perform(at, wip.jobSpec, wip.rawMaterials)
+      rs <- _doComplete(at, wip.copy(completed=at, state=JobProcessingState.COMPLETE, result=jobResult._1, product=jobResult._2))
     } yield jobResult
 
 
   protected def _doUnload(at: Tick, wip: WIP): AppResult[Unit]
-  def unloadJob(at: Tick, jobId: Id): AppResult[JobResult[INBOUND, OUTBOUND]] =
+  def unloadJob(at: Tick, jobId: Id): AppResult[JobResult] =
     for {
       candidate <- peekComplete(at, Some(jobId))
       _ <- candidate.headOption match
