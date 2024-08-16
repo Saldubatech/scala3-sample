@@ -9,7 +9,7 @@ import com.saldubatech.lang.types.AppError
 import org.scalatest.EitherValues
 import com.saldubatech.dcf.node.Buffer._
 
-class BufferListener(override val id: Id) extends SinkListener, Buffer.OutboundListener:
+class BufferListener(override val id: Id) extends Sink.Listener, Buffer.OutboundListener:
   val arrivals: collection.mutable.ListBuffer[(Tick, WipStock[?])] = collection.mutable.ListBuffer()
   val releases: collection.mutable.ListBuffer[(Tick, WipStock[?])] = collection.mutable.ListBuffer()
   val ready: collection.mutable.ListBuffer[(Tick, WipStock[?])] = collection.mutable.ListBuffer()

@@ -117,7 +117,7 @@ object Buffer:
 
   trait Management:
 
-    private val arrivalListeners: collection.mutable.Map[Id, SinkListener] = collection.mutable.Map()
+    private val arrivalListeners: collection.mutable.Map[Id, Sink.Listener] = collection.mutable.Map()
     private val releaseListeners: collection.mutable.Map[Id, Buffer.OutboundListener] = collection.mutable.Map()
 
     protected def notifyRelease(at: Tick, stock: WipStock[?]): Unit =
@@ -129,7 +129,7 @@ object Buffer:
     protected def notifyReady(at: Tick, stock: WipStock[?]): Unit =
       releaseListeners.values.foreach(l => l.stockReady(at, stock))
 
-    final def subscribeArrivals(listener: SinkListener): UnitResult =
+    final def subscribeArrivals(listener: Sink.Listener): UnitResult =
       arrivalListeners += listener.id -> listener
       AppSuccess.unit
 
@@ -145,7 +145,7 @@ object Buffer:
       releaseListeners -= listenerId
       AppSuccess.unit
 
-    final def subscribeAll(listener: SinkListener & Buffer.OutboundListener): UnitResult =
+    final def subscribeAll(listener: Sink.Listener & Buffer.OutboundListener): UnitResult =
       subscribeArrivals(listener)
       subscribeOutbound(listener)
 
@@ -160,7 +160,6 @@ object Buffer:
 
 trait Buffer[INBOUND <: Material : Typeable, OUTBOUND <: Material]
 extends Buffer.Component[INBOUND, OUTBOUND]:
-  val control: Buffer.Control
   def callBackBinding(at: Tick): PartialFunction[Buffer.PROTOCOL, UnitResult] = {
     case Buffer.MaterialArrival(mId, jobId, bufferId, mat: INBOUND) if bufferId == id => accept(at, mat)
     case Buffer.MaterialPack(mId, jobId, bufferId, inbounds: List[Id]) if bufferId == id => pack(at, inbounds).unit
@@ -171,8 +170,7 @@ extends Buffer.Component[INBOUND, OUTBOUND]:
 abstract class AbstractBufferBase[INBOUND <: Material : Typeable, OUTBOUND <: Material](
   override val id: Id,
   val packer: (Tick, List[INBOUND]) => AppResult[OUTBOUND],
-  val downstream: Sink[OUTBOUND],
-  override val control: Buffer.Control)
+  val downstream: Sink[OUTBOUND])
   extends Buffer[INBOUND, OUTBOUND]:
 
   // These are the methods to be implemented by specific behaviors. e.g. FIFO, Bounded, ...

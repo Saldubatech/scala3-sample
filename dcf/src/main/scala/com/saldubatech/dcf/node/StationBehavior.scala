@@ -28,7 +28,7 @@ import com.saldubatech.sandbox.observers.Subject.ObserverManagement
 
 
 abstract class StationBehaviorOld[INBOUND <: Material : Typeable, INTERNAL <: Material, OUTBOUND <: Material](override val id: Id)
-extends SinkListener, Buffer.OutboundListener, LogEnabled:
+extends Sink.Listener, Buffer.OutboundListener, LogEnabled:
   private val inducts: collection.mutable.Map[Id, Buffer[INBOUND, INTERNAL]] = collection.mutable.Map()
 
   private val discharges: collection.mutable.Map[Id, Buffer[INTERNAL, OUTBOUND]] = collection.mutable.Map()

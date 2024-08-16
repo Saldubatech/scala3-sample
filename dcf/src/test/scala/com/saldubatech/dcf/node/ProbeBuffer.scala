@@ -12,16 +12,13 @@ class MockSink[M <: Material](override val id: Id) extends Sink[M]:
 
 object ProbeBuffer:
   def apply(id: Id): Buffer[ProbeInboundMaterial, ProbeOutboundMaterial] =
-    val control = Buffer.DirectControl()
-    val buffer = new ProbeBuffer(id, control)
-    control.bind(buffer.pack, buffer.release)
+    val buffer = new ProbeBuffer(id)
     buffer
-class ProbeBuffer protected (id: Id, control: Buffer.Control) extends
+class ProbeBuffer protected (id: Id) extends
 AbstractBufferBase[ProbeInboundMaterial, ProbeOutboundMaterial](
   id,
   packer = (at, ib) => AppSuccess(ProbeOutboundMaterial(Id, ib)),
-  MockSink(s"${id}_Downstream"),
-  control):
+  MockSink(s"${id}_Downstream")):
   val inbound: collection.mutable.ListBuffer[WipStock[ProbeInboundMaterial]] = collection.mutable.ListBuffer()
   val outbound: collection.mutable.ListBuffer[WipStock[ProbeOutboundMaterial]] = collection.mutable.ListBuffer()
 

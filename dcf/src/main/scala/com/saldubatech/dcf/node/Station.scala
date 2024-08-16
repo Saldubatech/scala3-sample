@@ -63,7 +63,7 @@ class LinearStation[M <: Material : Typeable](
   downStream: Sink[M])(clock: Clock)
 extends SimActorBehavior[Station.PROTOCOL](id, clock)
 with Subject
-with SinkListener
+with Sink.Listener
 with Buffer.OutboundListener
 with Processor.Listener:
 
@@ -75,7 +75,7 @@ with Processor.Listener:
   private val obName = s"${name}_OB"
   private val procName = s"${name}_PROCESSOR"
 
-  private val outboundBuffer: FIFOBuffer[M] = FIFOBuffer(obName, downStream, outboundControl)
+  private val outboundBuffer: FIFOBuffer[M] = FIFOBuffer(obName, downStream)
   private val processor: MProcessor[M, M] =
     MProcessor(
       procName,
@@ -85,7 +85,7 @@ with Processor.Listener:
       outboundBuffer,
       processorControl,
       Processor.StochasticExecutor(station, processingTime))
-  private val inboundBuffer: FIFOBuffer[M] = FIFOBuffer(ibName, processor, inboundControl)
+  private val inboundBuffer: FIFOBuffer[M] = FIFOBuffer(ibName, processor)
   {
     inboundBuffer.subscribeAll(station)
     outboundBuffer.subscribeAll(station)
@@ -104,12 +104,12 @@ with Processor.Listener:
 
   // Listening for Hardware events
 
-  // Members declared in com.saldubatech.dcf.node.Buffer$.InboundListener
+  // Members declared in com.saldubatech.dcf.node.Buffer.OutboundListener
   override def stockArrival(at: Tick, stock: WipStock[?]): Unit =
     // simply move it along in the corresponding buffer
     stock.bufferId match
-      case bId if bId == inboundBuffer.id => inboundBuffer.control.triggerPack(at, List(stock.id))
-      case bId if bId == outboundBuffer.id => outboundBuffer.control.triggerPack(at, List(stock.id))
+      case bId if bId == inboundBuffer.id => inboundControl.triggerPack(at, List(stock.id))
+      case bId if bId == outboundBuffer.id => outboundControl.triggerPack(at, List(stock.id))
       case pId if pId == processor.id => // If it gets here, it is because it can load it.
         stock.material match
           case m: M => processor.control.signalLoad(at, SimpleJobSpec(Id, List(m.id)))
@@ -122,7 +122,7 @@ with Processor.Listener:
   override def stockReady(at: Tick, stock: WipStock[?]): Unit =
     stock.bufferId match
       case bId if bId == inboundBuffer.id =>
-        inboundBuffer.control.triggerRelease(at, Some(stock.id))
+        inboundControl.triggerRelease(at, Some(stock.id))
       case bId if bId == outboundBuffer.id => outboundBuffer.release(at, Some(stock.id))
       case other => // Do nothing
         log.warn(s"Unknown Buffer $other in Station[$id]")

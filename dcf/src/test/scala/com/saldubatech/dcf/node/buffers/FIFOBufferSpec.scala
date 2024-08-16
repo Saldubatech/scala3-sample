@@ -13,9 +13,7 @@ import com.saldubatech.dcf.node.{MockSink, ProbeInboundMaterial}
 
 def newUnderTest(id: Id): (MockSink[ProbeInboundMaterial], FIFOBuffer[ProbeInboundMaterial]) =
   val sink = MockSink[ProbeInboundMaterial](id)
-  val control = Buffer.DirectControl()
-  val buffer = FIFOBuffer[ProbeInboundMaterial](id, sink, control)
-  control.bind(buffer.pack, buffer.release)
+  val buffer = FIFOBuffer[ProbeInboundMaterial](id, sink)
   (sink -> buffer)
 
 

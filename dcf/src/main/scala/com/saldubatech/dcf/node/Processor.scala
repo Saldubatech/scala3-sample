@@ -130,7 +130,7 @@ object Processor:
       def completeJob(at: Tick, jobId: Id): AppResult[(JobResult, OUTBOUND)]
       def unloadJob(at: Tick, jobId: Id): AppResult[JobResult]
 
-  trait Listener extends SinkListener:
+  trait Listener extends Sink.Listener:
     val id: Id
     def jobLoaded(at: Tick, processorId: Id, jobId: Id): Unit
     def jobStarted(at: Tick, processorId: Id, jobId: Id): Unit
