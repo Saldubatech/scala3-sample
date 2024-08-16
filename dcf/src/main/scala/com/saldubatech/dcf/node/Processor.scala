@@ -2,36 +2,16 @@ package com.saldubatech.dcf.node
 
 import com.saldubatech.lang.Id
 import com.saldubatech.lang.Convenience.given
-import com.saldubatech.lang.types.AppResult
 import com.saldubatech.dcf.material.Material
-import com.saldubatech.dcf.job.{JobSpec, JobResult, SimpleJobResult, JobProcessingState}
-import com.saldubatech.math.randomvariables.Distributions.LongRVar
-import com.saldubatech.lang.types.{AppResult, AppSuccess, AppFail}
-import com.saldubatech.sandbox.ddes.Tick
-import com.saldubatech.sandbox.ddes.{DomainMessage, SimActor}
+import com.saldubatech.dcf.job.{JobSpec, JobResult, JobProcessingState}
+import com.saldubatech.math.randomvariables.Distributions.{LongRVar, zeroLong}
+import com.saldubatech.lang.types.{AppResult, UnitResult, AppSuccess, unit}
+import com.saldubatech.sandbox.ddes.{Tick, DomainMessage, SimActor}
 import com.saldubatech.dcf.resource.UsageState
 
+import scala.reflect.Typeable
+
 object Processor:
-  sealed trait EquipmentSignal extends DomainMessage
-  case class EquipmentJobCompleted[M <: Material](override val id: Id, override val job: Id) extends EquipmentSignal
-
-  type PROTOCOL = EquipmentSignal
-
-
-  trait Listener extends SinkListener:
-    val id: Id
-    def jobLoaded(at: Tick, processorId: Id, jobId: Id): Unit
-    def jobStarted(at: Tick, processorId: Id, jobId: Id): Unit
-    def jobCompleted(at: Tick, processorId: Id, jobId: Id): Unit
-    def jobReleased(at: Tick, processorId: Id, jobId: Id): Unit
-
-trait ProcessorManagement:
-
-  def listen(listener: Processor.Listener): AppResult[Unit]
-  def mute(listenerId: Id): AppResult[Unit]
-
-trait ProcessorControl[INBOUND <: Material, OUTBOUND <: Material]:
-  val id: Id
 
   case class WIP(
     jobSpec: JobSpec,
@@ -45,102 +25,156 @@ trait ProcessorControl[INBOUND <: Material, OUTBOUND <: Material]:
     product: Option[Material] = None
   )
 
-  def peekAvailableMaterials(): AppResult[List[INBOUND]]
-  def processingState(jobId: Id): JobProcessingState
-  def wipCount: Int
-  def inWip(jobId: Id): Boolean
-  def isIdle: Boolean
-  def isInUse: Boolean
-  def isBusy: Boolean
-  def usageState: UsageState
+  sealed trait ProcessorSignal extends DomainMessage:
+    val processorId: Id
+  case class JobLoad(override val id: Id, override val job: Id, override val processorId: Id, jobSpec: JobSpec) extends ProcessorSignal
+  case class JobStart(override val id: Id, override val job: Id, override val processorId: Id) extends ProcessorSignal
+  case class JobComplete(override val id: Id, override val job: Id, override val processorId: Id) extends ProcessorSignal
+  case class JobRelease(override val id: Id, override val job: Id, override val processorId: Id) extends ProcessorSignal
 
-  def peekComplete(at: Tick, jobId: Option[Id]): AppResult[List[WIP]]
+  type PROTOCOL = ProcessorSignal
 
-  def canLoad(at: Tick, job: JobSpec): AppResult[Unit]
-  def loadJob(at: Tick, job: JobSpec): AppResult[Unit]
-  /**
-    * Check whether the processor can start the provided job
-    *
-    * @param at The time at which the job is to start
-    * @param job The Job spec to verify
-    * @return True/False Wrapped in an AppResult in case of errors.
-    */
-  def canStart(at: Tick, jobId: Id): AppResult[Boolean]
-  def startJob(at: Tick, jobId: Id): AppResult[Unit]
-  def peekStarted(at: Tick, jobId: Option[Id]): AppResult[List[WIP]]
-  def completeJob(at: Tick, jobId: Id): AppResult[(JobResult, OUTBOUND)]
-  def unloadJob(at: Tick, jobId: Id): AppResult[JobResult]
+  trait Control:
+    def signalLoad(at: Tick, jobSpec: JobSpec): Unit
+    def signalStart(at: Tick, jobId: Id): Unit
+    // def signalComplete(at: Tick, jobId: Id): Unit
+    def signalUnload(at: Tick, jobId: Id): Unit
 
+  class NoOpControl extends Control:
+    override def signalLoad(at: Tick, jobSpec: JobSpec): Unit = ()
+    override def signalStart(at: Tick, jobId: Id): Unit = ()
+    override def signalUnload(at: Tick, jobId: Id): Unit = ()
+  class DirectControl extends Control:
+    private var _loader: Option[(Tick, JobSpec) => Unit] = None
+    private var _starter: Option[(Tick, Id) => Unit] = None
+    private var _unloader: Option[(Tick, Id) => Unit] = None
 
-abstract class AbstractProcessorBase[INBOUND <: Material, OUTBOUND <: Material](
-  override val id: Id,
-  perform: (Tick, JobSpec, List[Material]) => AppResult[(JobResult, OUTBOUND)])
-extends Sink[INBOUND] with ProcessorControl[INBOUND, OUTBOUND] with ProcessorManagement:
-  private val listeners: collection.mutable.Map[Id, Processor.Listener] = collection.mutable.Map()
+    override def signalLoad(at: Tick, jobSpec: JobSpec): Unit = _loader.get(at, jobSpec)
+    override def signalStart(at: Tick, jobId: Id): Unit = _starter.get(at, jobId)
+    override def signalUnload(at: Tick, jobId: Id): Unit = _unloader.get(at, jobId)
 
-  override def listen(listener: Processor.Listener): AppResult[Unit] =
-    listeners += listener.id -> listener
-    AppSuccess.unit
-
-  override def mute(listenerId: Id): AppResult[Unit] =
-    listeners -= listenerId
-    AppSuccess.unit
-
-  protected def notifyArrival(at: Tick, stock: WipStock[?]): Unit =
-    listeners.values.foreach(l => l.stockArrival(at, stock))
-
-  protected def notifyLoading(at: Tick, jobId: Id): Unit =
-    listeners.values.foreach(l => l.jobLoaded(at, id, jobId))
-
-  protected def notifyJobStarted(at: Tick, jobId: Id): Unit =
-    listeners.values.foreach(l => l.jobStarted(at, id, jobId))
-
-  protected def notifyJobCompleted(at: Tick, jobId: Id): Unit =
-    listeners.values.foreach(l => l.jobCompleted(at, id, jobId))
-
-  protected def _doAccept(at: Tick, load: INBOUND): AppResult[WipStock[INBOUND]]
-
-  override final def accept(at: Tick, load: INBOUND): AppResult[Unit] =
-    for {
-      rs <- _doAccept(at, load)
-    } yield notifyArrival(at, rs)
-
-  protected def _doLoad(at: Tick, job: JobSpec): AppResult[Unit]
-
-  override final def loadJob(at: Tick, job: JobSpec): AppResult[Unit] =
-    for {
-      able <- canLoad(at, job)
-      _ <- _doLoad(at, job)
-    } yield notifyLoading(at, job.id)
-
-  protected def _doStart(at: Tick, jobId: Id): AppResult[Unit]
-  override final def startJob(at: Tick, jobId: Id): AppResult[Unit] =
-    for {
-      able <- canStart(at, jobId)
-      rs <- able match
-              case false => AppFail.fail(s"Cannot Start Job ${jobId} in Processor $id at $at")
-              case true => _doStart(at, jobId)
-    } yield notifyJobStarted(at, jobId)
-
-  protected def _doComplete(at: Tick, wip: WIP): AppResult[JobResult]
-
-  def completeJob(at: Tick, jobId: Id): AppResult[(JobResult, OUTBOUND)] =
-    for {
-      wipList <- peekStarted(at, jobId)
-      wip <- wipList match
-        case Nil => AppFail.fail(s"No job[$jobId] started for Station[$id]")
-        case lWip :: Nil => AppSuccess(lWip)
-        case other => AppFail.fail(s"More than one Job with id[$jobId] for Station[$id]")
-      jobResult <- perform(at, wip.jobSpec, wip.rawMaterials)
-      rs <- _doComplete(at, wip.copy(completed=at, state=JobProcessingState.COMPLETE, result=jobResult._1, product=jobResult._2))
-    } yield jobResult
+    def bind(
+      loader: (Tick, JobSpec) => Unit,
+      starter: (Tick, Id) => Unit,
+      unloader: (Tick, Id) => Unit
+    ): Unit =
+      _loader = Some(loader)
+      _starter = Some(starter)
+      _unloader = Some(unloader)
 
 
-  protected def _doUnload(at: Tick, wip: WIP): AppResult[Unit]
-  def unloadJob(at: Tick, jobId: Id): AppResult[JobResult] =
-    for {
-      candidate <- peekComplete(at, Some(jobId))
-      _ <- candidate.headOption match
-        case None => AppFail.fail(s"Job[$jobId] is not complete in station $id")
-        case Some(wip) => _doUnload(at, wip)
-    } yield candidate.head.result.get
+  trait StochasticControl(
+    loadingTime: LongRVar,
+    releaseTime: LongRVar,
+    startingDelay: LongRVar = zeroLong) extends Control:
+    actorBehavior: SimActor[PROTOCOL] =>
+
+    override def signalLoad(at: Tick, jobSpec: JobSpec): Unit =
+      env.scheduleDelay(actorBehavior)(loadingTime(), JobLoad(Id, jobSpec.id, name, jobSpec))
+
+    override def signalStart(at: Tick, jobId: Id): Unit =
+      env.scheduleDelay(actorBehavior)(startingDelay(), JobStart(Id, jobId, name))
+
+    override def signalUnload(at: Tick, jobId: Id): Unit =
+      env.scheduleDelay(actorBehavior)(loadingTime(), JobRelease(Id, jobId, name))
+
+  trait Executor:
+    def perform(at: Tick, jobId: Id): Unit
+
+  class StochasticExecutor(val host: SimActor[PROTOCOL], val processingTime: LongRVar) extends Executor:
+    override def perform(at: Tick, jobId: Id): Unit =
+      host.env.scheduleDelay(host)(processingTime(), Processor.JobComplete(Id, jobId, host.name))
+
+  class NoOpExecutor extends Executor:
+    override def perform(at: Tick, jobId: Id): Unit = ()
+
+  class DirectExecutor extends Executor:
+    private var _performer: Option[(Tick, Id) => Unit] = None
+    override def perform(at: Tick, jobId: Id): Unit = _performer.get(at, jobId)
+
+    def bind(performer: (Tick, Id) => Unit): Unit = _performer = Some(performer)
+
+  trait Behavior[INBOUND <: Material, OUTBOUND <: Material]:
+
+      def wipCount: Int
+      def wipFor(jobId: Id): Option[WIP]
+      def inWip(jobId: Id): Boolean = wipFor(jobId).isDefined
+      def peekAvailableMaterials(): AppResult[List[INBOUND]]
+      def processingState(jobId: Id): JobProcessingState =
+        wipFor(jobId) match
+          case None => JobProcessingState.UNKNOWN
+          case Some(wip) => wip.state
+      def isIdle: Boolean = wipCount == 0
+      def isBusy: Boolean
+      def isInUse: Boolean = !(isBusy || isIdle)
+      def usageState: UsageState =
+        if isIdle then UsageState.IDLE
+        else if isBusy then UsageState.BUSY
+        else UsageState.IN_USE
+
+
+      def peekComplete(at: Tick, jobId: Option[Id]): AppResult[List[WIP]]
+
+      def canLoad(at: Tick, job: JobSpec): UnitResult
+      def loadJob(at: Tick, job: JobSpec): UnitResult
+      /**
+        * Check whether the processor can start the provided job
+        *
+        * @param at The time at which the job is to start
+        * @param job The Job spec to verify
+        * @return True/False Wrapped in an AppResult in case of errors.
+        */
+      def canStart(at: Tick, jobId: Id): AppResult[Boolean]
+      def startJob(at: Tick, jobId: Id): UnitResult
+      def peekStarted(at: Tick, jobId: Option[Id]): AppResult[List[WIP]]
+      def completeJob(at: Tick, jobId: Id): AppResult[(JobResult, OUTBOUND)]
+      def unloadJob(at: Tick, jobId: Id): AppResult[JobResult]
+
+  trait Listener extends SinkListener:
+    val id: Id
+    def jobLoaded(at: Tick, processorId: Id, jobId: Id): Unit
+    def jobStarted(at: Tick, processorId: Id, jobId: Id): Unit
+    def jobCompleted(at: Tick, processorId: Id, jobId: Id): Unit
+    def jobReleased(at: Tick, processorId: Id, jobId: Id): Unit
+
+  trait Management:
+    val id: Id
+
+    private val listeners: collection.mutable.Map[Id, Processor.Listener] = collection.mutable.Map()
+
+    def listen(listener: Processor.Listener): UnitResult =
+      listeners += listener.id -> listener
+      AppSuccess.unit
+
+    def mute(listenerId: Id): UnitResult =
+      listeners -= listenerId
+      AppSuccess.unit
+
+    protected def notifyArrival(at: Tick, stock: WipStock[?]): Unit =
+      listeners.values.foreach(l => l.stockArrival(at, stock))
+
+    protected def notifyJobLoaded(at: Tick, jobId: Id): Unit =
+      listeners.values.foreach(l => l.jobLoaded(at, id, jobId))
+
+    protected def notifyJobStarted(at: Tick, jobId: Id): Unit =
+      listeners.values.foreach(l => l.jobStarted(at, id, jobId))
+
+    protected def notifyJobCompleted(at: Tick, jobId: Id): Unit =
+      listeners.values.foreach(l => l.jobCompleted(at, id, jobId))
+
+    protected def notifyJobUnloaded(at: Tick, jobId: Id): Unit =
+      listeners.values.foreach(l => l.jobReleased(at, id, jobId))
+
+  trait Component[INBOUND <: Material, OUTBOUND <: Material]
+    extends Behavior[INBOUND, OUTBOUND], Management, Sink[INBOUND]:
+    val id: Id
+
+trait Processor[INBOUND <: Material, OUTBOUND <: Material]
+  extends Processor.Component[INBOUND, OUTBOUND]:
+    val control: Processor.Control
+    def callBackBinding(at: Tick): PartialFunction[Station.PROTOCOL, UnitResult] = {
+      case Processor.JobLoad(id, jobId, pId, jSpec) if pId == id => loadJob(at, jSpec)
+      case Processor.JobStart(id, jobId, pId) if pId == id => startJob(at, jobId)
+      case Processor.JobComplete(id, jobId, pId) if pId == id => completeJob(at, jobId).unit
+      case Processor.JobRelease(id, jobId, pid) if pid == id => unloadJob(at, jobId).unit
+    }

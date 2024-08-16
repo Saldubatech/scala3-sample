@@ -1,6 +1,6 @@
 package com.saldubatech.sandbox.ddes.node
 
-import com.saldubatech.lang.types.{AppResult, AppSuccess, AppFail}
+import com.saldubatech.lang.types.{AppResult, UnitResult, AppSuccess, AppFail}
 import com.saldubatech.lang.Id
 import com.saldubatech.sandbox.ddes.{Tick, DomainMessage, SimulationError, ActionResult, SimActor}
 import com.saldubatech.sandbox.observers.{OperationEventNotification, OperationEventType}

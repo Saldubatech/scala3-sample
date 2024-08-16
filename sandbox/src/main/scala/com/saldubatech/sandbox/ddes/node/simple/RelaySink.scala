@@ -2,10 +2,9 @@ package com.saldubatech.sandbox.ddes.node.simple
 
 import com.saldubatech.math.randomvariables.Distributions.LongRVar
 import com.saldubatech.sandbox.observers.{Subject, Departure, NewJob}
-import com.saldubatech.lang.types.AppResult
 import com.saldubatech.lang.Id
 import com.saldubatech.sandbox.ddes.{DomainMessage, Tick, Clock, SimActor, SimActorBehavior, ActionResult, OAMMessage, DomainProcessor, DomainEvent}
-import com.saldubatech.lang.types.{AppSuccess, AppError, AppFail}
+import com.saldubatech.lang.types.{AppResult, UnitResult, AppSuccess, AppError, AppFail}
 
 
 import scala.reflect.Typeable
@@ -43,7 +42,7 @@ class RelaySink[INBOUND <: DomainMessage : Typeable]
     override protected val domainProcessor: DomainProcessor[WorkRequestToken | INBOUND] =
       new SimpleSink.DP[INBOUND](sink) {
         override protected def executeCompletion
-          (at: Tick, wp: SimpleWorkPackage[INBOUND]): AppResult[Unit] =
+          (at: Tick, wp: SimpleWorkPackage[INBOUND]): UnitResult =
             target match {
               case None =>
                 log.warn(s"Completed Sink of $wp before installing target")

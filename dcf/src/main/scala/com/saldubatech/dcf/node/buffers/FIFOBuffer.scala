@@ -1,11 +1,13 @@
 package com.saldubatech.dcf.node.buffers
 
 import com.saldubatech.dcf.material.Material
-import com.saldubatech.dcf.node.{Buffer, BufferControl, AbstractBufferBase, WipStock, SimpleWipStock, Sink}
+import com.saldubatech.dcf.node.{Buffer, AbstractBufferBase, WipStock, SimpleWipStock, Sink}
 import com.saldubatech.lang.Id
 import com.saldubatech.lang.types.AppResult
 import com.saldubatech.sandbox.ddes.Tick
 import com.saldubatech.lang.types.{AppSuccess, AppFail, AppError}
+
+import scala.reflect.Typeable
 
 object FIFOBuffer:
   case class TooManyComponents(at: Tick, bufferId: Id, n: Int, max: Int) extends AppError(
@@ -21,7 +23,8 @@ private def packer[M](bufferId: Id): (Tick, List[M]) => AppResult[M] = (at: Tick
     case h :: Nil => AppSuccess(h)
     case other => AppFail.fail(s"Multiple Materials for simple Buffer $bufferId")
 
-class FIFOBuffer[M <: Material](id: Id, downStream: Sink[M]) extends AbstractBufferBase[M, M](id, packer(id), downStream):
+class FIFOBuffer[M <: Material : Typeable](id: Id, downStream: Sink[M], control: Buffer.Control)
+  extends AbstractBufferBase[M, M](id, packer(id), downStream, control):
   val inbound: collection.mutable.ListBuffer[WipStock[M]] = collection.mutable.ListBuffer()
   val outbound: collection.mutable.ListBuffer[WipStock[M]] = collection.mutable.ListBuffer()
 

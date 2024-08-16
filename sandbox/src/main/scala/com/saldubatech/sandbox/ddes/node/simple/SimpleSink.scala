@@ -2,10 +2,9 @@ package com.saldubatech.sandbox.ddes.node.simple
 
 import com.saldubatech.math.randomvariables.Distributions.LongRVar
 import com.saldubatech.sandbox.observers.{Subject, Departure, NewJob}
-import com.saldubatech.lang.types.AppResult
 import com.saldubatech.lang.Id
 import com.saldubatech.sandbox.ddes.{DomainMessage, Tick, Clock, SimActor, SimActorBehavior, ActionResult, OAMMessage, DomainProcessor, DomainEvent}
-import com.saldubatech.lang.types.{AppSuccess, AppError, AppFail}
+import com.saldubatech.lang.types.{AppResult, UnitResult, AppSuccess, AppError, AppFail}
 
 
 import scala.reflect.Typeable
@@ -31,13 +30,13 @@ object SimpleSink:
 
   abstract class DP[INBOUND <: DomainMessage : Typeable](sink: SimpleSink[INBOUND]) extends Sink.DP[WorkRequestToken, INBOUND](sink) {
     protected def executeCompletion(
-          at: Tick, wp: SimpleWorkPackage[INBOUND]): AppResult[Unit]
+          at: Tick, wp: SimpleWorkPackage[INBOUND]): UnitResult
 
     override final protected def executeCompletion(
       at: Tick, wr: WorkRequestToken, wp: SimpleWorkPackage[INBOUND])
-      : AppResult[Unit] = executeCompletion(at, wp)
+      : UnitResult = executeCompletion(at, wp)
 
-    override protected def executeArrival(at: Tick, ib: INBOUND): AppResult[Unit] =
+    override protected def executeArrival(at: Tick, ib: INBOUND): UnitResult =
       AppSuccess(sink.env.schedule(sink)(sink.currentTime, WorkRequestToken(ib.id, ib.job)))
   }
 

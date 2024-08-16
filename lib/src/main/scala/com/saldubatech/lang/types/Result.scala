@@ -20,6 +20,11 @@ type AppResult[R] = Result[AppError, R]
 type UnitResult = AppResult[Unit]
 
 extension [A] (rs: AppResult[A])
+  def unit: AppResult[Unit] = rs match
+    case Left(err) => AppFail(err)
+    case Right(_) => AppSuccess.unit
+
+extension [A] (rs: AppResult[A])
   def isSuccess: Boolean = rs.isRight
 
 extension [A] (rs: AppResult[A])
@@ -42,7 +47,7 @@ extension [R] (elements: List[AppResult[R]])
 type AppSuccess[+ER <: AppError, +R] = Right[ER, R]
 object AppSuccess:
   inline def apply[R](r: R): AppResult[R] = Right(r)
-  val unit: AppResult[Unit] = AppSuccess(())
+  val unit: UnitResult = AppSuccess(())
 
 type AppFail[+ER <: AppError, +R] = Left[ER, R]
 //inline def AppFail[ER <: AppError, R](e: ER) = Left[ER, R](e)

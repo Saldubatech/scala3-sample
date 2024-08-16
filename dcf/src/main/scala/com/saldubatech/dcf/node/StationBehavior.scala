@@ -3,7 +3,7 @@ package com.saldubatech.dcf.node
 import com.saldubatech.dcf.material.Material
 import com.saldubatech.lang.Id
 import com.saldubatech.sandbox.ddes.{Tick, DomainMessage}
-import com.saldubatech.lang.types.{AppResult, AppSuccess}
+import com.saldubatech.lang.types.{AppResult, UnitResult, AppSuccess}
 import com.saldubatech.util.LogEnabled
 import com.saldubatech.math.randomvariables.Distributions.LongRVar
 import com.saldubatech.dcf.node.Buffer
@@ -63,7 +63,7 @@ extends SinkListener, Buffer.OutboundListener, LogEnabled:
   override def stockRelease(at: Tick, stock: WipStock[?]): Unit = ???
   override def stockReady(at: Tick, stock: WipStock[?]): Unit = ???
 
-  def materialArrives(at: Tick, forBuffer: Id, load: INBOUND): AppResult[Unit] =
+  def materialArrives(at: Tick, forBuffer: Id, load: INBOUND): UnitResult =
     inducts.get(forBuffer) match
       case None => AppFail(AppError(s"The Induct[${forBuffer}] is not valid for Station[${id}]"))
       case Some(induct) => induct.accept(at, load)
@@ -90,7 +90,7 @@ extends SinkListener, Buffer.OutboundListener, LogEnabled:
 //     else
 //       AppSuccess(None)
 
-//   def startJob(at: Tick, material: M): AppResult[Unit] =
+//   def startJob(at: Tick, material: M): UnitResult =
 //     inbound.peekInbound().headOption match
 //       case None =>
 //         AppFail(AppError(s"Cannot start Job: No Inbound Materials in Station[$id]"))
@@ -101,7 +101,7 @@ extends SinkListener, Buffer.OutboundListener, LogEnabled:
 //       case _ =>
 //         AppFail(AppError(s"Cannot start Job: Material[${material.id}] is not at the head of the queue in Station[$id]"))
 
-//   def completeJob(at: Tick, jobId: Id, material: M): AppResult[Unit] =
+//   def completeJob(at: Tick, jobId: Id, material: M): UnitResult =
 //     jobs.get(material.id) match
 //       case None => AppFail(AppError(s"No Job for material[${material.id}] is active in Station[$id]"))
 //       case jb =>
@@ -114,7 +114,7 @@ extends SinkListener, Buffer.OutboundListener, LogEnabled:
 
 //   private val jobReceiver: Sink[M] = new Sink[M]{
 //     override val id: Id = id
-//     override def accept(at: Tick, load: M): AppResult[Unit] = {
+//     override def accept(at: Tick, load: M): UnitResult = {
 //       jobs.put(load.id, Job(load.id, at, load))
 //       AppSuccess.unit
 //     }

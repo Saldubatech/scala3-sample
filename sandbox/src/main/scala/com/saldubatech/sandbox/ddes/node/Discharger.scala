@@ -3,12 +3,9 @@ package com.saldubatech.sandbox.ddes.node
 import com.saldubatech.sandbox.ddes.DomainMessage
 import com.saldubatech.lang.Id
 import com.saldubatech.sandbox.ddes.Tick
-import com.saldubatech.lang.types.AppResult
 import com.saldubatech.math.randomvariables.Distributions.LongRVar
 import com.saldubatech.math.randomvariables.Distributions
-import com.saldubatech.lang.types.AppSuccess
-import com.saldubatech.lang.types.AppError
-import com.saldubatech.lang.types.AppFail
+import com.saldubatech.lang.types.{AppResult, UnitResult, AppSuccess, AppError, AppFail}
 
 object Discharger
 
@@ -37,7 +34,7 @@ trait Discharger[FINISHED <: DomainMessage, OUTBOUND <: DomainMessage]:
     * @param job The identifier of the job that completed packing
     * @return Success or Failure
     */
-  def dischargeReady(at: Tick, job: Id): AppResult[Unit]
+  def dischargeReady(at: Tick, job: Id): UnitResult
   /**
     * Invoked as part of the book keeping activities that happen every time the station gets activated,
     * including after receiving a "discharge ready" signal

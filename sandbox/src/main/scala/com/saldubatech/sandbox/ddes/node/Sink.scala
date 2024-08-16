@@ -2,10 +2,9 @@ package com.saldubatech.sandbox.ddes.node
 
 import com.saldubatech.math.randomvariables.Distributions.LongRVar
 import com.saldubatech.sandbox.observers.{Subject, Departure, NewJob}
-import com.saldubatech.lang.types.AppResult
 import com.saldubatech.lang.Id
 import com.saldubatech.sandbox.ddes.{DomainMessage, Tick, Clock, SimActor, SimActorBehavior, ActionResult, OAMMessage, DomainProcessor, DomainEvent}
-import com.saldubatech.lang.types.{AppSuccess, AppError, AppFail}
+import com.saldubatech.lang.types.{AppResult, UnitResult, AppSuccess, AppError, AppFail}
 
 
 import scala.reflect.Typeable
@@ -43,8 +42,8 @@ object Sink:
 
       private val inductor = Inductor.Simple[WORK_REQUEST, INBOUND]()
 
-      protected def executeCompletion(at: Tick, wr: WORK_REQUEST, wp: WorkPackage[WORK_REQUEST, INBOUND]): AppResult[Unit]
-      protected def executeArrival(at: Tick, ib: INBOUND): AppResult[Unit]
+      protected def executeCompletion(at: Tick, wr: WORK_REQUEST, wp: WorkPackage[WORK_REQUEST, INBOUND]): UnitResult
+      protected def executeArrival(at: Tick, ib: INBOUND): UnitResult
 
       override def accept(at: Tick, ev: DomainEvent[WORK_REQUEST | INBOUND]): ActionResult =
         ev match

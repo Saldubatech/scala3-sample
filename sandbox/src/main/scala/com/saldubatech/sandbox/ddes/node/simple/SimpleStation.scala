@@ -5,7 +5,7 @@ import com.saldubatech.sandbox.observers.OperationEventNotification
 import com.saldubatech.sandbox.ddes.node.{WorkPackage, ProcessorResource, Station, Discharger, Inductor, FIFOWorkQueue}
 
 import com.saldubatech.math.randomvariables.Distributions.LongRVar
-import com.saldubatech.lang.types.{AppResult, AppSuccess, AppFail, AppError}
+import com.saldubatech.lang.types.{AppResult, UnitResult, AppSuccess, AppFail, AppError}
 import com.saldubatech.lang.Id
 
 import zio.{Tag as ZTag, ZIO, ZLayer, RLayer}
@@ -102,7 +102,7 @@ object SimpleStation:
       outbound.getOrElseUpdate(job, collection.mutable.Set()) += finished
       AppSuccess(dischargeDelay())
 
-    override def dischargeReady(at: Tick, job: Id): AppResult[Unit] =
+    override def dischargeReady(at: Tick, job: Id): UnitResult =
       println(s"Discharge Ready: $job::${outbound.get(job)}")
       outbound.get(job) match
         case None => AppFail(AppError(s"Job $job is not in the discharge step"))
@@ -144,10 +144,10 @@ object SimpleStation:
     FIFOWorkQueue[WorkRequestToken]()
     )(host):
 
-    override protected def arrivalSignal(at: Tick, action: Id, fromName: Id, ib: JOB): AppResult[Unit] =
+    override protected def arrivalSignal(at: Tick, action: Id, fromName: Id, ib: JOB): UnitResult =
       pendingWork.enqueueWorkRequest(at, action, fromName, WorkRequestToken(ib.id, ib.job)).map{_ => ()}
 
-    override protected def dischargeSignal(at: Tick, outbound: JOB): AppResult[Unit] =
+    override protected def dischargeSignal(at: Tick, outbound: JOB): UnitResult =
       host.env.scheduleDelay(target)(transportDelay(), outbound)
       AppSuccess.unit
 

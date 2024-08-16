@@ -3,18 +3,25 @@ package com.saldubatech.dcf.node
 import com.saldubatech.lang.Id
 import com.saldubatech.dcf.material.Material
 import com.saldubatech.sandbox.ddes.Tick
-import com.saldubatech.lang.types.{AppResult, AppSuccess, AppFail}
+import com.saldubatech.lang.types.{AppResult, UnitResult, AppSuccess, AppFail}
 import com.saldubatech.lang.types.AppError
 
 class MockSink[M <: Material](override val id: Id) extends Sink[M]:
   val accepted = collection.mutable.ListBuffer.empty[(Tick, M)]
-  def accept(at: Tick, load: M): AppResult[Unit] = AppSuccess(accepted += (at -> load))
+  def accept(at: Tick, load: M): UnitResult = AppSuccess(accepted += (at -> load))
 
-class ProbeBuffer(id: Id) extends
+object ProbeBuffer:
+  def apply(id: Id): Buffer[ProbeInboundMaterial, ProbeOutboundMaterial] =
+    val control = Buffer.DirectControl()
+    val buffer = new ProbeBuffer(id, control)
+    control.bind(buffer.pack, buffer.release)
+    buffer
+class ProbeBuffer protected (id: Id, control: Buffer.Control) extends
 AbstractBufferBase[ProbeInboundMaterial, ProbeOutboundMaterial](
   id,
   packer = (at, ib) => AppSuccess(ProbeOutboundMaterial(Id, ib)),
-  MockSink(s"${id}_Downstream")):
+  MockSink(s"${id}_Downstream"),
+  control):
   val inbound: collection.mutable.ListBuffer[WipStock[ProbeInboundMaterial]] = collection.mutable.ListBuffer()
   val outbound: collection.mutable.ListBuffer[WipStock[ProbeOutboundMaterial]] = collection.mutable.ListBuffer()
 

@@ -4,16 +4,19 @@ import com.saldubatech.test.BaseSpec
 import com.saldubatech.lang.Id
 import com.saldubatech.dcf.material.Material
 import com.saldubatech.sandbox.ddes.Tick
-import com.saldubatech.lang.types.{AppResult, AppSuccess, AppFail}
+import com.saldubatech.lang.types.{AppResult, UnitResult, AppSuccess, AppFail}
 import com.saldubatech.lang.types.AppError
+import com.saldubatech.dcf.node.Buffer
 import org.scalatest.EitherValues
 
 import com.saldubatech.dcf.node.{MockSink, ProbeInboundMaterial}
-import com.saldubatech.lang.predicate.platforms.Tst.Probe
 
 def newUnderTest(id: Id): (MockSink[ProbeInboundMaterial], FIFOBuffer[ProbeInboundMaterial]) =
   val sink = MockSink[ProbeInboundMaterial](id)
-  (sink -> FIFOBuffer[ProbeInboundMaterial](id, sink))
+  val control = Buffer.DirectControl()
+  val buffer = FIFOBuffer[ProbeInboundMaterial](id, sink, control)
+  control.bind(buffer.pack, buffer.release)
+  (sink -> buffer)
 
 
 class FIFOBufferSpec extends BaseSpec with EitherValues {

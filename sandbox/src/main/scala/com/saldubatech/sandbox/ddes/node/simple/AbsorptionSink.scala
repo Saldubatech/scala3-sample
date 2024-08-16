@@ -2,10 +2,9 @@ package com.saldubatech.sandbox.ddes.node.simple
 
 import com.saldubatech.math.randomvariables.Distributions.LongRVar
 import com.saldubatech.sandbox.observers.{Subject, Departure, NewJob}
-import com.saldubatech.lang.types.AppResult
 import com.saldubatech.lang.Id
 import com.saldubatech.sandbox.ddes.{DomainMessage, Tick, Clock, SimActor, SimActorBehavior, ActionResult, OAMMessage, DomainProcessor, DomainEvent}
-import com.saldubatech.lang.types.{AppSuccess, AppError, AppFail}
+import com.saldubatech.lang.types.{AppResult, UnitResult, AppSuccess, AppError, AppFail}
 
 
 import scala.reflect.Typeable
@@ -36,6 +35,6 @@ class AbsorptionSink[INBOUND <: DomainMessage: Typeable](name: String, clock: Cl
     sink =>
     override protected val domainProcessor = new SimpleSink.DP(sink) {
       override protected def executeCompletion
-        (at: Tick, wp: SimpleWorkPackage[INBOUND]): AppResult[Unit] = AppSuccess.unit
+        (at: Tick, wp: SimpleWorkPackage[INBOUND]): UnitResult = AppSuccess.unit
   }
 

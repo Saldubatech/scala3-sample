@@ -2,10 +2,9 @@ package com.saldubatech.sandbox.ddes.node
 
 import com.saldubatech.math.randomvariables.Distributions.LongRVar
 import com.saldubatech.sandbox.observers.{Subject, Departure, NewJob}
-import com.saldubatech.lang.types.AppResult
 import com.saldubatech.lang.Id
 import com.saldubatech.sandbox.ddes.{DomainMessage, Tick, Clock, SimActor, SimActorBehavior, ActionResult, OAMMessage, DomainProcessor, DomainEvent}
-import com.saldubatech.lang.types.{AppSuccess, AppError, AppFail}
+import com.saldubatech.lang.types.{AppResult, UnitResult, AppSuccess, AppError, AppFail}
 
 
 import scala.reflect.Typeable
@@ -92,7 +91,7 @@ object Source:
       AppSuccess(packingDelay())
 
 
-    override def dischargeReady(at: Tick, job: Id): AppResult[Unit] =
+    override def dischargeReady(at: Tick, job: Id): UnitResult =
       received.get(job) match
         case None => AppFail(AppError(s"Job $job is not in the discharge step"))
         case Some(emptySet) if emptySet.isEmpty =>

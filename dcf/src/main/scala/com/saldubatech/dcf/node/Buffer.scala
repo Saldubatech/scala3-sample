@@ -1,15 +1,16 @@
 package com.saldubatech.dcf.node
 
 import com.saldubatech.dcf.material.Material
-import com.saldubatech.lang.types.{AppResult, AppFail}
 import com.saldubatech.lang.Id
 import com.saldubatech.sandbox.ddes.Tick
-import com.saldubatech.lang.types.{AppResult, AppError, AppSuccess, collectResults}
+import com.saldubatech.lang.types.{AppResult, UnitResult, AppFail, AppError, AppSuccess, collectResults, unit}
 import io.netty.channel.unix.Buffer
 import com.saldubatech.sandbox.ddes.{DomainMessage}
 import com.saldubatech.lang.types.CollectedError
 
 import scala.reflect.Typeable
+import com.saldubatech.math.randomvariables.Distributions.LongRVar
+import com.saldubatech.sandbox.ddes.SimActor
 
 
 object Buffer:
@@ -32,22 +33,81 @@ object Buffer:
     def fail[R](at: Tick, bufferId: Id, stockIds: List[Id] = List()): AppFail[StockNotAvailable, R] = AppFail(StockNotAvailable(at, bufferId, stockIds))
 
 
-
-
   // Actor Protocols
 
-  sealed trait MaterialMessage extends DomainMessage
-  case class MaterialArrival[M <: Material](override val id: Id, override val job: Id, bufferId: Id, material: M) extends MaterialMessage
+  sealed trait MaterialSignal extends DomainMessage
+  case class MaterialArrival[M <: Material](override val id: Id, override val job: Id, bufferId: Id, material: M) extends MaterialSignal
+  case class MaterialPack[M <: Material](override val id: Id, override val job: Id, bufferId: Id, inbounds: List[Id]) extends MaterialSignal
+  case class MaterialRelease[M <: Material](override val id: Id, override val job: Id, bufferId: Id, stockId: Option[Id]) extends MaterialSignal
 
-  def sinkProtocol[M <: Material : Typeable](forBuffer: Buffer[M, ?]): (Tick) => PartialFunction[MaterialMessage, AppResult[Unit]] =
-    at => {
-      case MaterialArrival(mId, jobId, bufferId, mat: M) if bufferId == forBuffer.id => forBuffer.accept(at, mat)
-    }
+  type PROTOCOL = MaterialSignal
+
+  trait Control:
+    def triggerPack(at: Tick, inbounds: List[Id]): Unit
+    def triggerRelease(at: Tick, stockId: Option[Id]): Unit
+
+  class DirectControl extends Control:
+    private var _pack: Option[(Tick, List[Id]) => Unit] = None
+    private var _release: Option[(Tick, Option[Id]) => Unit] = None
+    def bind(
+      pack: (Tick, List[Id]) => Unit,
+      release: (Tick, Option[Id]) => Unit
+    ): Unit =
+      _pack = Some(pack)
+      _release = Some(release)
+
+    override def triggerPack(at: Tick, inbounds: List[Id]): Unit = _pack.get(at, inbounds)
+    override def triggerRelease(at: Tick, stockId: Option[Id]): Unit = _release.get(at, stockId)
+
+  class StochasticControl(packingTime: LongRVar, releaseTime: LongRVar) extends Control:
+    bufferBehavior: SimActor[PROTOCOL] =>
+      override def triggerPack(at: Tick, inbounds: List[Id]): Unit =
+        env.scheduleDelay(bufferBehavior)(packingTime(), MaterialPack(Id, Id /* NOT USED */, name, inbounds))
+      override def triggerRelease(at: Tick, stockId: Option[Id]): Unit =
+        env.scheduleDelay(bufferBehavior)(releaseTime(), MaterialRelease(Id, Id /* NOT USED */, name, stockId))
+
+  trait Behavior[INBOUND <: Material, OUTBOUND <: Material]:
+    /**
+      * Return all the Inbound materials that are available to pack, depending on the
+      * buffer policy (e.g. a FIFO will only return one or none if empty)
+      *
+      * @param at
+      * @return The list of available stock items if any
+      */
+    def peekInbound(at: Tick): AppResult[List[WipStock[INBOUND]]]
+    /**
+      * Return all the outbound materials that are available to release, depending on the buffer
+      * policy (e.g. a FIFO will only return one or none if empty)
+      *
+      * @param at
+      * @return
+      */
+    def peekOutbound(at: Tick): AppResult[List[WipStock[OUTBOUND]]]
+
+    /**
+      * Take the identified inbound materials if available, and pack them into an outbound item
+      * that is ready for release. If not all materials are available, return a failure.
+      *
+      * @param at
+      * @param inbounds
+      * @return The outbound item resulting from the packing.
+      */
+    def pack(at: Tick, inbounds: List[Id]): AppResult[WipStock[OUTBOUND]]
+
+    /**
+    * Release the materials that are ready
+    *
+    * If stockId is None, release all materials that are ready for release in the order the buffer determines
+    * If stockId is not none, release the identified material if it is ready.
+    *
+    * @param at
+    * @param stockId
+    * @return
+    */
+    def release(at: Tick, stockId: Option[Id] = None): AppResult[List[WipStock[OUTBOUND]]]
+
 
   // Listener for any kind of Stock, must sort out internally what to do if not known type
-
-
-// Listener for any kind of Stock, must sort out internally what to do if not known type
   trait OutboundListener:
     val id: Id
     // Must be implemented Asynchronously
@@ -55,94 +115,64 @@ object Buffer:
     def stockRelease(at: Tick, stock: WipStock[?]): Unit
 
 
+  trait Management:
 
-trait BufferSubject:
+    private val arrivalListeners: collection.mutable.Map[Id, SinkListener] = collection.mutable.Map()
+    private val releaseListeners: collection.mutable.Map[Id, Buffer.OutboundListener] = collection.mutable.Map()
 
-  private val arrivalListeners: collection.mutable.Map[Id, SinkListener] = collection.mutable.Map()
-  private val releaseListeners: collection.mutable.Map[Id, Buffer.OutboundListener] = collection.mutable.Map()
+    protected def notifyRelease(at: Tick, stock: WipStock[?]): Unit =
+      releaseListeners.values.foreach(l => l.stockRelease(at, stock))
 
-  protected def notifyRelease(at: Tick, stock: WipStock[?]): Unit =
-    releaseListeners.values.foreach(l => l.stockRelease(at, stock))
+    protected def notifyArrival(at: Tick, stock: WipStock[?]): Unit =
+      arrivalListeners.values.foreach(l => l.stockArrival(at, stock))
 
-  protected def notifyArrival(at: Tick, stock: WipStock[?]): Unit =
-    arrivalListeners.values.foreach(l => l.stockArrival(at, stock))
+    protected def notifyReady(at: Tick, stock: WipStock[?]): Unit =
+      releaseListeners.values.foreach(l => l.stockReady(at, stock))
 
-  protected def notifyReady(at: Tick, stock: WipStock[?]): Unit =
-    releaseListeners.values.foreach(l => l.stockReady(at, stock))
+    final def subscribeArrivals(listener: SinkListener): UnitResult =
+      arrivalListeners += listener.id -> listener
+      AppSuccess.unit
 
-  final def subscribeArrivals(listener: SinkListener): AppResult[Unit] =
-    arrivalListeners += listener.id -> listener
-    AppSuccess.unit
+    final def unsubscribeArrivals(listenerId: Id): UnitResult =
+      arrivalListeners -= listenerId
+      AppSuccess.unit
 
-  final def unsubscribeArrivals(listenerId: Id): AppResult[Unit] =
-    arrivalListeners -= listenerId
-    AppSuccess.unit
+    final def subscribeOutbound(listener: Buffer.OutboundListener): UnitResult =
+      releaseListeners += listener.id -> listener
+      AppSuccess.unit
 
-  final def subscribeOutbound(listener: Buffer.OutboundListener): AppResult[Unit] =
-    releaseListeners += listener.id -> listener
-    AppSuccess.unit
+    final def unsubscribeOutbound(listenerId: Id): UnitResult =
+      releaseListeners -= listenerId
+      AppSuccess.unit
 
-  final def unsubscribeOutbound(listenerId: Id): AppResult[Unit] =
-    releaseListeners -= listenerId
-    AppSuccess.unit
+    final def subscribeAll(listener: SinkListener & Buffer.OutboundListener): UnitResult =
+      subscribeArrivals(listener)
+      subscribeOutbound(listener)
 
-  final def subscribeAll(listener: SinkListener & Buffer.OutboundListener): AppResult[Unit] =
-    subscribeArrivals(listener)
-    subscribeOutbound(listener)
+    final def unsubscribeAll(listenerId: Id): UnitResult =
+      unsubscribeArrivals(listenerId)
+      unsubscribeOutbound(listenerId)
 
-  final def unsubscribeAll(listenerId: Id): AppResult[Unit] =
-    unsubscribeArrivals(listenerId)
-    unsubscribeOutbound(listenerId)
-
-trait BufferControl[INBOUND <: Material, OUTBOUND <: Material]:
-  val id: Id
-  /**
-    * Return all the Inbound materials that are available to pack, depending on the
-    * buffer policy (e.g. a FIFO will only return one or none if empty)
-    *
-    * @param at
-    * @return The list of available stock items if any
-    */
-  def peekInbound(at: Tick): AppResult[List[WipStock[INBOUND]]]
-  /**
-    * Return all the outbound materials that are available to release, depending on the buffer
-    * policy (e.g. a FIFO will only return one or none if empty)
-    *
-    * @param at
-    * @return
-    */
-  def peekOutbound(at: Tick): AppResult[List[WipStock[OUTBOUND]]]
-
-  /**
-    * Take the identified inbound materials if available, and pack them into an outbound item
-    * that is ready for release. If not all materials are available, return a failure.
-    *
-    * @param at
-    * @param inbounds
-    * @return The outbound item resulting from the packing.
-    */
-  def pack(at: Tick, inbounds: List[Id]): AppResult[WipStock[OUTBOUND]]
-
-  /**
-  * Release the materials that are ready
-  *
-  * If stockId is None, release all materials that are ready for release in the order the buffer determines
-  * If stockId is not none, release the identified material if it is ready.
-  *
-  * @param at
-  * @param stockId
-  * @return
-  */
-  def release(at: Tick, stockId: Option[Id] = None): AppResult[List[WipStock[OUTBOUND]]]
+  trait Component[INBOUND <: Material, OUTBOUND <: Material]
+    extends Behavior[INBOUND, OUTBOUND], Management, Sink[INBOUND]:
+      val id: Id
 
 
-trait Buffer[INBOUND <: Material, OUTBOUND <: Material]
-extends BufferControl[INBOUND, OUTBOUND] with BufferSubject with Sink[INBOUND]
+trait Buffer[INBOUND <: Material : Typeable, OUTBOUND <: Material]
+extends Buffer.Component[INBOUND, OUTBOUND]:
+  val control: Buffer.Control
+  def callBackBinding(at: Tick): PartialFunction[Buffer.PROTOCOL, UnitResult] = {
+    case Buffer.MaterialArrival(mId, jobId, bufferId, mat: INBOUND) if bufferId == id => accept(at, mat)
+    case Buffer.MaterialPack(mId, jobId, bufferId, inbounds: List[Id]) if bufferId == id => pack(at, inbounds).unit
+    case Buffer.MaterialRelease(mId, jobId, bufferId, mat: Option[Id]) if bufferId == id => release(at, mat).unit
+  }
 
-abstract class AbstractBufferBase[INBOUND <: Material, OUTBOUND <: Material](
+
+abstract class AbstractBufferBase[INBOUND <: Material : Typeable, OUTBOUND <: Material](
   override val id: Id,
   val packer: (Tick, List[INBOUND]) => AppResult[OUTBOUND],
-  val downstream: Sink[OUTBOUND])
+  val downstream: Sink[OUTBOUND],
+  override val control: Buffer.Control)
   extends Buffer[INBOUND, OUTBOUND]:
 
   // These are the methods to be implemented by specific behaviors. e.g. FIFO, Bounded, ...
@@ -215,7 +245,11 @@ abstract class AbstractBufferBase[INBOUND <: Material, OUTBOUND <: Material](
     * @return
     */
   protected def _doAccept(at: Tick, load: INBOUND): AppResult[WipStock[INBOUND]]
-
+  override def accept(at: Tick, load: INBOUND): UnitResult =
+    for {
+      rs <- _doAccept(at, load)
+    } yield
+      notifyArrival(at, rs)
 
   override def pack(at: Tick, reqMaterials: List[Id]): AppResult[WipStock[OUTBOUND]] =
     for {
@@ -244,10 +278,5 @@ abstract class AbstractBufferBase[INBOUND <: Material, OUTBOUND <: Material](
       // TODO Handle errors!!
       stockList.foreach{notifyRelease(at, _)}
       stockList
-
-  override def accept(at: Tick, load: INBOUND): AppResult[Unit] =
-    for {
-      rs <- _doAccept(at, load)
-    } yield notifyArrival(at, rs)
 
 end AbstractBufferBase // class

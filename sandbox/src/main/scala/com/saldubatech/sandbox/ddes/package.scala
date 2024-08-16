@@ -1,7 +1,7 @@
 package com.saldubatech.sandbox
 
 import com.saldubatech.lang.Id
-import com.saldubatech.lang.types.{AppError, MAP, OR, SUB_TUPLE}
+import com.saldubatech.lang.types.{UnitResult, AppError, MAP, OR, SUB_TUPLE}
 import com.saldubatech.util.LogEnabled
 import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
 import org.apache.pekko.actor.typed.{ActorRef, Behavior}
@@ -17,7 +17,7 @@ package object ddes {
     extends SimulationError(msg, cause)
 
   // Provisional, just to have a placeholder to decide what to use.
-  type ActionResult = AppResult[Unit]
+  type ActionResult = UnitResult
 
   type Tick = Long
 
@@ -33,6 +33,7 @@ package object ddes {
 
   trait DomainMessage extends Product with Serializable:
     val id: Id = Id
+//    @deprecated("`job` may be removed in the future as it is not of general use."")
     val job: Id
 
   type DomainType[DM <: DomainMessage] = TypeTest[DomainMessage, DM]

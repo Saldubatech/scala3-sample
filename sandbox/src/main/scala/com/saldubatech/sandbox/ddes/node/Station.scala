@@ -2,7 +2,7 @@ package com.saldubatech.sandbox.ddes.node
 
 import com.saldubatech.math.randomvariables.Distributions
 import com.saldubatech.math.randomvariables.Distributions.LongRVar
-import com.saldubatech.lang.types.{AppResult, AppSuccess, AppFail, AppError}
+import com.saldubatech.lang.types.{AppResult, UnitResult, AppSuccess, AppFail, AppError}
 import com.saldubatech.sandbox.observers.Subject.ObserverManagement
 import com.saldubatech.sandbox.observers.{NewJob, OperationEventNotification, Subject}
 import com.saldubatech.util.LogEnabled
@@ -48,13 +48,13 @@ object Station:
   extends DomainProcessor[PROTOCOL[WORK_REQUEST, INBOUND]] with LogEnabled:
 
     // Lifecycle hooks
-    protected def arrivalSignal(at: Tick, action: Id, fromName: Id, ib: INBOUND): AppResult[Unit]
+    protected def arrivalSignal(at: Tick, action: Id, fromName: Id, ib: INBOUND): UnitResult
     // Perform the transformation between the work package and the FINISHED result. Candidate to move to pluggable component.
     // Called as part of the standard work when the Station is activated, including when a command or material arrive.
     protected def processCompleteSignal(wp: WorkPackage[WORK_REQUEST, INBOUND]): AppResult[FINISHED]
     // Perform the sending out of the Finished materials via a transport medium, which is dependent of the specific implementation. Candidate to move to pluggable component
     // Invoked as part of the book keeping to perform the external actions e.g. send signals, use transport capabilities to send the OUTBOUND payload to the target
-    protected def dischargeSignal(at: Tick, outbound: OUTBOUND): AppResult[Unit] // =
+    protected def dischargeSignal(at: Tick, outbound: OUTBOUND): UnitResult // =
 
     protected val inboundBehavior: PartialFunction[DomainEvent[PROTOCOL[WORK_REQUEST, INBOUND]], ActionResult] = {
       case evFromUpstream@DomainEvent(action, from, ib: INBOUND) =>

@@ -4,7 +4,7 @@ import com.saldubatech.test.BaseSpec
 import com.saldubatech.lang.Id
 import com.saldubatech.dcf.material.Material
 import com.saldubatech.sandbox.ddes.Tick
-import com.saldubatech.lang.types.{AppResult, AppSuccess, AppFail}
+import com.saldubatech.lang.types.{AppResult, UnitResult, AppSuccess, AppFail}
 import com.saldubatech.lang.types.AppError
 import org.scalatest.EitherValues
 import com.saldubatech.dcf.node.Buffer._
