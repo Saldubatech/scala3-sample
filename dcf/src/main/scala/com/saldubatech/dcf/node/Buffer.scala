@@ -42,30 +42,6 @@ object Buffer:
 
   type PROTOCOL = MaterialSignal
 
-  trait Control:
-    def triggerPack(at: Tick, inbounds: List[Id]): Unit
-    def triggerRelease(at: Tick, stockId: Option[Id]): Unit
-
-  class DirectControl extends Control:
-    private var _pack: Option[(Tick, List[Id]) => Unit] = None
-    private var _release: Option[(Tick, Option[Id]) => Unit] = None
-    def bind(
-      pack: (Tick, List[Id]) => Unit,
-      release: (Tick, Option[Id]) => Unit
-    ): Unit =
-      _pack = Some(pack)
-      _release = Some(release)
-
-    override def triggerPack(at: Tick, inbounds: List[Id]): Unit = _pack.get(at, inbounds)
-    override def triggerRelease(at: Tick, stockId: Option[Id]): Unit = _release.get(at, stockId)
-
-  class StochasticControl(packingTime: LongRVar, releaseTime: LongRVar) extends Control:
-    bufferBehavior: SimActor[PROTOCOL] =>
-      override def triggerPack(at: Tick, inbounds: List[Id]): Unit =
-        env.scheduleDelay(bufferBehavior)(packingTime(), MaterialPack(Id, Id /* NOT USED */, name, inbounds))
-      override def triggerRelease(at: Tick, stockId: Option[Id]): Unit =
-        env.scheduleDelay(bufferBehavior)(releaseTime(), MaterialRelease(Id, Id /* NOT USED */, name, stockId))
-
   trait Behavior[INBOUND <: Material, OUTBOUND <: Material]:
     /**
       * Return all the Inbound materials that are available to pack, depending on the
@@ -114,7 +90,6 @@ object Buffer:
     def stockReady(at: Tick, stock: WipStock[?]): Unit
     def stockRelease(at: Tick, stock: WipStock[?]): Unit
 
-
   trait Management:
 
     private val arrivalListeners: collection.mutable.Map[Id, Sink.Listener] = collection.mutable.Map()
@@ -157,9 +132,26 @@ object Buffer:
     extends Behavior[INBOUND, OUTBOUND], Management, Sink[INBOUND]:
       val id: Id
 
+  trait Control:
+    def triggerPack(at: Tick, inbounds: List[Id]): Unit
+    def triggerRelease(at: Tick, stockId: Option[Id]): Unit
+
+  trait DirectControl extends Control:
+    self: Buffer[?, ?] =>
+
+    override def triggerPack(at: Tick, inbounds: List[Id]): Unit = self.pack(at, inbounds)
+    override def triggerRelease(at: Tick, stockId: Option[Id]): Unit = self.release(at, stockId)
+
+  trait StochasticControl(val host: SimActor[PROTOCOL], packingTime: LongRVar, releaseTime: LongRVar) extends Control:
+    self: Buffer[?, ?] =>
+    override def triggerPack(at: Tick, inbounds: List[Id]): Unit =
+      host.env.scheduleDelay(host)(packingTime(), MaterialPack(Id, Id /* NOT USED */, self.id, inbounds))
+    override def triggerRelease(at: Tick, stockId: Option[Id]): Unit =
+      host.env.scheduleDelay(host)(releaseTime(), MaterialRelease(Id, Id /* NOT USED */, self.id, stockId))
+
 
 trait Buffer[INBOUND <: Material : Typeable, OUTBOUND <: Material]
-extends Buffer.Component[INBOUND, OUTBOUND]:
+extends Buffer.Component[INBOUND, OUTBOUND], Buffer.Control:
   def callBackBinding(at: Tick): PartialFunction[Buffer.PROTOCOL, UnitResult] = {
     case Buffer.MaterialArrival(mId, jobId, bufferId, mat: INBOUND) if bufferId == id => accept(at, mat)
     case Buffer.MaterialPack(mId, jobId, bufferId, inbounds: List[Id]) if bufferId == id => pack(at, inbounds).unit
@@ -171,7 +163,7 @@ abstract class AbstractBufferBase[INBOUND <: Material : Typeable, OUTBOUND <: Ma
   override val id: Id,
   val packer: (Tick, List[INBOUND]) => AppResult[OUTBOUND],
   val downstream: Sink[OUTBOUND])
-  extends Buffer[INBOUND, OUTBOUND]:
+  extends Buffer.Component[INBOUND, OUTBOUND]:
 
   // These are the methods to be implemented by specific behaviors. e.g. FIFO, Bounded, ...
   /**
@@ -253,7 +245,7 @@ abstract class AbstractBufferBase[INBOUND <: Material : Typeable, OUTBOUND <: Ma
     for {
       comps <- _peekAvailable(at, reqMaterials)
       pack <- if comps.size == reqMaterials.size then packer(at, comps.map(_.material))
-              else AppFail.fail(s"Not all required materials in buffer $id are available")
+              else AppFail.fail(s"Not all required materials in buffer $id are available: $comps")
       _ <- _removeInboundStock(at, reqMaterials)
       rs <- _readyPacked(at, pack)
     } yield

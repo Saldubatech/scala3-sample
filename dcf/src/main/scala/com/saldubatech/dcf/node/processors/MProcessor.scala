@@ -15,16 +15,14 @@ import scala.reflect.Typeable
 
 private implicit def _toOption[A](a: A): Option[A] = Some(a)
 
-class MProcessor[INBOUND <: Material, OUTBOUND <: Material : Typeable](
+abstract class MProcessor[INBOUND <: Material, OUTBOUND <: Material : Typeable](
     id: Id,
     val maxServers: Int,
     val inductCapacity: Int,
-    perform: (Tick, JobSpec, List[Material]) => AppResult[(JobResult, OUTBOUND)],
-    downstream: Sink[OUTBOUND],
-    control: Processor.Control,
-    executor: Processor.Executor
+    transform: (Tick, JobSpec, List[Material]) => AppResult[(JobResult, OUTBOUND)],
+    downstream: Sink[OUTBOUND]
     )
-  extends AbstractProcessorBase[INBOUND, OUTBOUND](id, perform, downstream, control, executor):
+  extends AbstractProcessorBase[INBOUND, OUTBOUND](id, transform, downstream):
     import Processor.WIP
 
     val inbound: collection.mutable.Map[Id, WipStock[INBOUND]] = collection.mutable.Map()

@@ -12,11 +12,9 @@ import scala.reflect.Typeable
 
 abstract class AbstractProcessorBase[INBOUND <: Material, OUTBOUND <: Material : Typeable](
   override val id: Id,
-  perform: (Tick, JobSpec, List[Material]) => AppResult[(JobResult, OUTBOUND)],
-  val downstream: Sink[OUTBOUND],
-  val control: Processor.Control,
-  val executor: Processor.Executor)
-extends Processor[INBOUND, OUTBOUND]:
+  transform: (Tick, JobSpec, List[Material]) => AppResult[(JobResult, OUTBOUND)],
+  val downstream: Sink[OUTBOUND])
+extends Processor.Component[INBOUND, OUTBOUND]:
 
   protected def collectComponents(at: Tick, job: JobSpec): AppResult[List[WipStock[INBOUND]]]
   override def canLoad(at: Tick, job: JobSpec): UnitResult =
@@ -54,7 +52,7 @@ extends Processor[INBOUND, OUTBOUND]:
               case false => AppFail.fail(s"Cannot Start Job ${jobId} in Processor $id at $at")
               case true => _doStart(at, jobId)
     } yield
-      executor.perform(at, jobId)
+      perform(at, jobId)
       notifyJobStarted(at, jobId)
 
   protected def _doComplete(at: Tick, wip: Processor.WIP): AppResult[JobResult]
@@ -65,7 +63,7 @@ extends Processor[INBOUND, OUTBOUND]:
         case Nil => AppFail.fail(s"No job[$jobId] started for Station[$id]")
         case lWip :: Nil => AppSuccess(lWip)
         case other => AppFail.fail(s"More than one Job with id[$jobId] for Station[$id]")
-      jobResult <- perform(at, wip.jobSpec, wip.rawMaterials)
+      jobResult <- transform(at, wip.jobSpec, wip.rawMaterials)
       rs <- _doComplete(at, wip.copy(completed=at, state=JobProcessingState.COMPLETE, result=jobResult._1, product=jobResult._2))
     } yield
       notifyJobCompleted(at, jobId)

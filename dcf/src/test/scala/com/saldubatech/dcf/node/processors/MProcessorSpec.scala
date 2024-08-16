@@ -13,20 +13,20 @@ private implicit def _toOption[A](a: A): Option[A] = Some(a)
 
 def mockSink = MockSink[ProbeOutboundMaterial]("UnderTest_Downstream")
 
-def underTestProcessor(downstream: MockSink[ProbeOutboundMaterial]): MProcessor[ProbeInboundMaterial, ProbeOutboundMaterial] =
-  val control = Processor.NoOpControl()
+def underTestProcessor(downstream: MockSink[ProbeOutboundMaterial]): Processor[ProbeInboundMaterial, ProbeOutboundMaterial] =
   def noOpCompleteSignaller(at: Tick, jobId: Id): Unit = () // _proc.get.completeJob(at, jobId)
-  MProcessor[ProbeInboundMaterial, ProbeOutboundMaterial](
+  new MProcessor[ProbeInboundMaterial, ProbeOutboundMaterial](
     "UnderTest",
     3,
     1000,
     (at, js, mats) => {
       AppSuccess(SimpleJobResult(s"JR_${js.id}", js, s"OB_${js.id}"), ProbeOutboundMaterial(s"OB_${js.id}", mats))
     },
-    downstream,
-    control,
-    Processor.NoOpExecutor()
+    downstream
   )
+  with Processor[ProbeInboundMaterial, ProbeOutboundMaterial]
+  with Processor.NoOpExecutor
+  with Processor.NoOpControl
 
 def rawMaterial: ProbeInboundMaterial = ProbeInboundMaterial(Id)
 

@@ -36,29 +36,24 @@ class UnitBuffer[M <: Material : Typeable](id: Id, downStream: Sink[M])
     inbound += rs
     AppSuccess(rs)
 
-  override protected def _peekAvailable(at: Tick, stockIds: List[com.saldubatech.lang.Id]): AppResult[List[WipStock[M]]] =
+  private def _peek(at: Tick, stockIds: List[Id], contents: List[WipStock[M]], stateWord: String): AppResult[List[WipStock[M]]] =
     stockIds match
       case Nil =>
-        inbound.toList match
-          case Nil => AppFail.fail(s"Buffer $id does not have any available items at $at")
+        contents.toList match
+          case Nil => AppFail.fail(s"Buffer $id does not have any $stateWord items at $at")
           case other => AppSuccess(other)
       case other =>
         val requested = stockIds.toSet
-        inbound.filter(stock => requested(stock.id)).toList match
+        contents.filter(stock => requested(stock.id)).toList match
           case result if result.size == stockIds.size => AppSuccess(result)
-          case other => AppFail.fail(s"The requested items are not all available in Buffer $id")
+          case other =>
+            AppFail.fail(s"The requested items are not all $stateWord in Buffer $id")
+
+  override protected def _peekAvailable(at: Tick, stockIds: List[Id]): AppResult[List[WipStock[M]]] =
+    _peek(at, stockIds, inbound.toList, "available")
 
   override protected def _peekReady(at: Tick, stockIds: List[Id]): AppResult[List[WipStock[M]]] =
-    stockIds match
-      case Nil =>
-        outbound.toList match
-          case Nil => AppFail.fail(s"Buffer $id does not have any available items at $at")
-          case other => AppSuccess(other)
-      case other =>
-        val requested = stockIds.toSet
-        inbound.filter(stock => requested(stock.id)).toList match
-          case result if result.size == stockIds.size => AppSuccess(result)
-          case other => AppFail.fail(s"The requested items are not all available in Buffer $id")
+    _peek(at, stockIds, outbound.toList, "ready")
 
   override protected def _readyPacked(at: Tick, pack: M): AppResult[WipStock[M]] =
     val rs = SimpleWipStock(at, id, pack)

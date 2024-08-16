@@ -18,7 +18,9 @@ class ProbeBuffer protected (id: Id) extends
 AbstractBufferBase[ProbeInboundMaterial, ProbeOutboundMaterial](
   id,
   packer = (at, ib) => AppSuccess(ProbeOutboundMaterial(Id, ib)),
-  MockSink(s"${id}_Downstream")):
+  MockSink(s"${id}_Downstream"))
+  with Buffer[ProbeInboundMaterial, ProbeOutboundMaterial]
+  with Buffer.DirectControl:
   val inbound: collection.mutable.ListBuffer[WipStock[ProbeInboundMaterial]] = collection.mutable.ListBuffer()
   val outbound: collection.mutable.ListBuffer[WipStock[ProbeOutboundMaterial]] = collection.mutable.ListBuffer()
 

@@ -4,7 +4,7 @@ import com.saldubatech.dcf.material.Material
 import com.saldubatech.lang.Id
 import com.saldubatech.lang.types.{AppSuccess, AppFail, AppResult, UnitResult, collectResults, fromOption}
 import com.saldubatech.sandbox.ddes.{DomainMessage, DomainProcessor, SimActorBehavior, Tick, DomainEvent}
-import com.saldubatech.math.randomvariables.Distributions.LongRVar
+import com.saldubatech.math.randomvariables.Distributions.{LongRVar, zeroLong}
 import com.saldubatech.sandbox.ddes.Clock
 import com.saldubatech.sandbox.ddes.OAMMessage
 import com.saldubatech.sandbox.observers.Subject
@@ -54,12 +54,16 @@ object LinearStation:
 
 class LinearStation[M <: Material : Typeable](
   override val id: Id,
+  ibPackingTime: LongRVar,
+  ibReleaseTime: LongRVar,
   nServers: Int,
   inductCapacity: Int,
   processingTime: LongRVar,
-  inboundControl: Buffer.StochasticControl,
-  outboundControl: Buffer.StochasticControl,
-  processorControl: Processor.StochasticControl,
+  pLoadingTime: LongRVar,
+  pReleaseTime: LongRVar,
+  pStartingDelay: LongRVar = zeroLong,
+  obPackingTime: LongRVar,
+  obReleaseTime: LongRVar,
   downStream: Sink[M])(clock: Clock)
 extends SimActorBehavior[Station.PROTOCOL](id, clock)
 with Subject
@@ -75,17 +79,16 @@ with Processor.Listener:
   private val obName = s"${name}_OB"
   private val procName = s"${name}_PROCESSOR"
 
-  private val outboundBuffer: FIFOBuffer[M] = FIFOBuffer(obName, downStream)
-  private val processor: MProcessor[M, M] =
-    MProcessor(
+  private val outboundBuffer: Buffer[M, M] = new FIFOBuffer[M](obName, downStream) with Buffer[M, M] with Buffer.StochasticControl(station, obPackingTime, obReleaseTime)
+  private val processor: Processor[M, M] = new MProcessor[M, M](
       procName,
       nServers,
       inductCapacity,
       LinearStation.transform(name),
-      outboundBuffer,
-      processorControl,
-      Processor.StochasticExecutor(station, processingTime))
-  private val inboundBuffer: FIFOBuffer[M] = FIFOBuffer(ibName, processor)
+      outboundBuffer) with Processor[M, M]
+      with Processor.StochasticControl(station, pLoadingTime, pReleaseTime, pStartingDelay)
+      with Processor.StochasticExecutor(station, processingTime)
+  private val inboundBuffer: Buffer[M, M] = new FIFOBuffer[M](ibName, processor) with Buffer[M, M] with Buffer.StochasticControl(station, ibPackingTime, ibReleaseTime)
   {
     inboundBuffer.subscribeAll(station)
     outboundBuffer.subscribeAll(station)
@@ -108,11 +111,11 @@ with Processor.Listener:
   override def stockArrival(at: Tick, stock: WipStock[?]): Unit =
     // simply move it along in the corresponding buffer
     stock.bufferId match
-      case bId if bId == inboundBuffer.id => inboundControl.triggerPack(at, List(stock.id))
-      case bId if bId == outboundBuffer.id => outboundControl.triggerPack(at, List(stock.id))
+      case bId if bId == inboundBuffer.id => inboundBuffer.triggerPack(at, List(stock.id))
+      case bId if bId == outboundBuffer.id => outboundBuffer.triggerPack(at, List(stock.id))
       case pId if pId == processor.id => // If it gets here, it is because it can load it.
         stock.material match
-          case m: M => processor.control.signalLoad(at, SimpleJobSpec(Id, List(m.id)))
+          case m: M => processor.signalLoad(at, SimpleJobSpec(Id, List(m.id)))
           case other => // Not of type M... do nothing
             log.warn(s"Unexpected material ready: $other inbound in Station[$id]")
       case other => // Do nothing
@@ -121,9 +124,8 @@ with Processor.Listener:
   // Members declared in com.saldubatech.dcf.node.Buffer$.OutboundListener
   override def stockReady(at: Tick, stock: WipStock[?]): Unit =
     stock.bufferId match
-      case bId if bId == inboundBuffer.id =>
-        inboundControl.triggerRelease(at, Some(stock.id))
-      case bId if bId == outboundBuffer.id => outboundBuffer.release(at, Some(stock.id))
+      case bId if bId == inboundBuffer.id => inboundBuffer.triggerRelease(at, Some(stock.id))
+      case bId if bId == outboundBuffer.id => outboundBuffer.triggerRelease(at, Some(stock.id))
       case other => // Do nothing
         log.warn(s"Unknown Buffer $other in Station[$id]")
 
@@ -141,7 +143,7 @@ with Processor.Listener:
       log.warn(s"Unknown Processor[$processorId] in Station[$id]")
     else
       // Move it along
-      processor.control.signalStart(at, jobId)
+      processor.signalStart(at, jobId)
 
   override def jobStarted(at: Tick, processorId: Id, jobId: Id): Unit =
     if processorId != processor.id then // Do nothing
@@ -163,7 +165,7 @@ with Processor.Listener:
               accepted <- product match
                 case mProduct: M => outboundBuffer.accept(at, mProduct)
                 case other => AppFail.fail(s"Product is of the wrong type for Station[$id]")
-            } yield processor.control.signalUnload(at, wip.jobSpec.id)
+            } yield processor.signalUnload(at, wip.jobSpec.id)
           }.collectResults
       } yield ()
 
