@@ -20,6 +20,7 @@ package object ddes {
   type ActionResult = UnitResult
 
   type Tick = Long
+  type Duration = Long
 
   object Tick:
     def apply(t: Long): Tick = t

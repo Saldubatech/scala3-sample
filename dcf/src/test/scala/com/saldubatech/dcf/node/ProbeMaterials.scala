@@ -6,5 +6,5 @@ import com.saldubatech.sandbox.ddes.Tick
 import com.saldubatech.lang.types.{AppResult, UnitResult, AppSuccess, AppFail}
 import com.saldubatech.lang.types.AppError
 
-case class ProbeInboundMaterial(override val id: Id) extends Material
+case class ProbeInboundMaterial(override val id: Id, idx: Int) extends Material
 case class ProbeOutboundMaterial(override val id: Id, components: List[Material]) extends Material

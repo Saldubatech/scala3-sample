@@ -1,7 +1,7 @@
 # General
 
 # Intellij (temporary)
-*/.idea/**
+.idea
 
 # Secrets and environment
 .env

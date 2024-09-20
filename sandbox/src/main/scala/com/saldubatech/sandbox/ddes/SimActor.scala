@@ -73,7 +73,7 @@ extends SimActor[DM] with SimActorContext[DM]:
       override def initialize(ctx: ActorContext[DDE.SupervisorProtocol]): Map[Id, ActorRef[?]] =
         Map(name -> ctx.spawn[DomainAction[DM] | OAMMessage](selfActorBehavior.init(), name))
     }
-  override val env  = new SimEnvironment() {
+  override val env: SimEnvironment = new SimEnvironment() {
     override def currentTime: Tick = selfActorBehavior.currentTime
 
     override def schedule[TARGET_DM <: DomainMessage]

@@ -7,12 +7,15 @@ type Id = String
 
 def Id = UUID.randomUUID().toString
 
+trait Identified:
+  val id: Id
+
 inline def Partial[A, B](pf: PartialFunction[A, B]): PartialFunction[A, B] = pf
 
 type CaseLike = Product & Serializable
 
 extension [A](self: Option[A])
-  def withEffect(f: A => Unit): Option[A] = {
+  def let(f: A => Unit): Option[A] = {
     self.foreach[Unit](f)
     self
   }

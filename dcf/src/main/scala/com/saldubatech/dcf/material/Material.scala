@@ -7,7 +7,7 @@ trait Material:
 
 case class SimpleEach(override val id: Id) extends Material
 
-trait Composite extends Material:
+trait Composite extends Material: 
   val contents: List[Material]
 
 
