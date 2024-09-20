@@ -11,29 +11,77 @@ class AppError(val msg: String, val cause: Option[Throwable] = None)
     }
 )
 
-case class CollectedError(override val msg: String, causes: Option[Seq[AppError]])
-  extends AppError(msg,
-    cause = {
-    causes match
-      case None => None
-      case Some(Seq()) => None
-      case other => Some(CollectedError(msg, other))
-    }
-  )
-
-object Result:
-  val wkw: Either[String, Int] = Left("asdf")
+case class CollectedError(override val msg: String, val causes: List[Throwable] = List())
+  extends AppError(msg)
 
 // For now just an alias for Either...
 type Result[+ER <: AppError, +R] = Either[ER, R]
 type AppResult[R] = Result[AppError, R]
+extension [R] (rs: AppResult[R])
+  def asUnit = rs.map{ _ => () }
+type UnitResult = AppResult[Unit]
+
 type AppSuccess[+ER <: AppError, +R] = Right[ER, R]
-inline def AppSuccess[ER <: AppError, R](r: R) = Right[ER, R](r)
 object AppSuccess:
-  val unit: AppSuccess[? <: AppError, Unit] = AppSuccess(())
+  inline def apply[R](r: R): AppResult[R] = Right(r)
+  val unit: UnitResult = AppSuccess(())
 
 type AppFail[+ER <: AppError, +R] = Left[ER, R]
-inline def AppFail[ER <: AppError, R](e: ER) = Left[ER, R](e)
+
+extension [A] (rs: AppResult[A])
+  def unit: AppResult[Unit] = rs match
+    case Left(err) => Left(err)
+    case Right(_) => AppSuccess.unit
+
+extension [A] (rs: AppResult[A])
+  def isSuccess: Boolean = rs.isRight
+
+extension [A] (rs: AppResult[A])
+  def isError: Boolean = rs.isLeft
+
+object AppFail:
+  inline def apply[ER <: AppError, R](e: ER): AppFail[ER, R] = Left[ER, R](e)
+  inline def fail[R](msg: Option[String], cause: Option[Throwable]): AppFail[AppError, R] =
+    (msg, cause) match
+      case (None, None) => AppFail[AppError, R](AppError(s"Unknown Error"))
+      case (_, Some(ae : AppError)) => AppFail[AppError, R](ae)
+      case (None, cause@Some(th)) => AppFail(AppError(th.getMessage(), cause))
+      case (Some(otherMsg), cause@Some(th)) => AppFail(AppError(otherMsg, cause))
+      case (Some(otherMsg), None) => AppFail(AppError(otherMsg))
+
+  inline def fail[R](msg: String): AppFail[AppError, R] = fail(Some(msg), None)
+  inline def fail[R](cause: Throwable): AppFail[AppError, R] = fail(None, Some(cause))
+  val Unknown = fail("Unknown Error")
+
+
+implicit def fromOption[A](optA: Option[A]): AppResult[A] =
+  optA.fold(AppFail.fail(s"No value in Option"))((inA: A) => AppSuccess(inA))
+
+
+extension [R](elements: List[AppResult[R]])
+  def collectAll: AppResult[List[R]] =
+    elements.foldLeft(AppSuccess[List[R]](List.empty)) {
+      case (Right(acc), Right(element)) => AppSuccess(element :: acc)
+      case (Right(acc), Left(err)) => AppFail(err)
+      case (Left(errAcc), Right(_)) => AppFail(errAcc)
+      case (Left(errAcc), Left(err)) =>
+        err match
+          case ce: CollectedError => AppFail(CollectedError("Multiple Errors", ce.causes :+ err))
+          case other => AppFail(CollectedError("Multiple Errors", List(other, err)))
+    }
+
+extension[R] (elements: List[AppResult[R]] )
+  def collectAny: AppResult[List[R]] =
+    elements.foldLeft(AppSuccess[List[R]](List.empty)) {
+      case (Right(acc), Right(element)) => AppSuccess(element :: acc)
+      case (Right(acc), Left(err)) => AppSuccess(acc)
+      case (Left(errAcc), Right(element)) => AppSuccess(List(element))
+      case (Left(errAcc), Left(err)) =>
+        err match
+          case ce: CollectedError => AppFail(CollectedError("Multiple Errors", ce.causes :+ err))
+          case other => AppFail(CollectedError("Multiple Errors", List(other, err)))
+    }
+
 
 
 // Specialized ZIO Effects with the "S" to signify "Salduba"

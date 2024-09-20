@@ -1,5 +1,8 @@
 # General
 
+# Intellij (temporary)
+.idea
+
 # Secrets and environment
 .env
 .jvmopts

@@ -2,7 +2,7 @@ package com.saldubatech.sandbox.ddes.node
 
 import com.saldubatech.math.randomvariables.Distributions
 import com.saldubatech.math.randomvariables.Distributions.LongRVar
-import com.saldubatech.lang.types.{AppResult, AppSuccess, AppFail, AppError}
+import com.saldubatech.lang.types.{AppResult, UnitResult, AppSuccess, AppFail, AppError}
 import com.saldubatech.sandbox.observers.Subject.ObserverManagement
 import com.saldubatech.sandbox.observers.{NewJob, OperationEventNotification, Subject}
 import com.saldubatech.util.LogEnabled
@@ -22,19 +22,9 @@ import com.saldubatech.sandbox.ddes.DomainMessage
 import com.saldubatech.sandbox.ddes.SimActor
 import com.saldubatech.sandbox.ddes.DomainProcessor
 import com.saldubatech.sandbox.ddes.SimActorBehavior
-import com.saldubatech.sandbox.observers.Departure
-import com.saldubatech.sandbox.observers.End
-import com.saldubatech.sandbox.observers.Arrival
-import com.saldubatech.sandbox.observers.Start
+import com.saldubatech.sandbox.observers.{Departure, End, Arrival, Start, WorkRequest}
 
 object Station:
-  import ProcessorResource.WorkPackage
-
-  sealed trait Materials extends DomainMessage
-  case class MaterialTransfer(override val id: Id, override val job: Id) extends Materials
-
-  sealed trait Command extends DomainMessage
-  case class WorkRequest(override val id: Id, override val job: Id) extends Command
 
   sealed trait ExecutionMessage extends DomainMessage
   case class ExecutionComplete(override val id: Id, override val job: Id) extends ExecutionMessage
@@ -58,37 +48,54 @@ object Station:
   extends DomainProcessor[PROTOCOL[WORK_REQUEST, INBOUND]] with LogEnabled:
 
     // Lifecycle hooks
+    protected def arrivalSignal(at: Tick, action: Id, fromName: Id, ib: INBOUND): UnitResult
     // Perform the transformation between the work package and the FINISHED result. Candidate to move to pluggable component.
     // Called as part of the standard work when the Station is activated, including when a command or material arrive.
-    protected def process(wp: WorkPackage[WORK_REQUEST, INBOUND]): AppResult[FINISHED]
+    protected def processCompleteSignal(wp: WorkPackage[WORK_REQUEST, INBOUND]): AppResult[FINISHED]
     // Perform the sending out of the Finished materials via a transport medium, which is dependent of the specific implementation. Candidate to move to pluggable component
     // Invoked as part of the book keeping to perform the external actions e.g. send signals, use transport capabilities to send the OUTBOUND payload to the target
-    protected def discharge(at: Tick, outbound: OUTBOUND): AppResult[Unit] // =
+    protected def dischargeSignal(at: Tick, outbound: OUTBOUND): UnitResult // =
 
     protected val inboundBehavior: PartialFunction[DomainEvent[PROTOCOL[WORK_REQUEST, INBOUND]], ActionResult] = {
       case evFromUpstream@DomainEvent(action, from, ib: INBOUND) =>
         // TODO
         // materialFlowNotifier(MaterialArrival(host.currentTime, ib.job, host.name, ib.from.name))
-        inductor.arrival(host.currentTime, ib)
+        for {
+          _ <- inductor.arrival(host.currentTime, ib)
+          rs <- arrivalSignal(host.currentTime, action, from.name, ib)
+        } yield
+            host.eventNotify(Arrival(host.currentTime, ib.job, host.name, from.name))
+            rs
     }
     protected val commandBehavior: PartialFunction[DomainEvent[PROTOCOL[WORK_REQUEST, INBOUND]], ActionResult] = {
         case command@DomainEvent(action, from, wr: WORK_REQUEST) =>
-          host.eventNotify(Arrival(host.currentTime, wr.job, host.name, command.from.name))
+          host.eventNotify(WorkRequest(host.currentTime, wr.job, host.name))
           pendingWork.enqueueWorkRequest(host.currentTime, action, from.name, wr).map{_ => ()}
     }
     protected val executionCompleteBehavior: PartialFunction[DomainEvent[PROTOCOL[WORK_REQUEST, INBOUND]], ActionResult] = {
       case DomainEvent(action, from , ecEv@ExecutionComplete(id, job)) =>
         for {
           completedWp <- processorResource.completedJob(job)
-          finished <- process(completedWp) // Virtual Execution is done at the time of completion. In Between, it is "in-limbo", In the future, the work package could track the "in progress state."
-          departureDelay <- discharger.pack(job, finished)
+          finished <- processCompleteSignal(completedWp) // Virtual Execution is done at the time of completion. In Between, it is "in-limbo", In the future, the work package could track the "in progress state."
+          packingDelay <- discharger.pack(host.currentTime, job, finished)
         } yield {
           host.eventNotify(End(host.currentTime, ecEv.job, host.name))
-          host.env.scheduleDelay(host)(departureDelay, DepartureReady(Id, job))
+          host.env.scheduleDelay(host)(packingDelay, DepartureReady(Id, job))
         }
     }
-    protected val dischargeBehavior: PartialFunction[DomainEvent[PROTOCOL[WORK_REQUEST, INBOUND]], ActionResult] =
-      { case DomainEvent(action, from, dr@DepartureReady(id, job)) => discharger.dischargeReady(host.currentTime, job) }
+    protected val dischargeBehavior: PartialFunction[DomainEvent[PROTOCOL[WORK_REQUEST, INBOUND]], ActionResult] = {
+      case DomainEvent(action, from, dr@DepartureReady(id, job)) =>
+        for {
+          _ <- discharger.dischargeReady(host.currentTime, job)
+        } yield
+          // No delay between being ready and sending it out.
+          while !discharger.isIdle do
+            discharger.doDischarge(host.currentTime).foreach{
+              outbound =>
+                host.eventNotify(Departure(host.currentTime, outbound.job, host.name))
+                dischargeSignal(host.currentTime, outbound)
+            }
+    }
 
     protected lazy val processingBehavior: PartialFunction[DomainEvent[PROTOCOL[WORK_REQUEST, INBOUND]], ActionResult] =
       commandBehavior orElse
@@ -124,17 +131,23 @@ object Station:
     override def accept(at: Tick, ev: DomainEvent[PROTOCOL[WORK_REQUEST, INBOUND]]): ActionResult =
       for {
         _ <- processingBehavior(ev)
-      } yield
-        discharger.doDischarge(at).foreach{
-          outbound =>
-            host.eventNotify(Departure(host.currentTime, outbound.job, host.name))
-            discharge(at, outbound)
-        }
-        startWorkIfPossible(at)
+      } yield startWorkIfPossible(at)
 
 
 end Station // object
 
+/**
+  * A general purpose station built from the different activities it performs:
+  *  - Receiving Processing (and OAM) commands
+  *  - Induction of materials
+  *  - Processing Jobs
+  *  - Discharge
+  *
+  * @param name The name of the Station
+  * @param target The station downstream. This will not be needed once explicit transportation elements are modelled.
+  * @param dpFactory A function to build the Domain Processor to allow for subtypes of protocols to be used.
+  * @param clock The simulation Clock
+  */
 class Station[WORK_REQUEST <: DomainMessage, INBOUND <: DomainMessage : Typeable, FINISHED <: DomainMessage, OUTBOUND <: DomainMessage]
   (name: String, val target: SimActor[OUTBOUND])
   (dpFactory: Station.DPFactory[WORK_REQUEST, INBOUND, FINISHED, OUTBOUND], clock: Clock)

@@ -1,7 +1,7 @@
 package com.saldubatech.sandbox
 
 import com.saldubatech.lang.Id
-import com.saldubatech.lang.types.{AppError, MAP, OR, SUB_TUPLE}
+import com.saldubatech.lang.types.{UnitResult, AppError, MAP, OR, SUB_TUPLE}
 import com.saldubatech.util.LogEnabled
 import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
 import org.apache.pekko.actor.typed.{ActorRef, Behavior}
@@ -13,15 +13,14 @@ import com.saldubatech.lang.types.AppResult
 package object ddes {
   sealed class SimulationError(msg: String, cause: Option[Throwable] = None) extends AppError(msg, cause)
 
-  case class CollectedError(errors: Seq[Throwable], override val msg: String = "") extends SimulationError(msg)
-
   case class FatalError(override val msg: String, override val cause: Option[Throwable] = None)
     extends SimulationError(msg, cause)
 
   // Provisional, just to have a placeholder to decide what to use.
-  type ActionResult = AppResult[Unit]
+  type ActionResult = UnitResult
 
   type Tick = Long
+  type Duration = Long
 
   object Tick:
     def apply(t: Long): Tick = t
@@ -35,6 +34,7 @@ package object ddes {
 
   trait DomainMessage extends Product with Serializable:
     val id: Id = Id
+//    @deprecated("`job` may be removed in the future as it is not of general use."")
     val job: Id
 
   type DomainType[DM <: DomainMessage] = TypeTest[DomainMessage, DM]
@@ -79,6 +79,7 @@ package object ddes {
   trait SimEnvironment:
     def currentTime: Tick
     def schedule[TARGET_DM <: DomainMessage](target: SimActor[TARGET_DM])(forTime: Tick, targetMsg: TARGET_DM): Unit
+
     final def scheduleDelay[TARGET_DM <: DomainMessage](target: SimActor[TARGET_DM])(withDelay: Tick, targetMsg: TARGET_DM): Tick =
       val forTime = currentTime+withDelay
       schedule(target)(forTime, targetMsg)

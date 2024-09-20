@@ -4,16 +4,14 @@ import com.saldubatech.sandbox.ddes.DomainMessage
 import com.saldubatech.lang.types.AppResult
 import com.saldubatech.sandbox.ddes.Tick
 import com.saldubatech.lang.Id
-import com.saldubatech.lang.types.AppFail
-import com.saldubatech.lang.types.AppError
-import com.saldubatech.lang.types.AppSuccess
+import com.saldubatech.lang.types.{AppResult, UnitResult, AppFail, AppError, AppSuccess}
 import com.saldubatech.sandbox.ddes.SimulationError
 
 
 trait WorkRequestQueue[WORK_REQUEST <: DomainMessage]:
   def selectNextWork(at: Tick): AppResult[WORK_REQUEST]
-  def enqueueWorkRequest(currentTime: Tick, actionId: Id, fromStation: Id, wr: WORK_REQUEST): AppResult[Unit]
-  def dequeueWorkRequest(target: WORK_REQUEST): AppResult[Unit]
+  def enqueueWorkRequest(currentTime: Tick, actionId: Id, fromStation: Id, wr: WORK_REQUEST): UnitResult
+  def dequeueWorkRequest(target: WORK_REQUEST): UnitResult
   def isThereWorkPending: Boolean
 end WorkRequestQueue
 
@@ -30,11 +28,11 @@ class FIFOWorkQueue[WORK_REQUEST <: DomainMessage] extends WorkRequestQueue[WORK
         case None => AppFail(SimulationError("No Work Pending"))
         case Some(wr) => AppSuccess(wr.wr)
 
-  override def enqueueWorkRequest(currentTime: Tick, actionId: Id, fromStation: Id, wr: WORK_REQUEST): AppResult[Unit] =
+  override def enqueueWorkRequest(currentTime: Tick, actionId: Id, fromStation: Id, wr: WORK_REQUEST): UnitResult =
     workRequests.enqueue(WR(currentTime, actionId, fromStation, wr))
     AppSuccess.unit
 
-  override def dequeueWorkRequest(target: WORK_REQUEST): AppResult[Unit] =
+  override def dequeueWorkRequest(target: WORK_REQUEST): UnitResult =
     workRequests.headOption match
       case None => AppFail(AppError(s"No Work Requests in Queue"))
       case Some(wr) if workRequests.filter(wr => wr.wr == target).isEmpty => AppFail(AppError(s"Work Request [${target.id}] not in queue"))

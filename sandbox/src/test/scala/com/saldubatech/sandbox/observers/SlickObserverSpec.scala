@@ -5,7 +5,8 @@ import com.saldubatech.infrastructure.storage.rdbms.{DataSourceBuilder, PGDataSo
 import com.saldubatech.lang.Id
 import com.saldubatech.lang.predicate.{SlickPlatform, SlickRepoZioService}
 import com.saldubatech.math.randomvariables.Distributions
-import com.saldubatech.sandbox.ddes.{Tick, DomainEvent, Source, DDE, SimulationSupervisor, DoneOK}
+import com.saldubatech.sandbox.ddes.{Tick, DomainEvent, DDE, SimulationSupervisor, DoneOK}
+import com.saldubatech.sandbox.ddes.node.Source
 import com.saldubatech.sandbox.observers.{Observer, Subject}
 import com.saldubatech.test.persistence.postgresql.{PostgresContainer, TestPGDataSourceBuilder}
 import com.saldubatech.util.LogEnabled
@@ -32,7 +33,7 @@ import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.*
 import scala.language.postfixOps
 import com.saldubatech.infrastructure.storage.rdbms.slick.PGExtendedProfile
-import com.saldubatech.sandbox.ddes.RelayToActor
+import com.saldubatech.sandbox.ddes.node.simple.RelaySink
 import com.saldubatech.sandbox.ddes.Tap
 import com.saldubatech.sandbox.ddes.Clock
 
@@ -80,7 +81,7 @@ object SlickObserverSpec extends  ZIOSpecDefault
           observer <- ZIO.service[RecordingObserver]
           tapRef <- wireTap
           source <- ZIO.service[Source[ProbeMessage, ProbeMessage]]
-          sink <- ZIO.service[RelayToActor[ProbeMessage]]
+          sink <- ZIO.service[RelaySink[ProbeMessage]]
           rootResponse <- simpleKickOffRun(tapRef, rootForTime, messages)
         } yield {
           assertTrue(rootResponse == DoneOK)

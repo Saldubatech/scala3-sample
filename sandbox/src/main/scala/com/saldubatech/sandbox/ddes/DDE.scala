@@ -83,6 +83,13 @@ class SimulationSupervisor(val name: String, val clock: Clock, private val simul
     selfRoot =>
       override val name: String = "ROOT"
 
+    override val env: SimEnvironment = new SimEnvironment() {
+      // NOT TO BE USED, ROOT IS SPECIAL.
+      override def currentTime: Tick = ???
+      override def schedule[TARGET_DM <: DomainMessage]
+        (target: SimActor[TARGET_DM])(forTime: Tick, targetMsg: TARGET_DM): Unit = ???
+    }
+
     def init(): Behavior[DomainAction[DomainMessage] | OAMMessage] =
       Behaviors.setup {
         ctx =>

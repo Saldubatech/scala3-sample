@@ -15,6 +15,7 @@ import zio.stream.{ZStream, UStream}
 import com.saldubatech.test.BaseSpec
 import org.apache.pekko.actor.typed.scaladsl.ActorContext
 import com.saldubatech.sandbox.ddes.DDE.SupervisorProtocol
+import com.saldubatech.sandbox.ddes.node.simple.RelaySink
 import org.apache.pekko.actor.typed.ActorRef
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
@@ -39,7 +40,7 @@ object StreamSourceSpec extends ZIOSpecDefault with LogEnabled with Matchers:
       val zProbes: UStream[ProbeMessage] = ZStream.fromIterable(probes)
 
       val clock = Clock(None)
-      val sink: RelayToActor[ResultMessage] = RelayToActor[ResultMessage]("TheSink", clock)
+      val sink: RelaySink[ResultMessage] = RelaySink[ResultMessage]("TheSink", clock)
       given ZRuntime[Any] = ZRuntime.default
       val streamSource: ZStreamSource[ProbeMessage, ResultMessage] = ZStreamSource(sink, resultTransformer)(
         "TheStreamingSource",
