@@ -24,9 +24,9 @@ object Distributor:
     override val id: Id = s"$stationId::Scanner[$sId]"
     override def canAccept(at: Tick, from: Id, load: M): UnitResult = sink.canAccept(at, from, load)
 
-    override def acceptRequest(at: Tick, fromStation: Id, fromSource: Id, load: M): UnitResult =
+    override def acceptMaterialRequest(at: Tick, fromStation: Id, fromSource: Id, load: M): UnitResult =
       scan(at, fromStation, fromSource, load).flatMap{
-         _ => sink.acceptRequest(at, fromStation, fromSource, load)
+         _ => sink.acceptMaterialRequest(at, fromStation, fromSource, load)
         }
   end Scanner
 
@@ -80,14 +80,14 @@ extends Sink.API.Upstream[M] with LogEnabled:
       } yield dest.canAccept(at, from, load)
     )
 
-  override def acceptRequest(at: Tick, fromStation: Id, fromSource: Id, load: M): UnitResult =
+  override def acceptMaterialRequest(at: Tick, fromStation: Id, fromSource: Id, load: M): UnitResult =
     for {
       allow <- canAccept(at, fromStation, load)
       d <- fromOption(for {
         destIdx <- router(id, at, load)
         dest <- routing.get(destIdx)
       } yield dest)
-      rs <- d.acceptRequest(at, fromStation, fromSource, load)
+      rs <- d.acceptMaterialRequest(at, fromStation, fromSource, load)
     } yield rs
 
 end Distributor // class

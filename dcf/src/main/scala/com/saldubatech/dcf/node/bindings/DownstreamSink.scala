@@ -32,7 +32,7 @@ extends Sink.API.Upstream[M]:
     // For now accept everything...
     AppSuccess.unit
 
-  override def acceptRequest(at: Tick, fromStation: Id, fromSource: Id, load: M): UnitResult =
+  override def acceptMaterialRequest(at: Tick, fromStation: Id, fromSource: Id, load: M): UnitResult =
     impl.env.scheduleDelay(impl)(acceptDuration(at, fromStation, fromSource, load), Protocol.AcceptArrival(Id, load.id, stationId, load))
     AppSuccess.unit
 

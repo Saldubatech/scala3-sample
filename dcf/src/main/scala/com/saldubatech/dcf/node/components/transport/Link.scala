@@ -1,7 +1,7 @@
 package com.saldubatech.dcf.node.components.transport
 
 import com.saldubatech.lang.{Id, Identified}
-import com.saldubatech.lang.types.{AppFail, AppResult, AppSuccess, UnitResult, CollectedError, AppError}
+import com.saldubatech.lang.types._
 import com.saldubatech.sandbox.ddes.Tick
 import com.saldubatech.dcf.material.Material
 import com.saldubatech.dcf.node.components.{Sink, Component}
@@ -71,11 +71,7 @@ extends Link[M]:
   override def transportFinalize(at: Tick, link: Id, card: Id, loadId: Id): UnitResult =
     for {
       load <- Component.inStation(id, "InTransit Material")(_inTransit.remove)(loadId)
-      rs <- downstream.loadArriving(at, upstream, card, load).left.map{
-        err =>
-          _inTransit += load.id -> load
-          err
-      }
+      rs <- downstream.loadArriving(at, upstream, card, load).tapError{ _ => _inTransit += load.id -> load }
     } yield rs
 
   override def transportFail(at: Tick, linkId: Id, card: Id, loadId: Id, cause: Option[AppError]): UnitResult =

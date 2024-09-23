@@ -39,7 +39,7 @@ class ProcessorNotificationsSpec extends BaseSpec:
     "Given an Input Material" should {
       val probe = ProbeInboundMaterial(Id, 0)
       "Send a notification when accepting it" in {
-        underTest.acceptRequest(0, "TestSuite", "TestSource", probe) shouldBe Symbol("isRight")
+        underTest.acceptMaterialRequest(0, "TestSuite", "TestSource", probe) shouldBe Symbol("isRight")
 
         engine.runOne() shouldBe Symbol("isRight")
 
@@ -63,7 +63,7 @@ class ProcessorNotificationsSpec extends BaseSpec:
     probes.map{
         m =>
           for {
-           _ <- underTest.acceptRequest(m.idx, "TestSuite", "TestSource", m)
+           _ <- underTest.acceptMaterialRequest(m.idx, "TestSuite", "TestSource", m)
            _ <- engine.runOne()
           } yield ()
       }.collectAll shouldBe Symbol("isRight")
@@ -74,7 +74,7 @@ class ProcessorNotificationsSpec extends BaseSpec:
       val opTime = 6
       s"load the job at time ${opTime+1}" in {
         (for {
-          _ <- underTest.loadRequest(opTime, js)
+          _ <- underTest.loadJobRequest(opTime, js)
           _ <-
             underTest.accepted(opTime, None).value.size shouldBe 0
             underTest.loaded(opTime).value.size shouldBe 0

@@ -3,9 +3,12 @@ package com.saldubatech.dcf.node.components
 import com.saldubatech.dcf.job.JobSpec
 import com.saldubatech.dcf.material.{Material, Wip, MaterialPool, WipPool}
 import com.saldubatech.lang.{Id, Identified}
-import com.saldubatech.lang.types.{AppFail, AppResult, AppSuccess, UnitResult, CollectedError, AppError}
+import com.saldubatech.lang.types._
 import com.saldubatech.sandbox.ddes.Tick
 import com.saldubatech.lang.Identified
+
+import util.chaining.scalaUtilChainingOps
+
 
 object Operation:
   object API:
@@ -20,7 +23,7 @@ object Operation:
 
       def canLoad(at: Tick, js: JobSpec): AppResult[Wip.New]
       def loaded(at: Tick): AppResult[List[Wip.Loaded]]
-      def loadRequest(at: Tick, js: JobSpec): UnitResult
+      def loadJobRequest(at: Tick, js: JobSpec): UnitResult
 
       def canStart(at: Tick, jobId: Id): AppResult[Wip.Loaded]
       def started(at: Tick): AppResult[List[Wip.InProgress]]
@@ -59,7 +62,7 @@ object Operation:
 
   object Environment:
     trait Physics:
-      def loadCommand(at: Tick, wip: Wip.New): UnitResult
+      def loadJobCommand(at: Tick, wip: Wip.New): UnitResult
       def startCommand(at: Tick, wip: Wip.InProgress): UnitResult
 
       def unloadCommand(at: Tick, jobId: Id): UnitResult
@@ -116,15 +119,20 @@ with SubjectMixIn[LISTENER]:
   override def loaded(at: Tick): AppResult[List[Wip.Loaded]] =
     AppSuccess(_inProgress.values.collect { case w: Wip.Loaded => w}.toList )
 
-  override def loadRequest(at: Tick, js: JobSpec): UnitResult =
+  override def loadJobRequest(at: Tick, js: JobSpec): UnitResult =
     for {
       wip <- canLoad(at, js)
-      requested <- physics.loadCommand(at, wip)
-    } yield
-      val matReq = wip.jobSpec.rawMaterials.toSet
-      acceptedPool.remove(at, m => matReq(m.id))
-      _loading += js.id -> wip
-      requested
+      requested <-
+        val matReq = wip.jobSpec.rawMaterials.toSet
+        acceptedPool.remove(at, m => matReq(m.id))
+        _loading += js.id -> wip
+        physics.loadJobCommand(at, wip).tapError{
+          _ =>
+            // Rollback if command cannot be issued.
+            acceptedPool.add(at, wip.rawMaterials)
+            _loading -= js.id
+        }
+    } yield requested
 
   override def loadFailed(at: Tick, jobId: Id, request: Option[Wip.New], cause: Option[AppError]): UnitResult =
     Component.inStation(stationId, "Loading Job")(_loading.remove)(jobId).flatMap {
@@ -157,9 +165,11 @@ with SubjectMixIn[LISTENER]:
     for {
       w <- canStart(at, jobId)
       started = w.start(at)
-      _ <- physics.startCommand(at, started)
+      _ <-
+        val previous = _inProgress(jobId)
+        _inProgress.update(jobId, started)
+        physics.startCommand(at, started).tapError{ _ => _inProgress.update(jobId, previous) }
     } yield
-      _inProgress.update(jobId, started)
       doNotify(_.jobStarted(at, stationId, id, started))
       started
 
@@ -230,11 +240,15 @@ with SubjectMixIn[LISTENER]:
   override def unloadRequest(at: Tick, jobId: Id): UnitResult =
     for {
       toUnload <- canUnload(at, jobId)
-      unload <- physics.unloadCommand(at, jobId)
-    } yield
+      unload <-
         _unloading += jobId -> toUnload
-        _inProgress.remove(jobId)
-        unload
+        val current = _inProgress.remove(jobId)
+        physics.unloadCommand(at, jobId).tapError{
+          err =>
+            _unloading -= jobId
+            _inProgress += jobId -> current.get
+        }
+    } yield unload
 
   // Members declared in com.saldubatech.dcf.node.structure.components.Operation$.API$.Physics
   override def unloadFailed(at: Tick, jobId: Id, wip: Option[Wip.Complete[M]], cause: Option[AppError]): UnitResult =

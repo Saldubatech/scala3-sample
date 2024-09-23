@@ -17,6 +17,21 @@ case class CollectedError(override val msg: String, val causes: List[Throwable] 
 // For now just an alias for Either...
 type Result[+ER <: AppError, +R] = Either[ER, R]
 type AppResult[R] = Result[AppError, R]
+
+extension [R] (rs: AppResult[R]) def tapError(r: AppError => Unit): AppResult[R] =
+  rs match
+    case Left(err) =>
+      r(err)
+      rs
+    case _ => rs
+
+extension [R] (rs: AppResult[R]) def tapSuccess(s: R => Unit): AppResult[R] =
+  rs match
+    case Right(r) =>
+      s(r)
+      rs
+    case _ => rs
+
 extension [R] (rs: AppResult[R])
   def asUnit = rs.map{ _ => () }
 type UnitResult = AppResult[Unit]

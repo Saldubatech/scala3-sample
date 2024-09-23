@@ -34,7 +34,7 @@ class CollectorSpec extends BaseSpec:
         (0 to aritySpec - 1).map {
           idx =>
             val probe = ProbeInboundMaterial(s"IB-$idx", idx)
-            underTest.inlets(idx.toString).acceptRequest(idx, "TestSuite", s"Test-$idx", probe)
+            underTest.inlets(idx.toString).acceptMaterialRequest(idx, "TestSuite", s"Test-$idx", probe)
             withClue(downstream.receivedCalls.mkString("#####\n\t", "\n\t", "\n#####")){ downstream.receivedCalls.size shouldBe idx + 1 }
             downstream.receivedCalls.reverse.head shouldBe downstream.call("acceptRequest", idx, "TestSuite", s"Test-$idx", probe)
         }

@@ -1,7 +1,7 @@
 package com.saldubatech.dcf.node.components.transport
 
 import com.saldubatech.lang.{Id, Identified}
-import com.saldubatech.lang.types.{AppFail, AppResult, AppSuccess, UnitResult, CollectedError, AppError, asUnit}
+import com.saldubatech.lang.types._
 import com.saldubatech.sandbox.ddes.Tick
 import com.saldubatech.dcf.material.Material
 import com.saldubatech.dcf.node.components.{Subject, SubjectMixIn, Component, Sink}
@@ -23,7 +23,7 @@ object Discharge:
         override val id: Id = discharge.id
         override val stationId: Id = discharge.stationId
         override def canAccept(at: Tick, from: Id, load: M): UnitResult = discharge.canDischarge(at, load).asUnit
-        override def acceptRequest(at: Tick, fromStation: Id, fromSource: Id, load: M): UnitResult = discharge.discharge(at, load)
+        override def acceptMaterialRequest(at: Tick, fromStation: Id, fromSource: Id, load: M): UnitResult = discharge.discharge(at, load)
       }
     end Upstream
 
@@ -119,11 +119,10 @@ with SubjectMixIn[LISTENER]:
       rs <-
         val card = _cards.dequeue()
         _discharging += card -> load
-        physics.dischargeCommand(at, card, load).left.map{
-          err =>
+        physics.dischargeCommand(at, card, load).tapError{
+          _ =>
             _cards.enqueue(card)
             _discharging -= card
-            err
         }
     } yield rs
 

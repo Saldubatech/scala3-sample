@@ -47,7 +47,7 @@ class ProcessorSpec extends BaseSpec:
         underTest.canAccept(0, "TestSuite", probe) shouldBe Symbol("isRight")
       }
       "accept it" in {
-        underTest.acceptRequest(0, "TestSuite", "TestSource", probe) shouldBe Symbol("isRight")
+        underTest.acceptMaterialRequest(0, "TestSuite", "TestSource", probe) shouldBe Symbol("isRight")
 
         engine.pending.size shouldBe 1
         engine.pending.values.head.size shouldBe 1
@@ -76,7 +76,7 @@ class ProcessorSpec extends BaseSpec:
     probes.map{
         m =>
           for {
-           _ <- underTest.acceptRequest(m.idx, "TestSuite", "TestSource", m)
+           _ <- underTest.acceptMaterialRequest(m.idx, "TestSuite", "TestSource", m)
            _ <- engine.runOne()
           } yield ()
       }.collectAll shouldBe Symbol("isRight")
@@ -103,7 +103,7 @@ class ProcessorSpec extends BaseSpec:
       }
       s"load the job at time ${opTime+1}" in {
         (for {
-          _ <- underTest.loadRequest(opTime, js)
+          _ <- underTest.loadJobRequest(opTime, js)
           _ <-
             underTest.accepted(opTime, None).value.size shouldBe 0
             underTest.loaded(opTime).value.size shouldBe 0

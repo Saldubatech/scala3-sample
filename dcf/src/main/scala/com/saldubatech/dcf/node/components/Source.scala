@@ -3,9 +3,11 @@ package com.saldubatech.dcf.node.components
 import com.saldubatech.dcf.job.JobSpec
 import com.saldubatech.dcf.material.{Material, Wip, MaterialPool, WipPool}
 import com.saldubatech.lang.{Id, Identified}
-import com.saldubatech.lang.types.{AppFail, AppResult, AppSuccess, UnitResult, CollectedError, AppError}
+import com.saldubatech.lang.types._
 import com.saldubatech.sandbox.ddes.Tick
 import com.saldubatech.lang.Identified
+
+import util.chaining.scalaUtilChainingOps
 
 object Source:
   type Identity = Component.Identity
@@ -83,11 +85,16 @@ with SubjectMixIn[LISTENER]:
   override def pushRequest(at: Tick, jobId: Id): UnitResult =
     for {
       toPush <- canPush(at, jobId)
-      pushed <- physics.pushCommand(at, jobId)
-    } yield
-      readyWipPool.remove(at, jobId)
-      _pushing += jobId -> toPush
-      pushed
+      pushed <-
+
+        readyWipPool.remove(at, jobId)
+        _pushing += jobId -> toPush
+        physics.pushCommand(at, jobId).tapError{
+          _ =>
+            readyWipPool.add(at, toPush)
+            _pushing -= jobId
+        }
+    } yield pushed
 
   // Members declared in com.saldubatech.dcf.node.structure.components.Source$.API$.Physics
   override def pushFail(at: Tick, jobId: Id, cause: Option[AppError]): UnitResult =
@@ -107,7 +114,8 @@ with SubjectMixIn[LISTENER]:
         case (None, None) => AppSuccess.unit
         case (Some(d), None) => AppFail.fail(s"No Product available from Job[$jobId] to push to Station[${d.stationId}] from Station[$stationId] at $at")
         case (None, Some(p)) => AppFail.fail(s"No Downstream target provided to push Product[${p.id}] from Job[$jobId] in Station[$stationId] at $at")
-        case (Some(d), Some(p)) => d.acceptRequest(at, stationId, id, p).map{
-          _ => doNotify{l => l.loadDeparted(at, stationId, id, d.stationId, d.id, p) }
+        case (Some(d), Some(p)) =>
+          d.acceptMaterialRequest(at, stationId, id, p).map{
+            _ => doNotify{l => l.loadDeparted(at, stationId, id, d.stationId, d.id, p) }
           }
     }

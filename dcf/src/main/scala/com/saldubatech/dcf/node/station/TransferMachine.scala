@@ -106,5 +106,10 @@ trait TransferMachine[M <: Material] extends TransferMachine.Identity:
   val distributor: Distributor[M]
   val controller: Controller
   val outbound: Map[Id, Discharge[M, Controller.API.Listener]]
+
+  private lazy val _management = controller.asInstanceOf[Controller.API.Management[Controller.Environment.Listener]]
+  export _management._
+
 end TransferMachine // trait
+
 

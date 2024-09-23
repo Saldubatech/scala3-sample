@@ -1,7 +1,7 @@
 package com.saldubatech.dcf.node.components.transport
 
 import com.saldubatech.lang.{Id, Identified}
-import com.saldubatech.lang.types.{AppFail, AppResult, AppSuccess, UnitResult, CollectedError, AppError}
+import com.saldubatech.lang.types._
 import com.saldubatech.sandbox.ddes.Tick
 import com.saldubatech.dcf.material.Material
 import com.saldubatech.dcf.node.components.{Subject, SubjectMixIn, Sink, Component as GComponent}
@@ -148,11 +148,8 @@ with SubjectMixIn[LISTENER]:
     for {
       arrival <- arrivalStore.retrieve(at, loadId)
       rs <-
-        binding.acceptRequest(at, arrival.from.stationId, arrival.from.id, arrival.material).left.map{
-        err =>
-          arrivalStore.store(at, arrival)
-          err
-      }
+        binding.acceptMaterialRequest(at, arrival.from.stationId, arrival.from.id, arrival.material)
+          .tapError{ _ => arrivalStore.store(at, arrival) }
     } yield
       doNotify(_.loadDelivered(at, arrival.from.stationId, stationId, id, binding.id, arrival.material))
       rs
@@ -168,11 +165,7 @@ with SubjectMixIn[LISTENER]:
       allowed <- canAccept(at, from, card, load)
       _ <-
         _inducting += card -> Induct.Component.Arrival(at, from, card, load)
-        physics.inductCommand(at, from.stationId, card, load).left.map{
-          err =>
-            _inducting -= card
-            err
-        }
+        physics.inductCommand(at, from.stationId, card, load).tapError{ _ => _inducting -= card }
       rs <-
         cardsInTransit.get(card) match
         case None =>

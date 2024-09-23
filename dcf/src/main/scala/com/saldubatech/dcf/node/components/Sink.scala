@@ -15,7 +15,7 @@ object Sink:
 
     trait Upstream[-M <: Material] extends Identity:
       def canAccept(at: Tick, from: Id, load: M): UnitResult
-      def acceptRequest(at: Tick, fromStation: Id, fromSource: Id, load: M): UnitResult
+      def acceptMaterialRequest(at: Tick, fromStation: Id, fromSource: Id, load: M): UnitResult
     end Upstream // trait
 
     trait Control[M <: Material]:
@@ -73,7 +73,7 @@ with SubjectMixIn[LISTENER]:
 
   private val accepting: collection.mutable.Map[Id, MaterialArrival] = collection.mutable.Map.empty
 
-  override def acceptRequest(at: Tick, fromStation: Id, fromSource: Id, load: M): UnitResult =
+  override def acceptMaterialRequest(at: Tick, fromStation: Id, fromSource: Id, load: M): UnitResult =
     accepting += load.id -> MaterialArrival(at, fromStation, fromSource, load)
     physics.acceptCommand(at, fromStation, fromSource, load)
 
@@ -118,9 +118,9 @@ with SubjectMixIn[LISTENER]:
   downstream.listen(this)
 
   private val inTransit = collection.mutable.Map.empty[Id, M]
-  override def acceptRequest(at: Tick, fromStation: Id, fromSource: Id, load: M): UnitResult =
+  override def acceptMaterialRequest(at: Tick, fromStation: Id, fromSource: Id, load: M): UnitResult =
     inTransit += load.id -> load
-    downstream.acceptRequest(at, fromStation, fromSource, load)
+    downstream.acceptMaterialRequest(at, fromStation, fromSource, load)
 
   override def canAccept(at: Tick, from: Id, load: M): UnitResult =
     downstream.canAccept(at, from, load)

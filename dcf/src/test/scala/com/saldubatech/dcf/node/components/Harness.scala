@@ -30,7 +30,7 @@ object Harness:
       engine.add(forTime){ () => underTest.acceptFinalize(forTime, fromStation, fromSource, load.id) }
       AppSuccess.unit
 
-    override def loadCommand(at: Tick, wip: Wip.New): UnitResult =
+    override def loadJobCommand(at: Tick, wip: Wip.New): UnitResult =
       val forTime = at+loadDelay()
       engine.add(forTime){ () => underTest.loadFinalize(forTime, wip.jobSpec.id) }
       AppSuccess.unit
@@ -68,7 +68,7 @@ object Harness:
       receivedCalls += call("canAccept", at, from, load)
       AppSuccess.unit
 
-    override def acceptRequest(at: Tick, fromStation: Id, fromSource: Id, load: M): UnitResult =
+    override def acceptMaterialRequest(at: Tick, fromStation: Id, fromSource: Id, load: M): UnitResult =
       receivedCalls += call("acceptRequest", at, fromStation, fromSource, load)
       AppSuccess.unit
 

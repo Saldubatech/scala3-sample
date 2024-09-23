@@ -2,6 +2,7 @@ package com.saldubatech.lang
 
 package object types:
 
+
   type MAP[T, TPL, L[_ <: T]] <: Tuple =
     TPL match
       case x *: xs => L[x] *: MAP[T, xs, L]

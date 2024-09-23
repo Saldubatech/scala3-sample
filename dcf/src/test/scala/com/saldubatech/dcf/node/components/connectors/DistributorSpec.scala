@@ -37,7 +37,7 @@ class DistributorSpec extends BaseSpec:
         (0 to probeSampleSize - 1).map {
           idx =>
             val probe = ProbeInboundMaterial(s"IB-$idx", idx)
-            underTest.acceptRequest(idx, "TestSuite", s"Test-$idx", probe)
+            underTest.acceptMaterialRequest(idx, "TestSuite", s"Test-$idx", probe)
             val destinationId = router("TestSuite", idx, probe).get
             withClue(s"For[$destinationId]:  $downstream"){ downstream.get(destinationId) should not be (None) }
             withClue(downstream(destinationId).receivedCalls.mkString("#####\n\t", "\n\t", "\n#####")){ downstream.values.foldLeft(0){ (acc, el) => acc + el.receivedCalls.size} shouldBe 2*(1+idx) }
@@ -56,7 +56,7 @@ class DistributorSpec extends BaseSpec:
     "Connected to a Sink" should {
       "Call the provided scanner when accepting a load" in {
         val probe = ProbeInboundMaterial("Probe", 1)
-        underTest.acceptRequest(33, "TestSuite", "TestSource", probe)
+        underTest.acceptMaterialRequest(33, "TestSuite", "TestSource", probe)
         last shouldBe (33, "TestSuite", "TestSource", probe)
       }
     }
@@ -67,7 +67,7 @@ class DistributorSpec extends BaseSpec:
     val scanner = underTest.scanner(mockSink)
     "receiving a load" should {
       val probe = ProbeInboundMaterial("Probe", 1)
-      scanner.acceptRequest(33, "TestSuite", "TestSource", probe)
+      scanner.acceptMaterialRequest(33, "TestSuite", "TestSource", probe)
       "Add a route" in {
         underTest.peek(probe.id) should not be (None)
       }

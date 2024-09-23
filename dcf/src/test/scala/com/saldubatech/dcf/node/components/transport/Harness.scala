@@ -97,7 +97,7 @@ object Harness:
 
     override def canAccept(at: Tick, from: Id, load: M): UnitResult = AppSuccess.unit
 
-    override def acceptRequest(at: Tick, fromStation: Id, fromSource: Id, load: M): UnitResult =
+    override def acceptMaterialRequest(at: Tick, fromStation: Id, fromSource: Id, load: M): UnitResult =
       received += ((at, fromStation, fromSource, load))
       AppSuccess.unit
   end MockSink // class
