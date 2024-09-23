@@ -17,6 +17,7 @@ case class CollectedError(override val msg: String, val causes: List[Throwable] 
 // For now just an alias for Either...
 type Result[+ER <: AppError, +R] = Either[ER, R]
 type AppResult[R] = Result[AppError, R]
+type UnitResult = AppResult[Unit]
 
 extension [R] (rs: AppResult[R]) def tapError(r: AppError => Unit): AppResult[R] =
   rs match
@@ -33,8 +34,7 @@ extension [R] (rs: AppResult[R]) def tapSuccess(s: R => Unit): AppResult[R] =
     case _ => rs
 
 extension [R] (rs: AppResult[R])
-  def asUnit = rs.map{ _ => () }
-type UnitResult = AppResult[Unit]
+  def asUnit: UnitResult = rs.map{ _ => () }
 
 type AppSuccess[+ER <: AppError, +R] = Right[ER, R]
 object AppSuccess:
@@ -68,13 +68,23 @@ object AppFail:
   inline def fail[R](cause: Throwable): AppFail[AppError, R] = fail(None, Some(cause))
   val Unknown = fail("Unknown Error")
 
-
 implicit def fromOption[A](optA: Option[A]): AppResult[A] =
   optA.fold(AppFail.fail(s"No value in Option"))((inA: A) => AppSuccess(inA))
 
-
-extension [R](elements: List[AppResult[R]])
+extension [R](elements: Seq[AppResult[R]])
   def collectAll: AppResult[List[R]] =
+    elements.foldLeft(AppSuccess[List[R]](List.empty)) {
+      case (Right(acc), Right(element)) => AppSuccess(element :: acc)
+      case (Right(acc), Left(err)) => AppFail(err)
+      case (Left(errAcc), Right(_)) => AppFail(errAcc)
+      case (Left(errAcc), Left(err)) =>
+        err match
+          case ce: CollectedError => AppFail(CollectedError("Multiple Errors", ce.causes :+ err))
+          case other => AppFail(CollectedError("Multiple Errors", List(other, err)))
+    }
+
+extension [R](elements: Seq[AppResult[R]])
+  def collectAll2: AppResult[Seq[R]] =
     elements.foldLeft(AppSuccess[List[R]](List.empty)) {
       case (Right(acc), Right(element)) => AppSuccess(element :: acc)
       case (Right(acc), Left(err)) => AppFail(err)

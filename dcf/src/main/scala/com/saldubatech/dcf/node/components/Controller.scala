@@ -6,7 +6,6 @@ import com.saldubatech.util.LogEnabled
 import com.saldubatech.sandbox.ddes.Tick
 import com.saldubatech.dcf.material.{Material, Wip}
 import com.saldubatech.dcf.job.JobSpec
-import com.saldubatech.dcf.node.components.{Sink, Processor, Operation, Source, Component}
 import com.saldubatech.dcf.node.components.transport.{Induct, Discharge}
 import com.saldubatech.dcf.node.components.connectors.Distributor
 

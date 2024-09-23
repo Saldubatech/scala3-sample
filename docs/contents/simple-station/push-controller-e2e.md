@@ -94,12 +94,5 @@ Controller -[#red]-> Listener: jobDeparted
 Controller--
 
 
-
-
-
-
-
-
-
 @enduml
 ```
