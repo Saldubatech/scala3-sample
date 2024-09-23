@@ -9,6 +9,8 @@ import com.saldubatech.dcf.node.components.{Sink, Processor, Operation, Source, 
 import com.saldubatech.dcf.node.components.transport.{Induct, Discharge}
 import com.saldubatech.dcf.node.components.connectors.Distributor
 
+import scala.reflect.Typeable
+
 
 object Controller:
     case class TransferJobSpec(override val id: Id, fromId: Id, toId: Id, loadId: Id) extends JobSpec:
@@ -39,13 +41,25 @@ object Controller:
       with Source.Environment.Listener
       with Sink.Environment.Listener
 
+      type Management[+LISTENER <: Environment.Listener] = Component.API.Management[LISTENER]
+
     end API
 
     object Environment:
+      trait Listener extends Identified:
+        def materialArrival(at: Tick, atStation: Id, atInduct: Id, load: Material): Unit
+        def jobArrival(at: Tick, atStation: Id, job: JobSpec): Unit
+        def jobLoaded(at: Tick, atStation: Id, wip: Wip.Loaded): Unit
+        def jobStarted(at: Tick, atStation: Id, wip: Wip.InProgress): Unit
+        def jobCompleted(at: Tick, atStation: Id, wip: Wip.Complete[?]): Unit
+        def jobDeparted(at: Tick, atStation: Id, viaDischarge: Id, wip: Wip.Unloaded[?]): Unit
+        def jobFailed(at: Tick, atStation: Id, wip: Wip.Failed): Unit
+        def jobScrapped(at: Tick, atStation: Id, wip: Wip.Scrap): Unit
+      end Listener
     end Environment
 
     trait Factory:
-      def build[M <: Material, LISTENING_TO <: Controller.API.Listener](
+      def build[M <: Material, LISTENING_TO <: Controller.API.Listener, LISTENER <: Controller.Environment.Listener : Typeable](
         cId: Id,
         stationId: Id,
         router: Controller.Router[M],
@@ -56,7 +70,7 @@ object Controller:
         ) : AppResult[Controller]
 
     object PushFactory extends Factory:
-      override def build[M <: Material, LISTENING_TO <: Controller.API.Listener](
+      override def build[M <: Material, LISTENING_TO <: Controller.API.Listener, LISTENER <: Controller.Environment.Listener : Typeable](
         cId: Id,
         stationId: Id,
         router: Controller.Router[M],
@@ -64,17 +78,18 @@ object Controller:
         processor: Processor[M, LISTENING_TO],
         outbound: Map[Id, Discharge.API.Management[LISTENING_TO]],
         jobCleanUp: (js: JobSpec) => UnitResult
-        ) : AppResult[Controller] = AppSuccess(PushController[M, LISTENING_TO](cId, stationId, router, inbound, processor, outbound))
+        ) : AppResult[Controller] = AppSuccess(PushController[M, LISTENING_TO, LISTENER](cId, stationId, router, inbound, processor, outbound))
 end Controller // object
 
 trait Controller
 extends Controller.Identity
+with Controller.API.Management[Controller.Environment.Listener]
 with Controller.API.Listener:
 
 end Controller // trait
 
-trait ControllerMixIn[M <: Material, LISTENING_TO <: Controller.API.Listener]
-extends Controller:
+trait ControllerMixIn[M <: Material, LISTENING_TO <: Controller.API.Listener, LISTENER <: Controller.Environment.Listener]
+extends Controller with SubjectMixIn[LISTENER]:
     val cId: Id
     val router: Controller.Router[M]
     val inbound: Map[Id, Induct.API.Control[M] & Induct.API.Management[LISTENING_TO]]
@@ -89,8 +104,8 @@ extends Controller:
     private def lookupOutbound(trId: Id): Option[Discharge.API.Management[LISTENING_TO]] =
       outbound.get(s"$stationId::Discharge[$trId]")
 
-    override def loadDischarged(at: Tick, stationId: Id, discharge: Id, load: Material): Unit = ()
-      // Nothing to do. Load is out to the corresponding "Induct"
+    override def loadDischarged(at: Tick, stationId: Id, discharge: Id, load: Material): Unit =
+      doNotify(_.materialArrival(at, stationId, discharge, load))
 
     override def loadDeparted(at: Tick, stationId: Id, sourceId: Id, toStation: Id, toSink: Id, load: Material): Unit = ()
       // Nothing to do. Will be picked up when the Discharge notifies of LoadDischarged
@@ -135,7 +150,7 @@ extends Controller:
     override def jobScrapped(at: Tick, stationId: Id, processorId: Id, scrapped: Wip.Scrap): Unit = ???
 end ControllerMixIn // trait
 
-class PushController[M <: Material, LISTENING_TO <: Controller.API.Listener]
+class PushController[M <: Material, LISTENING_TO <: Controller.API.Listener, LISTENER <: Controller.Environment.Listener : Typeable]
 (
   override val cId: Id,
   override val stationId: Id,
@@ -143,6 +158,6 @@ class PushController[M <: Material, LISTENING_TO <: Controller.API.Listener]
   override val inbound: Map[Id, Induct.API.Control[M] & Induct.API.Management[LISTENING_TO]],
   override val processor: Processor[M, LISTENING_TO],
   override val outbound: Map[Id, Discharge.API.Management[LISTENING_TO]]
-) extends ControllerMixIn[M, LISTENING_TO]
+) extends ControllerMixIn[M, LISTENING_TO, LISTENER]
 
 

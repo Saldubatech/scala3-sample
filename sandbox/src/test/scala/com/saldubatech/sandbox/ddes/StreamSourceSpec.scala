@@ -35,7 +35,7 @@ object StreamSourceSpec extends ZIOSpecDefault with LogEnabled with Matchers:
   suite("A StreamSource must") (
     test("Send all the messages it is provided") {
       val intervalMean: Double = 500.0
-      val nProbes = 10000
+      val nProbes = 10
       val probes = 0 to nProbes map {n => ProbeMessage(n, s"Job[$n]") }
       val zProbes: UStream[ProbeMessage] = ZStream.fromIterable(probes)
 

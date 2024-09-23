@@ -124,7 +124,7 @@ object TransferMachineSpec:
           () => pPushDelay,
           engine)
         val procFactory: TransferMachine.ProcessorFactory[M] = TransferMachine.ProcessorFactory[M](pPhysics, produce)
-        val machineFactory: TransferMachine.Factory[M] = TransferMachine.Factory(procFactory, Controller.PushFactory, resolver)
+        val machineFactory: TransferMachine.Factory[M, Controller.Environment.Listener] = TransferMachine.Factory(procFactory, Controller.PushFactory, resolver)
         machineFactory.build("underTest", "InStation", inTransports.map{_._4}, outTransports.map{_._4}, maxConcurrentJobs).map{
           m =>
             pPhysics.underTest = m.processor

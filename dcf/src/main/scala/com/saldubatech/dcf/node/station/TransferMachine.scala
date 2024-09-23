@@ -42,7 +42,7 @@ object TransferMachine:
   object Environment:
   end Environment // object
 
-  class Factory[M <: Material]
+  class Factory[M <: Material, LISTENER <: Controller.Environment.Listener : Typeable]
   (
     processorFactory: TransferMachine.ProcessorFactory[M],
     controllerFactory: Controller.Factory,
@@ -82,7 +82,7 @@ object TransferMachine:
           inboundRs.map{ ib => (obDistributor, processor, inboundCollector, monitoredIntakes, ib) }
         _controller <-
           val (distributor, processor, inboundCollector, monitoredIntakes, inducts) = r1
-          controllerFactory.build(s"Pusher", sId, router, inducts, processor, discharges.map{ (id, d) => d.id -> d}, jobCleanUp)
+          controllerFactory.build[M, Controller.API.Listener, LISTENER](s"Pusher", sId, router, inducts, processor, discharges.map{ (id, d) => d.id -> d}, jobCleanUp)
       } yield
         val (obDistributor, _processor, inboundCollector, monitoredIntakes, inducts) = r1
         new TransferMachine[M]() {
