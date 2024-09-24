@@ -59,7 +59,7 @@ class TransferMachineNotificationSpec extends BaseSpec:
   "A Transfer Machine" when {
     val engine = MockAsyncCallback()
     val mockListener = MockListener()
-    val testRig = buildUnderTest[ProbeInboundMaterial](engine)
+    val testRig = buildTransferMachineUnderTest[ProbeInboundMaterial](engine)
 
     // AppResult[(Map[Id, Discharge[M, ?]], TransferMachine2[M], Map[Id, (TransportHarness.MockSink[M], Induct[M, Induct.Environment.Listener])])]
     val (inputMap, underTest, outputMap) = testRig.value

@@ -19,7 +19,7 @@ object LoadSource:
     end Upstream
 
     trait Control:
-      def run(): UnitResult
+      def run(): AppResult[Int]
     end Control
 
     type Management[+LISTENER <: Environment.Listener] = Component.API.Management[LISTENER]
@@ -32,8 +32,8 @@ object LoadSource:
   end API
 
   object Environment:
-    trait Listener extends Identity:
-      def loadArrival(at: Tick, atSource: Id, load: Material): Unit
+    trait Listener extends Identified:
+      def loadArrival(at: Tick, atStation: Id, atInduct: Id, load: Material): Unit
     end Listener
   end Environment // object
 
@@ -68,13 +68,22 @@ with SubjectMixIn[LISTENER]:
   val generator: Seq[(Tick, M)]
   val outbound: Discharge[M, Discharge.Environment.Listener]
 
-  def run(): UnitResult =
-    generator.takeWhile( (at, load) =>
-      outbound.discharge(at, load).tapSuccess{_ => doNotify{l => l.loadArrival(at, id, load)}}.isSuccess ).size.pipe{
-      discharged =>
-        if discharged == generator.size then AppSuccess.unit
-        else AppFail.fail(s"Not all elements provided by the generator could be discharged")
-    }
+  private var alreadyRun: Boolean = false
+
+  def run(): AppResult[Int] =
+    if alreadyRun then AppFail.fail(s"LoadSource: $id already run once")
+    else
+      alreadyRun = true
+      AppSuccess(generator.takeWhile{ (at, load) =>
+        outbound.discharge(at, load).fold(
+          _ => false,
+          {
+            _ =>
+              doNotify{ l => l.loadArrival(at, stationId, id, load)}
+              true
+          }
+        )
+      }.size)
 
 end LoadSource // trait
 

@@ -22,7 +22,7 @@ object LoadSink:
   end API // object
 
   object Environment:
-    trait Listener extends Identity:
+    trait Listener extends Identified:
       def loadDeparted(at: Tick, fromStation: Id, fromSink: Id, load: Material): Unit
     end Listener
   end Environment
@@ -46,7 +46,7 @@ object LoadSink:
                 case Some(f) => f(at, fromStation, fromSource, stationId, id, load)
           }
       inbound.buildInduct(sId, b).map{ i =>
-        new LoadSink[M, LISTENER]() {
+        val rs = new LoadSink[M, LISTENER]() {
           override val stationId = sId
           override val id = loadSinkId
           override val binding = new Sink.API.Upstream[M]() {
@@ -57,6 +57,8 @@ object LoadSink:
           }
           override val induct = i
         }
+        i.listen(rs)
+        rs
       }
 
 
@@ -65,8 +67,12 @@ end LoadSink // object
 trait LoadSink[M <: Material, LISTENER <: LoadSink.Environment.Listener]
 extends LoadSink.Identity
 with LoadSink.API.Management[LISTENER]
+with Induct.Environment.Listener
 with SubjectMixIn[LISTENER]:
   val binding: Sink.API.Upstream[M]
   val induct: Induct[M, LoadSink.API.Listener]
+
+  def loadArrival(at: Tick, fromStation: Id, atStation: Id, atInduct: Id, load: Material): Unit = induct.deliver(at, load.id)
+  def loadDelivered(at: Tick, fromStation: Id, atStation: Id, fromInduct: Id, toSink: Id, load: Material): Unit = ()
 
 end LoadSink // trait

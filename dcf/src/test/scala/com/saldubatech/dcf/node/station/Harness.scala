@@ -53,7 +53,7 @@ object Harness:
   val resolver: (Id, Material) => Option[Id] = (fromInbound: Id, load: Material) => Some(s"T[${math.abs(load.hashCode()) % inboundArity}]")
 
 
-  def buildUnderTest[M <: Material](engine: MockAsyncCallback):
+  def buildTransferMachineUnderTest[M <: Material](engine: MockAsyncCallback):
     AppResult[(Map[Id, Discharge[M, ?]], TransferMachine[M], Map[Id, (TransportHarness.MockSink[M], Induct[M, Induct.Environment.Listener])])] =
     def ibDistPhysics = TransportHarness.MockDischargePhysics[M](() => ibDiscDelay, engine)
     def ibTranPhysics = TransportHarness.MockLinkPhysics[M](() => ibTranDelay, engine)

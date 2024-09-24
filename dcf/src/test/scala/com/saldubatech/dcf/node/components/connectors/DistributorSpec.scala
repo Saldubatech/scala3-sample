@@ -40,7 +40,7 @@ class DistributorSpec extends BaseSpec:
             underTest.acceptMaterialRequest(idx, "TestSuite", s"Test-$idx", probe)
             val destinationId = router("TestSuite", idx, probe).get
             withClue(s"For[$destinationId]:  $downstream"){ downstream.get(destinationId) should not be (None) }
-            withClue(downstream(destinationId).receivedCalls.mkString("#####\n\t", "\n\t", "\n#####")){ downstream.values.foldLeft(0){ (acc, el) => acc + el.receivedCalls.size} shouldBe 2*(1+idx) }
+            withClue(downstream(destinationId).receivedCalls.mkString(">>>>>\n\t", "\n\t", "\n>>>>>>")){ downstream.values.foldLeft(0){ (acc, el) => acc + el.receivedCalls.size} shouldBe 2*(1+idx) }
             downstream(destinationId).receivedCalls.reverse.head shouldBe downstream(destinationId).call("acceptRequest", idx, "TestSuite", s"Test-$idx", probe)
         }
       }

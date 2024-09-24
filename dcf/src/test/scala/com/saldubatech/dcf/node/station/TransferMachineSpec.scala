@@ -25,7 +25,7 @@ class TransferMachineSpec extends BaseSpec:
 
   "A Transfer Machine" when {
     val engine = MockAsyncCallback()
-    val testRig = buildUnderTest[ProbeInboundMaterial](engine)
+    val testRig = buildTransferMachineUnderTest[ProbeInboundMaterial](engine)
 
     "the rig is created" should {
       "Have a Map of inputs, a machine and a map of outputs " in {
