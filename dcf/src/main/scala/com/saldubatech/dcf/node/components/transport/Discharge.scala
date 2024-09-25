@@ -28,15 +28,15 @@ object Discharge:
     end Upstream
 
     trait Control:
-      def addCards(cards: List[Id]): UnitResult
-      def removeCards(cards: List[Id]): UnitResult
+      def addCards(at: Tick, cards: List[Id]): UnitResult
+      def removeCards(at: Tick, cards: List[Id]): UnitResult
       def availableCards: List[Id]
     end Control
 
     type Management[+LISTENER <: Environment.Listener] = Component.API.Management[LISTENER]
 
-    trait Downstream:
-      def acknowledge(at: Tick, cards: List[Id]): UnitResult
+    trait Downstream extends Link.API.Downstream:
+      def restore(at: Tick, cards: List[Id]): UnitResult
     end Downstream
 
     trait Physics:
@@ -52,6 +52,8 @@ object Discharge:
 
     trait Listener extends Identified:
       def loadDischarged(at: Tick, stationId: Id, discharge: Id, load: Material): Unit
+      def busy(at: Tick, stationId: Id, discharge: Id): Unit
+      def availableNotification(at: Tick, stationId: Id, discharge: Id): Unit
     end Listener
 
     trait Upstream:
@@ -83,27 +85,37 @@ with SubjectMixIn[LISTENER]:
 
   private val provisionedCards = collection.mutable.Set.empty[Id]
   private val _cards = collection.mutable.Queue.empty[Id]
+  private val _inTransit = collection.mutable.Map.empty[Id, M]
 
-  def addCards(cards: List[Id]): UnitResult =
+  def addCards(at: Tick, cards: List[Id]): UnitResult =
     provisionedCards.addAll(cards)
+    if _cards.isEmpty then
+      doNotify{ _.availableNotification(at, stationId, id) }
     _cards.enqueueAll(cards.filter( c => !_cards.contains(c)))
     AppSuccess.unit
 
-  def removeCards(cards: List[Id]): UnitResult =
+  def removeCards(at: Tick, cards: List[Id]): UnitResult =
     cards.foreach( provisionedCards.remove(_) )
     _cards.removeAll(c => !provisionedCards(c))
+    if _cards.isEmpty then
+      doNotify{ _.busy(at, stationId, id) }
     AppSuccess.unit
 
   def availableCards: List[Id] = _cards.toList
 
   // Members declared in com.saldubatech.dcf.node.components.transport.Discharge$.API$.Downstream
-  def acknowledge(at: Tick, cards: List[Id]): UnitResult =
+  def restore(at: Tick, cards: List[Id]): UnitResult =
+    val available = _cards.size
     cards.foreach{
       c =>
         if provisionedCards(c) then _cards.enqueue(c)
         else () // if not provisioned, retire it.
     }
+    if available == 0 && _cards.size != 0 then doNotify{ _.availableNotification(at, stationId, id) }
     AppSuccess.unit
+
+  def acknowledge(at: Tick, loadId: Id): UnitResult =
+    Component.inStation(id, "Acknowledgement")(_inTransit.remove)(loadId).unit
 
   private val _discharging = collection.mutable.Map.empty[Id, M]
 
@@ -124,7 +136,9 @@ with SubjectMixIn[LISTENER]:
             _cards.enqueue(card)
             _discharging -= card
         }
-    } yield rs
+    } yield
+      if _cards.isEmpty then doNotify{ _.busy(at, stationId, id) }
+      rs
 
   // Members declared in com.saldubatech.dcf.node.components.transport.Discharge$.API$.Physics
   def dischargeFail(at: Tick, card: Id, loadId: Id, cause: Option[AppError]): UnitResult =
@@ -140,13 +154,14 @@ with SubjectMixIn[LISTENER]:
       load <- Component.inStation(stationId, "Discharging")(_discharging.remove)(card)
       rs <- downstream.loadArriving(at, this, card, load)
     } yield
+      _inTransit += loadId -> load
       doNotify(_.loadDischarged(at, stationId, id, load))
       rs
 
 end DischargeMixIn // trait
 
 
-class DischargeComponent[M <: Material, LISTENER <: Discharge.Environment.Listener : Typeable]
+class DischargeImpl[M <: Material, LISTENER <: Discharge.Environment.Listener : Typeable]
   (
     dId: Id,
     override val stationId: Id,
@@ -163,4 +178,4 @@ class DischargeComponent[M <: Material, LISTENER <: Discharge.Environment.Listen
     override protected val ackStub: Discharge.API.Downstream & Discharge.Identity = ackFactory(this)
 
 
-end DischargeComponent // class
+end DischargeImpl // class

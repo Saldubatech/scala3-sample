@@ -74,7 +74,7 @@ class InductSpec extends BaseSpec:
         underTest.cards.head shouldBe cards(0)
       }
       "Acknowledge the received cards to their senders" in {
-        underTest.acknowledgeAll(4, upstream.id)
+        underTest.restoreAll(4, upstream.id)
         underTest.cards.size shouldBe 0
         upstream.availableCards.size shouldBe 1
       }

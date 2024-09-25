@@ -37,7 +37,7 @@ class DischargeSpec extends BaseSpec:
     "provided with cards" should {
       val underTest = TestDischarge[ProbeInboundMaterial, Discharge.Environment.Listener]("Dsc", "underTest", mockPhysics, mockInduct, engine)
       mockPhysics.underTest = underTest
-      underTest.addCards((0 to 3).map{_ => Id }.toList)
+      underTest.addCards(0, (0 to 3).map{_ => Id }.toList)
       "allow discharge" in {
         underTest.canDischarge(0, probe) shouldBe Symbol("isRight")
       }
@@ -56,7 +56,7 @@ class DischargeSpec extends BaseSpec:
       "enable discharging after completing a discharge and being acknowledged of a card" in {
         engine.runOne() shouldBe Symbol("isRight")
         mockInduct.receivedLoads.size shouldBe 1
-        underTest.ackStub.acknowledge(4, List(mockInduct.receivedLoads.head._2))
+        underTest.ackStub.restore(4, List(mockInduct.receivedLoads.head._2))
         engine.run(None)
         mockInduct.receivedLoads.size shouldBe 4
         underTest.canDischarge(5, probe) shouldBe Symbol("isRight")

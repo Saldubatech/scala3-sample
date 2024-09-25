@@ -1,4 +1,4 @@
-package com.saldubatech.dcf.node.station
+package com.saldubatech.dcf.node.machine
 
 import com.saldubatech.lang.{Id, Identified}
 import com.saldubatech.lang.types._

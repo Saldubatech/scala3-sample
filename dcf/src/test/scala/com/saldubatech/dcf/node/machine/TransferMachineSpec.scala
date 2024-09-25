@@ -1,4 +1,4 @@
-package com.saldubatech.dcf.node.station
+package com.saldubatech.dcf.node.machine
 
 import com.saldubatech.test.BaseSpec
 import com.saldubatech.lang.Id
@@ -12,7 +12,7 @@ import com.saldubatech.dcf.node.components.{Processor, Harness as ProcHarness, C
 import com.saldubatech.dcf.node.{ProbeInboundMaterial, ProbeOutboundMaterial}
 
 import com.saldubatech.dcf.node.components.{Sink, Harness as ComponentsHarness}
-import com.saldubatech.dcf.node.components.transport.{Transport, TransportComponent, Discharge, Induct, Link}
+import com.saldubatech.dcf.node.components.transport.{Transport, TransportImpl, Discharge, Induct, Link}
 
 import com.saldubatech.test.ddes.MockAsyncCallback
 import com.saldubatech.dcf.node.components.transport.{Harness as TransportHarness}
@@ -41,14 +41,14 @@ class TransferMachineSpec extends BaseSpec:
         val (inputMap, underTest, outputMap) = testRig.value
         inputMap.values.map{
           d =>
-            d.addCards(ibCards) shouldBe Symbol("isRight")
+            d.addCards(0, ibCards) shouldBe Symbol("isRight")
         }
       }
       "Allow for the configuration of cards in the discharges of the machine" in {
         val (inputMap, underTest, outputMap) = testRig.value
         underTest.outbound.values.map{
           d =>
-            d.addCards(obCards) shouldBe Symbol("isRight")
+            d.addCards(0, obCards) shouldBe Symbol("isRight")
         }
       }
     }

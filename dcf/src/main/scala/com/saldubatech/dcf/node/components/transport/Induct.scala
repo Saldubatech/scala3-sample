@@ -25,9 +25,9 @@ object Induct:
       def available: List[M]
       def cards: List[Id]
 
-      def acknowledgeOne(at: Tick, dischargeId: Id): UnitResult
-      def acknowledgeAll(at: Tick, dischargeId: Id): UnitResult
-      def acknowledgeSome(at: Tick, nCards: Int, dischargeId: Id): UnitResult
+      def restoreOne(at: Tick, dischargeId: Id): UnitResult
+      def restoreAll(at: Tick, dischargeId: Id): UnitResult
+      def restoreSome(at: Tick, nCards: Int, dischargeId: Id): UnitResult
 
       def deliver(at: Tick, loadId: Id): UnitResult
     end Control
@@ -125,20 +125,20 @@ with SubjectMixIn[LISTENER]:
   // Members declared in Induct$.API$.Control
 
   override def cards: List[Id] = cardsByOrigin.values.toList.flatMap( _._2.toList )
-  override def acknowledgeAll(at: Tick, dischargeId: Id): UnitResult =
+  override def restoreAll(at: Tick, dischargeId: Id): UnitResult =
     cardsByOrigin.get(dischargeId) match
       case None => AppSuccess.unit
-      case Some((target, cards)) => target.acknowledge(at, cards.dequeueAll(_ => true).toList)
+      case Some((target, cards)) => target.restore(at, cards.dequeueAll(_ => true).toList)
 
-  override def acknowledgeOne(at: Tick, dischargeId: Id): UnitResult =
+  override def restoreOne(at: Tick, dischargeId: Id): UnitResult =
     cardsByOrigin.get(dischargeId) match
       case None => AppSuccess.unit
-      case Some((target, cards)) => target.acknowledge(at, List(cards.dequeue()))
+      case Some((target, cards)) => target.restore(at, List(cards.dequeue()))
 
-  override def acknowledgeSome(at: Tick, nCards: Int, dischargeId: Id): UnitResult =
+  override def restoreSome(at: Tick, nCards: Int, dischargeId: Id): UnitResult =
     cardsByOrigin.get(dischargeId) match
       case None => AppSuccess.unit
-      case Some((target, cards)) => target.acknowledge(at, (0 to nCards).map(_ => cards.dequeue()).toList)
+      case Some((target, cards)) => target.restore(at, (0 to nCards).map(_ => cards.dequeue()).toList)
 
   /*
     Management of available Loads, to be implemented by subclasses with different behaviors (e.g. FIFO, multiplicity, ...)
@@ -161,6 +161,7 @@ with SubjectMixIn[LISTENER]:
     AppSuccess(load)
 
   override def loadArriving(at: Tick, from: Discharge.API.Downstream & Discharge.Identity, card: Id, load: M): UnitResult =
+    from.acknowledge(at, load.id)
     for {
       allowed <- canAccept(at, from, card, load)
       _ <-
@@ -197,7 +198,7 @@ with SubjectMixIn[LISTENER]:
       doNotify(_.loadArrival(at, fromStation, stationId, id, arrival.material))
 
 
-class InductComponent[M <: Material, LISTENER <: Induct.Environment.Listener : Typeable]
+class InductImpl[M <: Material, LISTENER <: Induct.Environment.Listener : Typeable]
 (
   iId: Id,
   override val stationId: Id,
@@ -210,4 +211,4 @@ class InductComponent[M <: Material, LISTENER <: Induct.Environment.Listener : T
 extends InductMixIn[M, LISTENER]:
     override val id: Id = s"$stationId::Induct[$iId]"
 
-end InductComponent // class
+end InductImpl // class

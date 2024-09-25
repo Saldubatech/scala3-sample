@@ -13,6 +13,10 @@ object Link:
   object API:
     type Upstream[M <: Material] = Induct.API.Upstream[M]
 
+    trait Downstream:
+      def acknowledge(at: Tick, loadId: Id): UnitResult
+    end Downstream
+
     trait Control[M <: Material]:
       def currentInTransit: List[M]
     end Control // trait
@@ -37,6 +41,7 @@ end Link // object
 trait Link[M <: Material]
 extends Link.Identity
 with Link.API.Upstream[M]
+with Link.API.Downstream
 with Link.API.Control[M]
 with Link.API.Physics:
 
@@ -51,6 +56,9 @@ extends Link[M]:
 
   private val _inTransit = collection.mutable.Map.empty[Id, M]
 
+  def acknowledge(at: Tick, loadId: Id): UnitResult =
+    Component.inStation(id, "Acknowledgement")(_inTransit.remove)(loadId).unit
+
   // From API.Control
   def currentInTransit: List[M] = _inTransit.values.toList
   // From API.Upstream
@@ -61,6 +69,7 @@ extends Link[M]:
         if max > _inTransit.size then AppSuccess(load) else AppFail.fail(s"Transit Link[$id] is full")
 
   override def loadArriving(at: Tick, from: Discharge.API.Downstream & Discharge.Identity, card: Id, load: M): UnitResult =
+    from.acknowledge(at, load.id)
     for {
       allow <- canAccept(at, from, card, load)
     } yield
@@ -70,11 +79,14 @@ extends Link[M]:
   // From API.Physics
   override def transportFinalize(at: Tick, link: Id, card: Id, loadId: Id): UnitResult =
     for {
-      load <- Component.inStation(id, "InTransit Material")(_inTransit.remove)(loadId)
+      load <- Component.inStation(id, "InTransit Material")(_inTransit.get)(loadId)
       rs <- downstream.loadArriving(at, upstream, card, load).tapError{ _ => _inTransit += load.id -> load }
-    } yield rs
+    } yield
+      _inTransit -= loadId
+      rs
 
   override def transportFail(at: Tick, linkId: Id, card: Id, loadId: Id, cause: Option[AppError]): UnitResult =
+    // This removes the load upon failure (e.g. it gets physically removed via an exit chute or something like that)
     Component.inStation(id, "InTransit Material")(_inTransit.remove)(loadId).flatMap{
       arr =>
         cause match

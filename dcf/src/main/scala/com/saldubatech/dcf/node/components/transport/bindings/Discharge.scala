@@ -1,7 +1,8 @@
 package com.saldubatech.dcf.node.components.transport.bindings
 
 import com.saldubatech.lang.{Id, Identified}
-import com.saldubatech.lang.types.{AppFail, AppResult, AppSuccess, UnitResult, CollectedError, AppError}
+import com.saldubatech.lang.types._
+import com.saldubatech.math.randomvariables.Distributions.probability
 import com.saldubatech.sandbox.ddes.{Tick, SimActor, DomainMessage, Duration}
 import com.saldubatech.dcf.material.Material
 import com.saldubatech.dcf.node.components.{Subject, SubjectMixIn, Component}
@@ -13,7 +14,8 @@ object Discharge:
   object API:
     object Signals:
       sealed trait Downstream extends DomainMessage
-      case class Acknowledge(override val id: Id, override val job: Id, cards: List[Id]) extends Downstream
+      case class Restore(override val id: Id, override val job: Id, cards: List[Id]) extends Downstream
+      case class Acknowledge(override val id: Id, override val job: Id, loadId: Id) extends Downstream
 
       sealed trait Physics extends DomainMessage
       case class DischargeFinalize(override val id: Id, override val job: Id, card: Id, loadId: Id) extends Physics
@@ -22,56 +24,61 @@ object Discharge:
     end Signals //object
 
 
-    object Stubs:
-      class Downstream(actor: SimActor[Signals.Downstream]) extends DischargeComponent.API.Downstream:
-        def acknowledge(at: Tick, cards: List[Id]): UnitResult =
-          actor.env.schedule(actor)(at, Signals.Acknowledge(Id, Id, cards))
-          AppSuccess.unit
+    object ClientStubs:
+      class Downstream(target: SimActor[Signals.Downstream], override val id: Id, override val stationId: Id)
+      extends DischargeComponent.API.Downstream
+      with DischargeComponent.Identity:
+        def restore(at: Tick, cards: List[Id]): UnitResult =
+          AppSuccess(target.env.schedule(target)(at, Signals.Restore(Id, Id, cards)))
 
-      class Physics(actor: SimActor[Signals.Physics]) extends DischargeComponent.API.Physics:
+        def acknowledge(at: Tick, loadId: Id): UnitResult =
+          AppSuccess(target.env.schedule(target)(at, Signals.Acknowledge(Id, Id, loadId)))
+
+      class Physics(target: SimActor[Signals.Physics]) extends DischargeComponent.API.Physics:
         def dischargeFinalize(at: Tick, card: Id, loadId: Id): UnitResult =
-          actor.env.schedule(actor)(at, Signals.DischargeFinalize(Id, Id, card, loadId))
-          AppSuccess.unit
+          AppSuccess(target.env.schedule(target)(at, Signals.DischargeFinalize(Id, Id, card, loadId)))
 
         def dischargeFail(at: Tick, card: Id, loadId: Id, cause: Option[AppError]): UnitResult =
-          actor.env.schedule(actor)(at, Signals.DischargeFail(Id, Id, card, loadId, cause))
-          AppSuccess.unit
+          AppSuccess(target.env.schedule(target)(at, Signals.DischargeFail(Id, Id, card, loadId, cause)))
+    end ClientStubs
 
-    end Stubs
-
-    object Adaptors:
+    object ServerAdaptors:
       def downstream(target: DischargeComponent.API.Downstream): Tick => PartialFunction[Signals.Downstream, UnitResult] = (at: Tick) => {
-        case Signals.Acknowledge(id, job, cards) => target.acknowledge(at, cards)
+        case Signals.Restore(id, job, cards) => target.restore(at, cards)
+        case Signals.Acknowledge(id, job, loadId) => target.acknowledge(at, loadId)
       }
 
       def physics(target: DischargeComponent.API.Physics): Tick => PartialFunction[Signals.Physics, UnitResult] = (at: Tick) => {
         case Signals.DischargeFinalize(id, job, cardId, loadId) => target.dischargeFinalize(at, cardId, loadId)
         case Signals.DischargeFail(id, job, cardId, loadId, cause) => target.dischargeFail(at, cardId, loadId, cause)
       }
-    end Adaptors
+    end ServerAdaptors
   end API
 
-  object Environment:
-      object Signals:
-        sealed trait Physics extends DomainMessage
-        case class DischargeCommand[M <: Material](override val id: Id, override val job: Id, cardId: Id, load: M) extends Physics
-      end Signals
-
-      object Stubs:
-        class Physics[M <: Material](actor: SimActor[Signals.Physics]) extends DischargeComponent.Environment.Physics[M]:
-          override def dischargeCommand(at: Tick, card: Id, load: M): UnitResult =
-            actor.env.schedule(actor)(at, Signals.DischargeCommand(Id, Id, card, load))
-            AppSuccess.unit
-
-      end Stubs
-
-      object Adaptors:
-        def physics[M <: Material : Typeable](target: DischargeComponent.Environment.Physics[M]): Tick => PartialFunction[Signals.Physics, UnitResult] = (at: Tick) => {
-          case Signals.DischargeCommand(id, job, cardId, load : M) => target.dischargeCommand(at, cardId, load)
-        }
-
-        val downstream = Induct.API.Adaptors.upstream
-      end Adaptors
-  end Environment
+  class Physics[M <: Material]
+  (
+    target: SimActor[API.Signals.Physics],
+    successDuration: (at: Tick, card: Id, load: M) => Duration,
+    minSlotDuration: Duration = 1,
+    failDuration: (at: Tick, card: Id, load: M) => Duration = (at: Tick, card: Id, load: M) => 0,
+    failureRate: (at: Tick, card: Id, load: M) => Double = (at: Tick, card: Id, load: M) => 0.0
+  )
+  extends DischargeComponent.Environment.Physics[M]:
+    var latestDischargeTime: Tick = 0
+    override def dischargeCommand(at: Tick, card: Id, load: M): UnitResult =
+      if (probability() > failureRate(at, card, load)) then
+        // Ensures FIFO delivery
+        latestDischargeTime = math.max(latestDischargeTime+minSlotDuration, at + successDuration(at, card, load))
+        AppSuccess(
+        target.env.schedule(target)(
+          latestDischargeTime,
+          API.Signals.DischargeFinalize(Id, Id, card, load.id))
+        )
+      else AppSuccess(
+        target.env.schedule(target)(
+          at + failDuration(at, card, load),
+          API.Signals.DischargeFinalize(Id, Id, card, load.id))
+        )
+  end Physics
 
 end Discharge

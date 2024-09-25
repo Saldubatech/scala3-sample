@@ -36,14 +36,20 @@ class TransportSpec extends BaseSpec:
       val iPhysics = Harness.MockInductPhysics[ProbeInboundMaterial](() => inductDelay, engine)
       val inductStore = Induct.Component.FIFOArrivalBuffer[ProbeInboundMaterial]()
       val underTest =
-        TransportComponent[ProbeInboundMaterial, Induct.Environment.Listener, Discharge.Environment.Listener](
-          "underTest", dPhysics, tPhysics, None, iPhysics, inductStore,  d => Harness.MockAckStub(d.id, d.stationId, d, engine))
+        TransportImpl[ProbeInboundMaterial, Induct.Environment.Listener, Discharge.Environment.Listener](
+          "underTest", None, iPhysics, inductStore
+          )
       "not have induct or discharge" in {
         underTest.induct shouldBe Symbol("isLeft")
         underTest.discharge shouldBe Symbol("isLeft")
       }
       "not be able to Configure the discharge first" in {
-        underTest.buildDischarge("TestUpstreamStation") shouldBe Symbol("isLeft")
+        underTest.buildDischarge(
+          "TestUpstreamStation",
+          dPhysics,
+          tPhysics,
+          d => Harness.MockAckStub(d.id, d.stationId, d, engine)
+        ) shouldBe Symbol("isLeft")
       }
     }
     "Its Induct is configured" should {
@@ -54,8 +60,9 @@ class TransportSpec extends BaseSpec:
       val iPhysics = Harness.MockInductPhysics[ProbeInboundMaterial](() => inductDelay, engine)
       val inductStore = Induct.Component.FIFOArrivalBuffer[ProbeInboundMaterial]()
       val underTest =
-        TransportComponent[ProbeInboundMaterial, Induct.Environment.Listener, Discharge.Environment.Listener](
-          "underTest", dPhysics, tPhysics, None, iPhysics, inductStore,  d => Harness.MockAckStub(d.id, d.stationId, d, engine))
+        TransportImpl[ProbeInboundMaterial, Induct.Environment.Listener, Discharge.Environment.Listener](
+          "underTest", None, iPhysics, inductStore
+          )
       val builtInduct = underTest.buildInduct("TestDownstreamStation", mockDownstream)
       "return it when requested" in {
         builtInduct shouldBe Symbol("isRight")
@@ -63,7 +70,9 @@ class TransportSpec extends BaseSpec:
         underTest.induct.value.id shouldBe builtInduct.value.id
       }
       "allow to configure the Discharge once the Induct is configured" in {
-        val builtDischarge = underTest.buildDischarge("TestUpstreamStation")
+        val builtDischarge = underTest.buildDischarge(
+          "TestUpstreamStation", dPhysics, tPhysics, d => Harness.MockAckStub(d.id, d.stationId, d, engine)
+          )
         builtDischarge shouldBe Symbol("isRight")
         underTest.discharge.value.id shouldBe builtDischarge.value.id
       }
@@ -76,10 +85,16 @@ class TransportSpec extends BaseSpec:
       val iPhysics = Harness.MockInductPhysics[ProbeInboundMaterial](() => inductDelay, engine)
       val inductStore = Induct.Component.FIFOArrivalBuffer[ProbeInboundMaterial]()
       val underTest =
-        TransportComponent[ProbeInboundMaterial, Induct.Environment.Listener, Discharge.Environment.Listener](
-          "underTest", dPhysics, tPhysics, None, iPhysics, inductStore,  d => Harness.MockAckStub(d.id, d.stationId, d, engine))
+        TransportImpl[ProbeInboundMaterial, Induct.Environment.Listener, Discharge.Environment.Listener](
+          "underTest", None, iPhysics, inductStore
+          )
       val induct2 = underTest.buildInduct("TestDownstreamStation", mockDownstream)
-      val discharge2 = underTest.buildDischarge("TestUpstreamStation")
+      val discharge2 = underTest.buildDischarge(
+          "TestUpstreamStation",
+          dPhysics,
+          tPhysics,
+          d => Harness.MockAckStub(d.id, d.stationId, d, engine)
+        )
       "Have no contents or available elements in its induct" in {
         induct2.value.contents shouldBe Symbol("isEmpty")
         induct2.value.available shouldBe Symbol("isEmpty")
@@ -97,12 +112,18 @@ class TransportSpec extends BaseSpec:
       val iPhysics = Harness.MockInductPhysics[ProbeInboundMaterial](() => inductDelay, engine)
       val inductStore = Induct.Component.FIFOArrivalBuffer[ProbeInboundMaterial]()
       val underTest =
-        TransportComponent[ProbeInboundMaterial, Induct.Environment.Listener, Discharge.Environment.Listener](
-          "underTest", dPhysics, tPhysics, None, iPhysics, inductStore,  d => Harness.MockAckStub(d.id, d.stationId, d, engine))
+        TransportImpl[ProbeInboundMaterial, Induct.Environment.Listener, Discharge.Environment.Listener](
+          "underTest", None, iPhysics, inductStore
+          )
       val induct = underTest.buildInduct("TestDownstreamStation", mockDownstream)
-      val discharge = underTest.buildDischarge("TestUpstreamStation")
+      val discharge = underTest.buildDischarge(
+          "TestUpstreamStation",
+          dPhysics,
+          tPhysics,
+          d => Harness.MockAckStub(d.id, d.stationId, d, engine)
+        )
       "allow discharging" in {
-        discharge.value.addCards(cards.take(1))
+        discharge.value.addCards(0, cards.take(1))
         discharge.value.canDischarge(0, probe) shouldBe Symbol("isRight")
       }
       "initiate a discharge when requested" in {
@@ -125,14 +146,20 @@ class TransportSpec extends BaseSpec:
       val iPhysics = Harness.MockInductPhysics[ProbeInboundMaterial](() => inductDelay, engine)
       val inductStore = Induct.Component.FIFOArrivalBuffer[ProbeInboundMaterial]()
       val underTest =
-        TransportComponent[ProbeInboundMaterial, Induct.Environment.Listener, Discharge.Environment.Listener](
-          "underTest", dPhysics, tPhysics, None, iPhysics, inductStore,  d => Harness.MockAckStub(d.id, d.stationId, d, engine))
+        TransportImpl[ProbeInboundMaterial, Induct.Environment.Listener, Discharge.Environment.Listener](
+          "underTest", None, iPhysics, inductStore
+          )
       val induct = underTest.buildInduct("TestDownstreamStation", mockDownstream)
-      val discharge = underTest.buildDischarge("TestUpstreamStation")
+      val discharge = underTest.buildDischarge(
+          "TestUpstreamStation",
+          dPhysics,
+          tPhysics,
+          d => Harness.MockAckStub(d.id, d.stationId, d, engine)
+        )
       dPhysics.underTest = discharge.value
       iPhysics.underTest = induct.value
       tPhysics.underTest = underTest.link.value
-      discharge.value.addCards(cards)
+      discharge.value.addCards(0, cards)
       "successfully complete the discharge" in {
         discharge.value.discharge(0, probe) shouldBe Symbol("isRight")
         engine.runOne() shouldBe Symbol("isRight")
@@ -160,14 +187,20 @@ class TransportSpec extends BaseSpec:
       val iPhysics = Harness.MockInductPhysics[ProbeInboundMaterial](() => inductDelay, engine)
       val inductStore = Induct.Component.FIFOArrivalBuffer[ProbeInboundMaterial]()
       val underTest =
-        TransportComponent[ProbeInboundMaterial, Induct.Environment.Listener, Discharge.Environment.Listener](
-          "underTest", dPhysics, tPhysics, None, iPhysics, inductStore,  d => Harness.MockAckStub(d.id, d.stationId, d, engine))
+        TransportImpl[ProbeInboundMaterial, Induct.Environment.Listener, Discharge.Environment.Listener](
+          "underTest", None, iPhysics, inductStore
+          )
       val induct = underTest.buildInduct("TestDownstreamStation", mockDownstream)
-      val discharge = underTest.buildDischarge("TestUpstreamStation")
+      val discharge = underTest.buildDischarge(
+          "TestUpstreamStation",
+          dPhysics,
+          tPhysics,
+          d => Harness.MockAckStub(d.id, d.stationId, d, engine)
+        )
       dPhysics.underTest = discharge.value
       iPhysics.underTest = induct.value
       tPhysics.underTest = underTest.link.value
-      discharge.value.addCards(cards)
+      discharge.value.addCards(0, cards)
       "Trigger the Transport and Induct Physics in Order" in {
         discharge.value.discharge(0, probe)
         engine.pending.size shouldBe 1
@@ -202,7 +235,7 @@ class TransportSpec extends BaseSpec:
         induct.value.cards.head shouldBe cards(0)
       }
       "Acknowledge the received cards to their senders" in {
-        induct.value.acknowledgeAll(4, discharge.value.id)
+        induct.value.restoreAll(4, discharge.value.id)
         induct.value.cards.size shouldBe 0
         discharge.value.availableCards.size shouldBe cards.size
       }

@@ -43,8 +43,6 @@ class MiscSamplesSpec extends AnyWordSpec
         assert(testResult2.pValue < 0.5)
         val testResult3 = Statistics.kolmogorovSmirnovTest(data, expCdf(5.0))
 //        assert(testResult3.pValue < 0.5)
-        println(s"##### The result2 is: $testResult2")
-        println(s"##### The result3 is: $testResult3")
       }
       "Accept the hypothesis for an exponential set" in {
         val mean = 200.00

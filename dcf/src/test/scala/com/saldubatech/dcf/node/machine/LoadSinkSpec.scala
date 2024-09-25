@@ -1,4 +1,4 @@
-package com.saldubatech.dcf.node.station
+package com.saldubatech.dcf.node.machine
 
 import com.saldubatech.test.BaseSpec
 import com.saldubatech.lang.Id
@@ -12,18 +12,19 @@ import com.saldubatech.dcf.node.components.{Processor, Harness as ProcHarness, C
 import com.saldubatech.dcf.node.{ProbeInboundMaterial, ProbeOutboundMaterial}
 
 import com.saldubatech.dcf.node.components.{Sink, Harness as ComponentsHarness}
-import com.saldubatech.dcf.node.components.transport.{Transport, TransportComponent, Discharge, Induct, Link}
+import com.saldubatech.dcf.node.components.transport.{Transport, TransportImpl, Discharge, Induct, Link}
 
 import com.saldubatech.test.ddes.MockAsyncCallback
 import com.saldubatech.dcf.node.components.transport.{Harness as TransportHarness}
 import org.scalatest.matchers.should.Matchers._
 
 import scala.util.chaining.scalaUtilChainingOps
+import com.saldubatech.dcf.node.machine.LoadSink
 
 object LoadSinkSpec:
   import Harness._
 
-  class MockLoadSinkListener extends LoadSink.Environment.Listener {
+  class MockLoadSinkListener extends com.saldubatech.dcf.node.machine.LoadSink.Environment.Listener {
     val called = collection.mutable.ListBuffer.empty[String]
     def last: String = called.lastOption.getOrElse("NONE")
     def calling(method: String, args: Any*): String =
@@ -48,31 +49,28 @@ object LoadSinkSpec:
 
   def buildLoadSinkUnderTest[M <: Material](
     engine: MockAsyncCallback
-  ): AppResult[(Discharge[M, Discharge.Environment.Listener], LoadSink[M, LoadSink.Environment.Listener], Consumer[M])] =
+  ): AppResult[(Discharge[M, Discharge.Environment.Listener], LoadSink[M, com.saldubatech.dcf.node.machine.LoadSink.Environment.Listener], Consumer[M])] =
     val consumer = Consumer[M]
 
-    val factory = LoadSink.Factory[M, LoadSink.Environment.Listener](Some(consumer.consume))
+    val factory = com.saldubatech.dcf.node.machine.LoadSink.Factory[M, com.saldubatech.dcf.node.machine.LoadSink.Environment.Listener](Some(consumer.consume))
     val ibDistPhysics = TransportHarness.MockDischargePhysics[M](() => ibDiscDelay, engine)
     val ibTranPhysics = TransportHarness.MockLinkPhysics[M](() => ibTranDelay, engine)
     val ibIndcPhysics = TransportHarness.MockInductPhysics[M](() => ibIndcDelay, engine)
 
-    val ibTransport = TransportComponent[M, Induct.Environment.Listener, Discharge.Environment.Listener](
+    val ibTransport = TransportImpl[M, Induct.Environment.Listener, Discharge.Environment.Listener](
       s"T_IB",
-      ibDistPhysics,
-      ibTranPhysics,
       Some(obTranCapacity),
       ibIndcPhysics,
       Induct.Component.FIFOArrivalBuffer[M](),
-      ackStubFactory(engine)
     )
     for {
       underTest <- factory.build("underTest", "InStation", ibTransport)
-      ibDischarge <- ibTransport.buildDischarge("TestHarness")
+      ibDischarge <- ibTransport.buildDischarge("TestHarness", ibDistPhysics, ibTranPhysics, ackStubFactory(engine))
       i <- ibTransport.induct
       l <- ibTransport.link
       d <- ibTransport.discharge
     } yield
-      ibDischarge.addCards(ibCards)
+      ibDischarge.addCards(0, ibCards)
       ibDistPhysics.underTest = d
       ibTranPhysics.underTest = l
       ibIndcPhysics.underTest = i

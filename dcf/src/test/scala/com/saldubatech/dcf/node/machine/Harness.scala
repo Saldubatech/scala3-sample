@@ -1,4 +1,4 @@
-package com.saldubatech.dcf.node.station
+package com.saldubatech.dcf.node.machine
 
 import com.saldubatech.test.BaseSpec
 import com.saldubatech.lang.Id
@@ -12,11 +12,15 @@ import com.saldubatech.dcf.node.components.{Processor, Harness as ProcHarness, C
 import com.saldubatech.dcf.node.{ProbeInboundMaterial, ProbeOutboundMaterial}
 
 import com.saldubatech.dcf.node.components.{Sink, Harness as ComponentsHarness}
-import com.saldubatech.dcf.node.components.transport.{Transport, TransportComponent, Discharge, Induct, Link}
+import com.saldubatech.dcf.node.components.transport.{Transport, TransportImpl, Discharge, Induct, Link}
+import com.saldubatech.dcf.node.machine.TransferMachine
 
 import com.saldubatech.test.ddes.MockAsyncCallback
 import com.saldubatech.dcf.node.components.transport.{Harness as TransportHarness}
+
 import org.scalatest.matchers.should.Matchers._
+
+import scala.util.chaining.scalaUtilChainingOps
 
 object Harness:
   val ibDiscDelay = 1L
@@ -70,14 +74,11 @@ object Harness:
         val tPhysics = ibTranPhysics
         val iPhysics = ibIndcPhysics
 
-        val transport = TransportComponent[M, Controller.API.Listener, Controller.API.Listener](
+        val transport = TransportImpl[M, Controller.API.Listener, Controller.API.Listener](
           s"T[$idx]",
-          dPhysics,
-          tPhysics,
           Some(ibTranCapacity),
           iPhysics,
           Induct.Component.FIFOArrivalBuffer[M](),
-          ackStubFactory(engine)
         )
         (dPhysics, tPhysics, iPhysics, transport)
     }.toList
@@ -96,19 +97,16 @@ object Harness:
         val dPhysics = obDistPhysics
         val tPhysics = obTranPhysics
         val iPhysics = obIndcPhysics
-        val transport = TransportComponent[M, Controller.API.Listener, Controller.API.Listener](
+        val transport = TransportImpl[M, Controller.API.Listener, Controller.API.Listener](
           s"T[$idx]",
-          dPhysics,
-          tPhysics,
           Some(obTranCapacity),
           iPhysics,
           Induct.Component.FIFOArrivalBuffer[M](),
-          ackStubFactory(engine)
         )
         (dPhysics, tPhysics, iPhysics, transport)
     }.toList
     for {
-      destinations <- outTransports.map{
+      destinationInducts <- outTransports.map{
         tr =>
           val binding = TransportHarness.MockSink[M](tr._4.id, "TERM")
           tr._4.buildInduct("TERM", binding).map{ induct => tr._4.id -> (binding, induct)}
@@ -123,15 +121,18 @@ object Harness:
           () => pUnloadDelay,
           () => pPushDelay,
           engine)
-        val procFactory: TransferMachine.ProcessorFactory[M] = TransferMachine.ProcessorFactory[M](pPhysics, produce)
-        val machineFactory: TransferMachine.Factory[M, Controller.Environment.Listener] = TransferMachine.Factory(procFactory, Controller.PushFactory, resolver)
-        machineFactory.build("underTest", "InStation", inTransports.map{_._4}, outTransports.map{_._4}, maxConcurrentJobs).map{
-          m =>
-            pPhysics.underTest = m.processor
-            m
-          }
-      origins <-
-        inTransports.map{ tr => tr._4.buildDischarge("ORIGIN").map{ d => tr._4.id -> d} }.collectAll
+        val procFactory: TransferMachine.ProcessorFactory[M] = com.saldubatech.dcf.node.machine.TransferMachine.ProcessorFactory[M](pPhysics, produce)
+        val machineFactory: TransferMachine.Factory[M, Controller.Environment.Listener] = com.saldubatech.dcf.node.machine.TransferMachine.Factory(procFactory, Controller.PushFactory, resolver)
+        machineFactory.build("underTest", "InStation", inTransports.map{_._4}, outTransports.map{r => (r._4, r._1, r._2, ackStubFactory(engine))}, maxConcurrentJobs).map{
+          m0 => m0.tap{ m => pPhysics.underTest = m.processor}
+         }
+      originDischarges <-
+        inTransports.map{ tr => tr._4.buildDischarge(
+          "ORIGIN",
+          tr._1,
+          tr._2,
+          ackStubFactory(engine)
+          ).map{ d => tr._4.id -> d} }.collectAll
       inTransportBinding <-
         inTransports.map{
           tr =>
@@ -157,6 +158,6 @@ object Harness:
               tr._3.underTest = i
         }.collectAll
     } yield
-      (origins.toMap, m, destinations.toMap)
+      (originDischarges.toMap, m, destinationInducts.toMap)
 
 end Harness // object

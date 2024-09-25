@@ -65,9 +65,11 @@ object Harness:
 
     override val id = s"$stationId::MockDischarge[$dId]"
 
-    override def acknowledge(at: Tick, cards: List[Id]): UnitResult =
+    override def restore(at: Tick, cards: List[Id]): UnitResult =
       availableCards.enqueueAll(cards)
       AppSuccess.unit
+
+    def acknowledge(at: Tick, loadId: Id): UnitResult = AppSuccess.unit
 
 
   end MockInductEnvironmentUpstream // class
@@ -110,7 +112,9 @@ object Harness:
     engine: MockAsyncCallback
   )
   extends Discharge.API.Downstream with Discharge.Identity:
-    override def acknowledge(at: Tick, cards: List[Id]): UnitResult = AppSuccess(engine.add(at)(() => host.acknowledge(at, cards)))
+    override def restore(at: Tick, cards: List[Id]): UnitResult = AppSuccess(engine.add(at)(() => host.restore(at, cards)))
+
+    def acknowledge(at: Tick, loadId: Id): UnitResult = AppSuccess.unit
   end MockAckStub // class
 
 end Harness // object
@@ -134,9 +138,11 @@ class TestDischarge[M <: Material, LISTENER <: Discharge.Environment.Listener : 
         override val stationId: Id = stationId
         override val id: Id = s"$stationId::Ack[$dId]"
 
-        override def acknowledge(at: Tick, cards: List[Id]): UnitResult =
-          engine.add(at){ () => self.addCards(cards) }
+        override def restore(at: Tick, cards: List[Id]): UnitResult =
+          engine.add(at){ () => self.addCards(at, cards) }
           AppSuccess.unit
+
+        def acknowledge(at: Tick, loadId: Id): UnitResult = AppSuccess.unit
       }
 
 end TestDischarge // class

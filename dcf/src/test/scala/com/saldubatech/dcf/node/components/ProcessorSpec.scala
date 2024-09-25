@@ -220,7 +220,7 @@ class ProcessorSpec extends BaseSpec:
         mockSink.clear
         underTest.pushRequest(opTime, js.id) shouldBe Symbol("isRight")
         underTest.nJobsInProgress(opTime) shouldBe 0
-        withClue(mockSink.receivedCalls.mkString("#####\n\t", "\n\t", "\n#####")){ mockSink.receivedCalls.size shouldBe 1 }
+        withClue(mockSink.receivedCalls.mkString("\n\t", "\n\t", "\n")){ mockSink.receivedCalls.size shouldBe 1 }
 
         val expectedProduct = ProbeOutboundMaterial(js.id, probes)
         mockSink.receivedCalls.head shouldBe mockSink.call("canAccept", opTime, underTest.stationId, expectedProduct)
@@ -228,10 +228,10 @@ class ProcessorSpec extends BaseSpec:
       s"Push the job at time ${opTime+1} when the signal is received from the Physics" in {
         mockSink.clear
         engine.runOne() shouldBe Symbol("isRight")
-        withClue(mockSink.receivedCalls.mkString("#####\n\t", "\n\t", "\n#####")){ mockSink.receivedCalls.size shouldBe 1 }
+        withClue(mockSink.receivedCalls.mkString("\n\t", "\n\t", "\n")){ mockSink.receivedCalls.size shouldBe 1 }
         val expectedProduct = ProbeOutboundMaterial(js.id, probes)
-        println(s"##### ${mockSink.receivedCalls.head}")
-        println(s"##### ${mockSink.call("acceptRequest", opTime+1, underTest.stationId, expectedProduct)}")
+        println(s"${mockSink.receivedCalls.head}")
+        println(s"${mockSink.call("acceptRequest", opTime+1, underTest.stationId, expectedProduct)}")
         mockSink.receivedCalls.head shouldBe mockSink.call("acceptRequest", opTime+1, underTest.stationId, underTest.id,expectedProduct)
       }
       "Not Allow any operations after Pushing" in {

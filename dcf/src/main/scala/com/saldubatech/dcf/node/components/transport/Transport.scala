@@ -9,19 +9,24 @@ import com.saldubatech.dcf.node.components.{Subject, SubjectMixIn, Component, Si
 import scala.reflect.Typeable
 
 object Transport:
-  case class AckMessage(override val id: Id, override val job: Id, cards: List[Id]) extends DomainMessage
+  trait APIDownstream extends DomainMessage
+  case class RestoreMessage(override val id: Id, override val job: Id, cards: List[Id]) extends APIDownstream
+  case class AcknowledgeMessage(override val id: Id, override val job: Id, loadId: Id) extends APIDownstream
 
   class ActorAckStub
   (
     sId: Id,
     override val stationId: Id,
-    host: SimActor[AckMessage]
+    host: SimActor[APIDownstream]
   )
   extends Discharge.API.Downstream with Discharge.Identity:
     override val id: Id = s"$stationId::AckStub[$sId]"
 
-    override def acknowledge(at: Tick, cards: List[Id]): UnitResult =
-      AppSuccess(host.env.schedule(host)(at, AckMessage(Id, Id, cards)))
+    override def restore(at: Tick, cards: List[Id]): UnitResult =
+      AppSuccess(host.env.schedule(host)(at, RestoreMessage(Id, Id, cards)))
+
+    override def acknowledge(at: Tick, loadId: Id): UnitResult =
+      AppSuccess(host.env.schedule(host)(at, AcknowledgeMessage(Id, Id, loadId)))
   end ActorAckStub // class
 
   class DirectAckStub[M <: Material]
@@ -33,8 +38,11 @@ object Transport:
   extends Discharge.API.Downstream with Discharge.Identity:
     override val id: Id = s"$stationId::AckStub[$sId]"
 
-    override def acknowledge(at: Tick, cards: List[Id]): UnitResult =
-      host.acknowledge(at, cards)
+    override def restore(at: Tick, cards: List[Id]): UnitResult =
+      host.restore(at, cards)
+
+    override def acknowledge(at: Tick, loadId: Id): UnitResult =
+      host.acknowledge(at, loadId)
   end DirectAckStub // class
 
 
@@ -48,18 +56,20 @@ extends Identified:
   def link: AppResult[Link[M]]
 
   def buildInduct(stationId: Id, binding: Sink.API.Upstream[M]): AppResult[Induct[M, I_LISTENER]]
-  def buildDischarge(stationId: Id): AppResult[Discharge[M, D_LISTENER]]
+  def buildDischarge(
+    stationId: Id,
+    dPhysics: Discharge.Environment.Physics[M],
+    tPhysics: Link.Environment.Physics[M],
+    stubFactory: Discharge[M, D_LISTENER] => Discharge.Identity & Discharge.API.Downstream
+  ): AppResult[Discharge[M, D_LISTENER]]
 end Transport // trait
 
-class TransportComponent[M <: Material, I_LISTENER <: Induct.Environment.Listener : Typeable, D_LISTENER <: Discharge.Environment.Listener : Typeable]
+class TransportImpl[M <: Material, I_LISTENER <: Induct.Environment.Listener : Typeable, D_LISTENER <: Discharge.Environment.Listener : Typeable]
 (
   override val id: Id,
-  dPhysics: Discharge.Environment.Physics[M],
-  tPhysics: Link.Environment.Physics[M],
   tCapacity: Option[Int],
   iPhysics: Induct.Environment.Physics[M],
   arrivalStore: Induct.Component.ArrivalBuffer[M],
-  stubFactory: Discharge[M, D_LISTENER] => Discharge.Identity & Discharge.API.Downstream
 )
 extends Transport[M, I_LISTENER, D_LISTENER]:
   private var _induct: Option[Induct[M, I_LISTENER]] = None
@@ -70,16 +80,21 @@ extends Transport[M, I_LISTENER, D_LISTENER]:
   def discharge: AppResult[Discharge[M, D_LISTENER]] = fromOption(_discharge)
   def link: AppResult[Link[M]] = fromOption(_link)
 
-  def buildInduct(stationId: Id, binding: Sink.API.Upstream[M]): AppResult[Induct[M, I_LISTENER]] =
+  override def buildInduct(stationId: Id, binding: Sink.API.Upstream[M]): AppResult[Induct[M, I_LISTENER]] =
     _induct match
       case None =>
-        val rs = InductComponent[M, I_LISTENER](id, stationId, binding, arrivalStore, iPhysics)
+        val rs = InductImpl[M, I_LISTENER](id, stationId, binding, arrivalStore, iPhysics)
         _induct = Some(rs)
         AppSuccess(rs)
       case Some(_) => AppFail.fail(s"Induct already created")
 
 
-  def buildDischarge(stationId: Id): AppResult[Discharge[M, D_LISTENER]] =
+  override def buildDischarge(
+    stationId: Id,
+    dPhysics: Discharge.Environment.Physics[M],
+    tPhysics: Link.Environment.Physics[M],
+    stubFactory: Discharge[M, D_LISTENER] => Discharge.Identity & Discharge.API.Downstream
+  ): AppResult[Discharge[M, D_LISTENER]] =
     (_discharge, _induct) match
       case (_, None) => AppFail.fail(s"Cannot Create Discharge until the Induct is available")
       case (Some(_), _) => AppFail.fail(s"Discharge already created")
@@ -87,16 +102,16 @@ extends Transport[M, I_LISTENER, D_LISTENER]:
         trait UPS {
           var _upstream: Option[Discharge.API.Downstream & Discharge.Identity] = None
         }
-        val link = new LinkMixIn[M] with UPS {
+        val nLink = new LinkMixIn[M] with UPS {
           override val id: Id = s"Link[$id"
           override val maxCapacity = tCapacity
           override val physics = tPhysics
           override val downstream = in
           override lazy val upstream = _upstream.get
         }
-        val dis: Discharge[M, D_LISTENER] = DischargeComponent[M, D_LISTENER](id, stationId, dPhysics, link, stubFactory)
+        val dis: Discharge[M, D_LISTENER] = DischargeImpl[M, D_LISTENER](id, stationId, dPhysics, nLink, stubFactory)
         _discharge = Some(dis)
-        link._upstream = Some(dis)
-        _link = Some(link)
+        nLink._upstream = Some(dis)
+        _link = Some(nLink)
         AppSuccess(dis)
-end TransportComponent // class
+end TransportImpl // class

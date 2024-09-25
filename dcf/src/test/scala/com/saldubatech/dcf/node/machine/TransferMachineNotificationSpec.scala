@@ -1,4 +1,4 @@
-package com.saldubatech.dcf.node.station
+package com.saldubatech.dcf.node.machine
 
 import com.saldubatech.test.BaseSpec
 import com.saldubatech.lang.Id
@@ -12,7 +12,7 @@ import com.saldubatech.dcf.node.components.{Processor, Harness as ProcHarness, C
 import com.saldubatech.dcf.node.{ProbeInboundMaterial, ProbeOutboundMaterial}
 
 import com.saldubatech.dcf.node.components.{Sink, Harness as ComponentsHarness}
-import com.saldubatech.dcf.node.components.transport.{Transport, TransportComponent, Discharge, Induct, Link}
+import com.saldubatech.dcf.node.components.transport.{Transport, TransportImpl, Discharge, Induct, Link}
 
 import com.saldubatech.test.ddes.MockAsyncCallback
 import com.saldubatech.dcf.node.components.transport.{Harness as TransportHarness}
@@ -64,8 +64,8 @@ class TransferMachineNotificationSpec extends BaseSpec:
     // AppResult[(Map[Id, Discharge[M, ?]], TransferMachine2[M], Map[Id, (TransportHarness.MockSink[M], Induct[M, Induct.Environment.Listener])])]
     val (inputMap, underTest, outputMap) = testRig.value
     underTest.listen(mockListener)
-    inputMap.values.map{ d => d.addCards(ibCards) }
-    underTest.outbound.values.map{ d => d.addCards(obCards) }
+    inputMap.values.map{ d => d.addCards(0, ibCards) }
+    underTest.outbound.values.map{ d => d.addCards(0, obCards) }
     val expectedOutput = Harness.resolver(s"${underTest.stationId}::Induct[${inputMap.head._1}]", probes.head).get
     val expectedJob = Controller.TransferJobSpec(probes.head.id, underTest.processor.id, expectedOutput, probes.head.id)
     "A Probe load is provided to one input" should {

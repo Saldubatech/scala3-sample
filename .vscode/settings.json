@@ -29,7 +29,10 @@
     "URIO",
     "wspace",
     "xlabel",
-    "ylabel"
+    "ylabel",
+    "Indc",
+    "Kolmogorov",
+    "Smirnov"
   ],
   "metals": {
     "inlayHints": {

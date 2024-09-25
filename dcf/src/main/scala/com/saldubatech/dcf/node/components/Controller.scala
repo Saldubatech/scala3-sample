@@ -185,6 +185,9 @@ extends Controller with SubjectMixIn[LISTENER] with LogEnabled:
         js => doNotify{ _.jobDeparted(at, stationId, discharge, js)}
       }
 
+    override def busy(at: Tick, stationId: Id, discharge: Id): Unit = () // Do nothing for now. To implement when testing congestion scenarios
+    override def availableNotification(at: Tick, stationId: Id, discharge: Id): Unit = () // Do nothing for now. To Implement when testing congestion scenarios
+
 end ControllerMixIn // trait
 
 class PushController[M <: Material, LISTENING_TO <: Controller.API.Listener, LISTENER <: Controller.Environment.Listener : Typeable]

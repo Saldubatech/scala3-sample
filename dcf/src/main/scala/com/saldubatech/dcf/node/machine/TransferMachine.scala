@@ -1,4 +1,4 @@
-package com.saldubatech.dcf.node.station
+package com.saldubatech.dcf.node.machine
 
 import com.saldubatech.lang.{Id, Identified}
 import com.saldubatech.lang.types._
@@ -8,7 +8,7 @@ import com.saldubatech.dcf.material.{Material, Wip}
 import com.saldubatech.dcf.job.{JobSpec, SimpleJobSpec}
 import com.saldubatech.dcf.node.components.{Sink, ProxySink, Processor, Operation, Source, Component, Controller, PushController}
 import com.saldubatech.dcf.node.components.connectors.{Distributor, Collector}
-import com.saldubatech.dcf.node.components.transport.{Induct, Discharge, Transport}
+import com.saldubatech.dcf.node.components.transport.{Induct, Discharge, Transport, Link}
 
 import scala.reflect.Typeable
 
@@ -52,7 +52,15 @@ object TransferMachine:
       mId: Id,
       sId: Id,
       inbound: List[Transport[M, Controller.API.Listener, ?]],
-      outbound: List[Transport[M, ?, Controller.API.Listener]],
+      outbound:
+        List[
+          (
+            Transport[M, ?, Controller.API.Listener],
+            Discharge.Environment.Physics[M],
+            Link.Environment.Physics[M],
+            Discharge[M, ?] => Discharge.Identity & Discharge.API.Downstream
+          )
+        ],
       maxConcurrentJobs: Int
     ): AppResult[TransferMachine[M]] =
       val machineId: Id = s"$sId::Machine[$mId]"
@@ -61,11 +69,13 @@ object TransferMachine:
       // This is very specific to the Push-Transfer scenario that uses the load.id as Job.id
       val jobCleanUp = (js: JobSpec) => AppSuccess(routingTable.removeRoute(js.id)).unit
       for {
-        discharges <- outbound.map{
-          tr => for {
-            d: Discharge[M, Controller.API.Listener] <- tr.buildDischarge(sId)
+        discharges <- (
+          for {
+            (tr, dP, tP, ackSFactory) <- outbound
+          } yield for {
+            d: Discharge[M, Controller.API.Listener] <- tr.buildDischarge(sId, dP, tP, ackSFactory)
           } yield tr.id -> d
-        }.collectAll.map{ _.toMap }
+        ).collectAll.map{ _.toMap }
         r1 <-
           val obDistributor: Distributor[M] = Distributor[M]("OB", sId, discharges.map { (dId, d) => dId -> d.asSink }, routingTable.router)
 

@@ -13,7 +13,6 @@ import com.saldubatech.dcf.node.components.{Sink}
 
 import org.scalatest.matchers.should.Matchers._
 import com.saldubatech.dcf.node.components.Harness.MockSink
-import com.saldubatech.dcf.node.components.transport.bindings.Discharge.Environment.Adaptors.downstream
 
 object DistributorSpec:
   val outputArity: Int = 22
