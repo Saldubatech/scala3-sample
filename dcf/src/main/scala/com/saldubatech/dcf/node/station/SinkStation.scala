@@ -11,8 +11,10 @@ import com.saldubatech.dcf.material.Material
 import com.saldubatech.dcf.node.components.transport.{Discharge, Transport, Link, Induct}
 import com.saldubatech.dcf.node.components.transport.bindings.{Discharge as DischargeBinding, Induct as InductBinding, DLink as LinkBinding}
 import com.saldubatech.dcf.node.machine.{LoadSink, LoadSinkImpl}
+import com.saldubatech.dcf.node.machine.bindings.{LoadSink as LoadSinkBinding}
 
 import scala.reflect.Typeable
+import scala.util.chaining.scalaUtilChainingOps
 
 object SinkStation:
   type PROTOCOL = InductBinding.API.Signals.Upstream | InductBinding.API.Signals.Physics
@@ -29,6 +31,8 @@ object SinkStation:
       host.stationId,
       consumer
     )
+
+    private val listener = LoadSinkBinding.Environment.ClientStubs.Listener(host.name, host).tap{ ls => impl.listen(ls) }
 
     private val maybeInduct = inbound.buildInduct(host.stationId, iPhysics, impl).map{
       i =>

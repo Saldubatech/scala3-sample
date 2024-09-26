@@ -4,7 +4,7 @@ import com.saldubatech.lang.Id
 import com.saldubatech.lang.types._
 
 import com.saldubatech.sandbox.ddes.{DomainMessage, Tick, Duration, Clock, SimActor, SimActorBehavior, ActionResult, OAMMessage, DomainProcessor, DomainEvent}
-import com.saldubatech.sandbox.observers.Subject
+import com.saldubatech.sandbox.observers.{Subject, NewJob}
 
 import com.saldubatech.dcf.material.Material
 
@@ -32,6 +32,9 @@ object SourceStation:
 
     private val implementation: LoadSource[M, ?] =
       LoadSourceImpl[M, LoadSource.Environment.Listener]("source", host.stationId, gen, discharge)
+
+    private val listener = LoadSourceBinding.Environment.ClientStubs.Listener(host.name, host).tap{ l => implementation.listen(l) }
+
     private val dischargeDAdaptor = DischargeBinding.API.ServerAdaptors.downstream(discharge)
     private val controlAdaptor = LoadSourceBinding.API.ServerAdaptors.control(implementation)
     private val dPhysicsAdaptor = DischargeBinding.API.ServerAdaptors.physics(discharge)
