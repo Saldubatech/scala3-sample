@@ -1,7 +1,8 @@
 package com.saldubatech.dcf.node.components.transport.bindings
 
 import com.saldubatech.lang.{Id, Identified}
-import com.saldubatech.lang.types.{AppFail, AppResult, AppSuccess, UnitResult, CollectedError, AppError, fromOption}
+import com.saldubatech.lang.types._
+import com.saldubatech.math.randomvariables.Distributions.probability
 import com.saldubatech.sandbox.ddes.{Tick, SimActor, DomainMessage, Duration}
 import com.saldubatech.dcf.material.Material
 import com.saldubatech.dcf.node.components.{Subject, SubjectMixIn, Component}
@@ -42,7 +43,7 @@ object Induct:
 
     end ClientStubs // object
 
-    object Adaptors:
+    object ServerAdaptors:
       def upstream[M <: Material : Typeable]
       (
         target: InductComponent.API.Upstream[M],
@@ -63,7 +64,32 @@ object Induct:
         case Signals.InductionFail(id, job, fromStation, card, loadId, cause) => target.inductionFail(at, fromStation, card, loadId, cause)
         case Signals.InductionFinalize(id, job, fromStation, card, loadId) => target.inductionFinalize(at, fromStation, card, loadId)
       }
-    end Adaptors
+    end ServerAdaptors
   end API
+
+  class Physics[M <: Material]
+  (
+    target: SimActor[API.Signals.Physics],
+    successDuration: (at: Tick, card: Id, load: M) => Duration,
+    minSlotDuration: Duration = 1,
+    failDuration: (at: Tick, card: Id, load: M) => Duration = (at: Tick, card: Id, load: M) => 0,
+    failureRate: (at: Tick, card: Id, load: M) => Double = (at: Tick, card: Id, load: M) => 0.0
+  ) extends InductComponent.Environment.Physics[M]:
+    var latestDischargeTime: Tick = 0
+    override def inductCommand(at: Tick, fromStation: Id, card: Id, load: M): UnitResult =
+      if (probability() > failureRate(at, card, load)) then
+      // Ensures FIFO delivery
+        latestDischargeTime = math.max(latestDischargeTime+minSlotDuration, at + successDuration(at, card, load))
+        target.env.schedule(target)(
+          latestDischargeTime,
+          API.Signals.InductionFinalize(Id, Id, fromStation, card, load.id)
+          )
+        AppSuccess.unit
+      else AppSuccess(
+        target.env.schedule(target)(
+          at + failDuration(at, card, load),
+          API.Signals.InductionFail(Id, Id, fromStation, card, load.id, None))
+        )
+  end Physics // class
 
 end Induct

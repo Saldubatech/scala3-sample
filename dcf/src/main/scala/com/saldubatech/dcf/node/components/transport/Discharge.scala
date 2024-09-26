@@ -52,7 +52,7 @@ object Discharge:
 
     trait Listener extends Identified:
       def loadDischarged(at: Tick, stationId: Id, discharge: Id, load: Material): Unit
-      def busy(at: Tick, stationId: Id, discharge: Id): Unit
+      def busyNotification(at: Tick, stationId: Id, discharge: Id): Unit
       def availableNotification(at: Tick, stationId: Id, discharge: Id): Unit
     end Listener
 
@@ -98,7 +98,7 @@ with SubjectMixIn[LISTENER]:
     cards.foreach( provisionedCards.remove(_) )
     _cards.removeAll(c => !provisionedCards(c))
     if _cards.isEmpty then
-      doNotify{ _.busy(at, stationId, id) }
+      doNotify{ _.busyNotification(at, stationId, id) }
     AppSuccess.unit
 
   def availableCards: List[Id] = _cards.toList
@@ -137,7 +137,7 @@ with SubjectMixIn[LISTENER]:
             _discharging -= card
         }
     } yield
-      if _cards.isEmpty then doNotify{ _.busy(at, stationId, id) }
+      if _cards.isEmpty then doNotify{ _.busyNotification(at, stationId, id) }
       rs
 
   // Members declared in com.saldubatech.dcf.node.components.transport.Discharge$.API$.Physics
@@ -155,7 +155,10 @@ with SubjectMixIn[LISTENER]:
       rs <- downstream.loadArriving(at, this, card, load)
     } yield
       _inTransit += loadId -> load
-      doNotify(_.loadDischarged(at, stationId, id, load))
+      doNotify{
+        l =>
+          l.loadDischarged(at, stationId, id, load)
+      }
       rs
 
 end DischargeMixIn // trait

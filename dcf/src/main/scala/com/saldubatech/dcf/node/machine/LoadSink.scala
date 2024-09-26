@@ -16,6 +16,7 @@ object LoadSink:
   type Identity = Component.Identity
 
   object API:
+    type Upstream[M <: Material] = Sink.API.Upstream[M]
     type Management[+LISTENER <: Environment.Listener] = Component.API.Management[LISTENER]
 
     type Listener = Induct.Environment.Listener
@@ -27,52 +28,44 @@ object LoadSink:
     end Listener
   end Environment
 
-  class Factory[M <: Material, LISTENER <: Environment.Listener : Typeable](
-    consumer: Option[(at: Tick, fromStation: Id, fromSource: Id, atStation: Id, atSink: Id, load: M) => UnitResult] = None
-  ):
-    def build(
-      mId: Id,
-      sId: Id,
-      inbound: Transport[M, LoadSink.API.Listener, ?],
-    ): AppResult[LoadSink[M, LISTENER]] =
-      val loadSinkId = s"$sId::LoadSink[$mId]"
-      val b = new Sink.API.Upstream[M]() {
-            override val stationId = sId
-            override val id = loadSinkId
-            override def canAccept(at: Tick, from: Id, load: M): UnitResult = AppSuccess.unit
-            override def acceptMaterialRequest(at: Tick, fromStation: Id, fromSource: Id, load: M): UnitResult =
-              consumer match
-                case None => AppSuccess.unit
-                case Some(f) => f(at, fromStation, fromSource, stationId, id, load)
-          }
-      inbound.buildInduct(sId, b).map{ i =>
-        val rs = new LoadSink[M, LISTENER]() {
-          override val stationId = sId
-          override val id = loadSinkId
-          override val binding = new Sink.API.Upstream[M]() {
-            export b.{stationId, id, canAccept}
-            override def acceptMaterialRequest(at: Tick, fromStation: Id, fromSource: Id, load: M): UnitResult =
-              doNotify{ _.loadDeparted(at, stationId, id, load) }
-              b.acceptMaterialRequest(at, fromStation, fromSource, load)
-          }
-          override val induct = i
-        }
-        i.listen(rs)
-        rs
-      }
-
-
 end LoadSink // object
 
 trait LoadSink[M <: Material, LISTENER <: LoadSink.Environment.Listener]
 extends LoadSink.Identity
 with LoadSink.API.Management[LISTENER]
-with Induct.Environment.Listener
+with LoadSink.API.Upstream[M]
 with SubjectMixIn[LISTENER]:
-  val binding: Sink.API.Upstream[M]
-  val induct: Induct[M, LoadSink.API.Listener]
-
-  def loadArrival(at: Tick, fromStation: Id, atStation: Id, atInduct: Id, load: Material): Unit = induct.deliver(at, load.id)
-  def loadDelivered(at: Tick, fromStation: Id, atStation: Id, fromInduct: Id, toSink: Id, load: Material): Unit = ()
-
+  def listening(induct: Induct.API.Management[Induct.Environment.Listener] & Induct.API.Control[M]): Unit
 end LoadSink // trait
+
+
+class LoadSinkImpl[M <: Material, LISTENER <: LoadSink.Environment.Listener : Typeable]
+(
+  lId: Id,
+  override val stationId: Id,
+  consumer: Option[(at: Tick, fromStation: Id, fromSource: Id, atStation: Id, atSink: Id, load: M) => UnitResult] = None
+)
+extends LoadSink[M, LISTENER]:
+  loadSink =>
+  override val id = s"$stationId::LoadSink[$lId]"
+
+  def listening(induct: Induct.API.Management[Induct.Environment.Listener] & Induct.API.Control[M]): Unit =
+    val listener =  new Induct.Environment.Listener() {
+      override val id: Id = loadSink.id
+      override final def loadArrival(at: Tick, fromStation: Id, atStation: Id, atInduct: Id, load: Material): Unit =
+        induct.deliver(at, load.id)
+      override final def loadDelivered(at: Tick, fromStation: Id, atStation: Id, fromInduct: Id, toSink: Id, load: Material): Unit = ()
+    }
+    induct.listen(listener)
+
+  // Unrestricted acceptance
+  override def canAccept(at: Tick, from: Id, load: M): UnitResult = AppSuccess.unit
+  override def acceptMaterialRequest(at: Tick, fromStation: Id, fromSource: Id, load: M): UnitResult =
+    consumer match
+      case None => AppSuccess.unit
+      case Some(f) =>
+        f(at, fromStation, fromSource, stationId, id, load).map{
+          _ => doNotify{ l => l.loadDeparted(at, stationId, id, load)}
+        }
+
+end LoadSinkImpl // class

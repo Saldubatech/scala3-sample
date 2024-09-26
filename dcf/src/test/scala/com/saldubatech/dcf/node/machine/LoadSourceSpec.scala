@@ -13,13 +13,14 @@ import com.saldubatech.dcf.node.{ProbeInboundMaterial, ProbeOutboundMaterial}
 
 import com.saldubatech.dcf.node.components.{Sink, Harness as ComponentsHarness}
 import com.saldubatech.dcf.node.components.transport.{Transport, TransportImpl, Discharge, Induct, Link}
+import com.saldubatech.dcf.node.machine.LoadSource
 
 import com.saldubatech.test.ddes.MockAsyncCallback
 import com.saldubatech.dcf.node.components.transport.{Harness as TransportHarness}
 import org.scalatest.matchers.should.Matchers._
 
+import scala.reflect.Typeable
 import scala.util.chaining.scalaUtilChainingOps
-import com.saldubatech.dcf.node.machine.LoadSource
 
 object LoadSourceSpec:
   import Harness._
@@ -40,7 +41,7 @@ object LoadSourceSpec:
       call("loadArrival", at, atStation, atInduct, load)
   }
 
-  def buildLoadSourceUnderTest[M <: Material](engine: MockAsyncCallback, loads: Seq[M]):
+  def buildLoadSourceUnderTest[M <: Material : Typeable](engine: MockAsyncCallback, loads: Seq[M]):
     AppResult[(TransportHarness.MockSink[M], LoadSource[M, com.saldubatech.dcf.node.machine.LoadSource.Environment.Listener], Induct[M, Induct.Environment.Listener])] =
     val obDistPhysics = TransportHarness.MockDischargePhysics[M](() => obDiscDelay, engine)
     val obTranPhysics = TransportHarness.MockLinkPhysics[M](() => obTranDelay, engine)
@@ -48,13 +49,12 @@ object LoadSourceSpec:
     val outbound: Transport[M, ?, Discharge.Environment.Listener] =  TransportImpl[M, Induct.Environment.Listener, Discharge.Environment.Listener](
       s"T_OB",
       Some(obTranCapacity),
-      obIndcPhysics,
-      Induct.Component.FIFOArrivalBuffer[M](),
+      Induct.Component.FIFOArrivalBuffer[M]()
     )
     val outBinding = TransportHarness.MockSink[M](outbound.id, "TERM")
     for {
-      outInduct <- outbound.buildInduct("Term", outBinding)
-      outDischarge <- outbound.buildDischarge("InStation", obDistPhysics, obTranPhysics, ackStubFactory[M](engine))
+      outInduct <- outbound.buildInduct("Term", obIndcPhysics, outBinding)
+      outDischarge <- outbound.buildDischarge("InStation", obDistPhysics, obTranPhysics, ackStubFactory[M](engine), i => i)
       i <- outbound.induct
       l <- outbound.link
       d <- outbound.discharge

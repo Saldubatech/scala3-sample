@@ -230,8 +230,6 @@ class ProcessorSpec extends BaseSpec:
         engine.runOne() shouldBe Symbol("isRight")
         withClue(mockSink.receivedCalls.mkString("\n\t", "\n\t", "\n")){ mockSink.receivedCalls.size shouldBe 1 }
         val expectedProduct = ProbeOutboundMaterial(js.id, probes)
-        println(s"${mockSink.receivedCalls.head}")
-        println(s"${mockSink.call("acceptRequest", opTime+1, underTest.stationId, expectedProduct)}")
         mockSink.receivedCalls.head shouldBe mockSink.call("acceptRequest", opTime+1, underTest.stationId, underTest.id,expectedProduct)
       }
       "Not Allow any operations after Pushing" in {

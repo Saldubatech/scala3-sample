@@ -77,8 +77,7 @@ object Harness:
         val transport = TransportImpl[M, Controller.API.Listener, Controller.API.Listener](
           s"T[$idx]",
           Some(ibTranCapacity),
-          iPhysics,
-          Induct.Component.FIFOArrivalBuffer[M](),
+          Induct.Component.FIFOArrivalBuffer[M]()
         )
         (dPhysics, tPhysics, iPhysics, transport)
     }.toList
@@ -100,8 +99,7 @@ object Harness:
         val transport = TransportImpl[M, Controller.API.Listener, Controller.API.Listener](
           s"T[$idx]",
           Some(obTranCapacity),
-          iPhysics,
-          Induct.Component.FIFOArrivalBuffer[M](),
+          Induct.Component.FIFOArrivalBuffer[M]()
         )
         (dPhysics, tPhysics, iPhysics, transport)
     }.toList
@@ -109,7 +107,7 @@ object Harness:
       destinationInducts <- outTransports.map{
         tr =>
           val binding = TransportHarness.MockSink[M](tr._4.id, "TERM")
-          tr._4.buildInduct("TERM", binding).map{ induct => tr._4.id -> (binding, induct)}
+          tr._4.buildInduct("TERM", tr._3, binding).map{ induct => tr._4.id -> (binding, induct)}
       }.collectAll
       m <-
         val produce: (Tick, Wip.InProgress) => AppResult[Option[M]] =
@@ -122,8 +120,8 @@ object Harness:
           () => pPushDelay,
           engine)
         val procFactory: TransferMachine.ProcessorFactory[M] = com.saldubatech.dcf.node.machine.TransferMachine.ProcessorFactory[M](pPhysics, produce)
-        val machineFactory: TransferMachine.Factory[M, Controller.Environment.Listener] = com.saldubatech.dcf.node.machine.TransferMachine.Factory(procFactory, Controller.PushFactory, resolver)
-        machineFactory.build("underTest", "InStation", inTransports.map{_._4}, outTransports.map{r => (r._4, r._1, r._2, ackStubFactory(engine))}, maxConcurrentJobs).map{
+        val machineFactory: TransferMachine.Factory[M, Controller.Environment.Listener] = TransferMachine.Factory(procFactory, Controller.PushFactory, resolver, i => i)
+        machineFactory.build("underTest", "InStation", inTransports.map{ r => (r._3, r._4) }, outTransports.map{r => (r._4, r._1, r._2, ackStubFactory(engine))}, maxConcurrentJobs).map{
           m0 => m0.tap{ m => pPhysics.underTest = m.processor}
          }
       originDischarges <-
@@ -131,7 +129,8 @@ object Harness:
           "ORIGIN",
           tr._1,
           tr._2,
-          ackStubFactory(engine)
+          ackStubFactory(engine),
+          i => i
           ).map{ d => tr._4.id -> d} }.collectAll
       inTransportBinding <-
         inTransports.map{

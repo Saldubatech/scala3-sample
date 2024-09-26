@@ -55,12 +55,17 @@ extends Identified:
   def discharge: AppResult[Discharge[M, D_LISTENER]]
   def link: AppResult[Link[M]]
 
-  def buildInduct(stationId: Id, binding: Sink.API.Upstream[M]): AppResult[Induct[M, I_LISTENER]]
+  def buildInduct(
+    stationId: Id,
+    iPhysics: Induct.Environment.Physics[M],
+    binding: Sink.API.Upstream[M]
+    ): AppResult[Induct[M, I_LISTENER]]
   def buildDischarge(
     stationId: Id,
     dPhysics: Discharge.Environment.Physics[M],
     tPhysics: Link.Environment.Physics[M],
-    stubFactory: Discharge[M, D_LISTENER] => Discharge.Identity & Discharge.API.Downstream
+    stubFactory: Discharge[M, D_LISTENER] => Discharge.Identity & Discharge.API.Downstream,
+    inductUpstreamInjector: Induct[M, ?] => Induct.API.Upstream[M]
   ): AppResult[Discharge[M, D_LISTENER]]
 end Transport // trait
 
@@ -68,10 +73,10 @@ class TransportImpl[M <: Material, I_LISTENER <: Induct.Environment.Listener : T
 (
   override val id: Id,
   tCapacity: Option[Int],
-  iPhysics: Induct.Environment.Physics[M],
-  arrivalStore: Induct.Component.ArrivalBuffer[M],
+  arrivalStore: Induct.Component.ArrivalBuffer[M]
 )
 extends Transport[M, I_LISTENER, D_LISTENER]:
+  transport =>
   private var _induct: Option[Induct[M, I_LISTENER]] = None
   private var _link: Option[Link[M]] = None
   private var _discharge: Option[Discharge[M, D_LISTENER]] = None
@@ -80,7 +85,7 @@ extends Transport[M, I_LISTENER, D_LISTENER]:
   def discharge: AppResult[Discharge[M, D_LISTENER]] = fromOption(_discharge)
   def link: AppResult[Link[M]] = fromOption(_link)
 
-  override def buildInduct(stationId: Id, binding: Sink.API.Upstream[M]): AppResult[Induct[M, I_LISTENER]] =
+  override def buildInduct(stationId: Id, iPhysics: Induct.Environment.Physics[M], binding: Sink.API.Upstream[M]): AppResult[Induct[M, I_LISTENER]] =
     _induct match
       case None =>
         val rs = InductImpl[M, I_LISTENER](id, stationId, binding, arrivalStore, iPhysics)
@@ -93,7 +98,8 @@ extends Transport[M, I_LISTENER, D_LISTENER]:
     stationId: Id,
     dPhysics: Discharge.Environment.Physics[M],
     tPhysics: Link.Environment.Physics[M],
-    stubFactory: Discharge[M, D_LISTENER] => Discharge.Identity & Discharge.API.Downstream
+    stubFactory: Discharge[M, D_LISTENER] => Discharge.Identity & Discharge.API.Downstream,
+    inductUpstreamInjector: Induct[M, ?] => Induct.API.Upstream[M]
   ): AppResult[Discharge[M, D_LISTENER]] =
     (_discharge, _induct) match
       case (_, None) => AppFail.fail(s"Cannot Create Discharge until the Induct is available")
@@ -103,10 +109,10 @@ extends Transport[M, I_LISTENER, D_LISTENER]:
           var _upstream: Option[Discharge.API.Downstream & Discharge.Identity] = None
         }
         val nLink = new LinkMixIn[M] with UPS {
-          override val id: Id = s"Link[$id"
+          override val id: Id = s"Link[${transport.id}]"
           override val maxCapacity = tCapacity
           override val physics = tPhysics
-          override val downstream = in
+          override val downstream = inductUpstreamInjector(in)
           override lazy val upstream = _upstream.get
         }
         val dis: Discharge[M, D_LISTENER] = DischargeImpl[M, D_LISTENER](id, stationId, dPhysics, nLink, stubFactory)

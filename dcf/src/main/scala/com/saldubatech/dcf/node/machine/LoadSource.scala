@@ -38,7 +38,7 @@ object LoadSource:
 
 end LoadSource
 
-trait LoadSource[M <: Material, LISTENER <: LoadSource.Environment.Listener]
+trait LoadSource[M <: Material : Typeable, LISTENER <: LoadSource.Environment.Listener]
 extends LoadSource.Identity
 with LoadSource.API.Management[LISTENER]
 with LoadSource.API.Control
@@ -63,7 +63,7 @@ with SubjectMixIn[LISTENER]:
   override def loadDischarged(at: Tick, stationId: Id, discharge: Id, load: Material): Unit =
     doNotify{ l => l.loadArrival(at, stationId, id, load) }
 
-  override def busy(at: Tick, stationId: Id, discharge: Id): Unit = _busy = true
+  override def busyNotification(at: Tick, stationId: Id, discharge: Id): Unit = _busy = true
   override def availableNotification(at: Tick, stationId: Id, discharge: Id): Unit =
     _busy = false
     run(at)
@@ -71,7 +71,7 @@ with SubjectMixIn[LISTENER]:
 end LoadSource // trait
 
 
-class LoadSourceImpl[M <: Material, LISTENER <: LoadSource.Environment.Listener : Typeable]
+class LoadSourceImpl[M <: Material : Typeable, LISTENER <: LoadSource.Environment.Listener : Typeable]
 (
   mId: Id,
   override val stationId: Id,

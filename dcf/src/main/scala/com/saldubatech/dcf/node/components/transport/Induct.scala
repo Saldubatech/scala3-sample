@@ -34,6 +34,8 @@ object Induct:
 
     type Management[+LISTENER <: Environment.Listener] = GComponent.API.Management[LISTENER]
 
+    type Listener = Sink.Environment.Listener
+
     trait Downstream:
     end Downstream
 
@@ -151,7 +153,8 @@ with SubjectMixIn[LISTENER]:
         binding.acceptMaterialRequest(at, arrival.from.stationId, arrival.from.id, arrival.material)
           .tapError{ _ => arrivalStore.store(at, arrival) }
     } yield
-      doNotify(_.loadDelivered(at, arrival.from.stationId, stationId, id, binding.id, arrival.material))
+      doNotify( l =>
+        l.loadDelivered(at, arrival.from.stationId, stationId, id, binding.id, arrival.material))
       rs
 
   // Indexed by Card.
@@ -195,7 +198,9 @@ with SubjectMixIn[LISTENER]:
       _ <- arrivalStore.store(at, arrival)
     } yield
       cardsByOrigin.getOrElseUpdate(from.id, (from, collection.mutable.Queue.empty[Id]))._2.enqueue(card)
-      doNotify(_.loadArrival(at, fromStation, stationId, id, arrival.material))
+      doNotify( l =>
+        l.loadArrival(at, fromStation, stationId, id, arrival.material)
+        )
 
 
 class InductImpl[M <: Material, LISTENER <: Induct.Environment.Listener : Typeable]

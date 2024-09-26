@@ -69,15 +69,14 @@ object Discharge:
       if (probability() > failureRate(at, card, load)) then
         // Ensures FIFO delivery
         latestDischargeTime = math.max(latestDischargeTime+minSlotDuration, at + successDuration(at, card, load))
-        AppSuccess(
         target.env.schedule(target)(
           latestDischargeTime,
           API.Signals.DischargeFinalize(Id, Id, card, load.id))
-        )
+        AppSuccess.unit
       else AppSuccess(
         target.env.schedule(target)(
           at + failDuration(at, card, load),
-          API.Signals.DischargeFinalize(Id, Id, card, load.id))
+          API.Signals.DischargeFail(Id, Id, card, load.id, None))
         )
   end Physics
 

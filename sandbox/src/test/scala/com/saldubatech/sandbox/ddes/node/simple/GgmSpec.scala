@@ -17,10 +17,10 @@ import scala.language.postfixOps
 import com.saldubatech.sandbox.ddes.Tick
 import com.saldubatech.math.randomvariables.Distributions.LongRVar
 import com.saldubatech.test.BaseSpec
-import org.apache.pekko.actor.typed.scaladsl.ActorContext
-import org.apache.pekko.actor.typed.ActorRef
+import org.apache.pekko.actor.typed.scaladsl.{ActorContext}
+import org.apache.pekko.actor.typed.{ActorRef, ActorSystem}
 import com.saldubatech.sandbox.ddes.DDE.SupervisorProtocol
-import org.apache.pekko.actor.typed.ActorSystem
+
 import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
 import zio.test.{ZIOSpecDefault, assertTrue, assertCompletes}
 

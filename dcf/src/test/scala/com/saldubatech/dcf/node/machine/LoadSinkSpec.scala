@@ -52,7 +52,6 @@ object LoadSinkSpec:
   ): AppResult[(Discharge[M, Discharge.Environment.Listener], LoadSink[M, com.saldubatech.dcf.node.machine.LoadSink.Environment.Listener], Consumer[M])] =
     val consumer = Consumer[M]
 
-    val factory = com.saldubatech.dcf.node.machine.LoadSink.Factory[M, com.saldubatech.dcf.node.machine.LoadSink.Environment.Listener](Some(consumer.consume))
     val ibDistPhysics = TransportHarness.MockDischargePhysics[M](() => ibDiscDelay, engine)
     val ibTranPhysics = TransportHarness.MockLinkPhysics[M](() => ibTranDelay, engine)
     val ibIndcPhysics = TransportHarness.MockInductPhysics[M](() => ibIndcDelay, engine)
@@ -60,12 +59,16 @@ object LoadSinkSpec:
     val ibTransport = TransportImpl[M, Induct.Environment.Listener, Discharge.Environment.Listener](
       s"T_IB",
       Some(obTranCapacity),
-      ibIndcPhysics,
-      Induct.Component.FIFOArrivalBuffer[M](),
+      Induct.Component.FIFOArrivalBuffer[M]()
     )
     for {
-      underTest <- factory.build("underTest", "InStation", ibTransport)
-      ibDischarge <- ibTransport.buildDischarge("TestHarness", ibDistPhysics, ibTranPhysics, ackStubFactory(engine))
+      inductAndSink <-
+        val rs = LoadSinkImpl[M, LoadSink.Environment.Listener]("underTest", "InStation", Some(consumer.consume))
+        ibTransport.buildInduct("TestHarness", ibIndcPhysics, rs).map{ i =>
+          rs.listening(i)
+          i -> rs
+        }
+      ibDischarge <- ibTransport.buildDischarge("TestHarness", ibDistPhysics, ibTranPhysics, ackStubFactory(engine), i => i)
       i <- ibTransport.induct
       l <- ibTransport.link
       d <- ibTransport.discharge
@@ -74,7 +77,7 @@ object LoadSinkSpec:
       ibDistPhysics.underTest = d
       ibTranPhysics.underTest = l
       ibIndcPhysics.underTest = i
-      (ibDischarge, underTest, consumer)
+      (ibDischarge, inductAndSink._2, consumer)
 
 end LoadSinkSpec // object
 

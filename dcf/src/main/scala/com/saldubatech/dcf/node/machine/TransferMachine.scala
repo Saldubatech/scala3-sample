@@ -46,12 +46,13 @@ object TransferMachine:
   (
     processorFactory: TransferMachine.ProcessorFactory[M],
     controllerFactory: Controller.Factory,
-    resolver: (fromInbound: Id, load: Material) => Option[Id]
+    resolver: (fromInbound: Id, load: Material) => Option[Id],
+    inductUpstreamInjector: Induct[M, ?] => Induct.API.Upstream[M]
   ):
     def build(
       mId: Id,
       sId: Id,
-      inbound: List[Transport[M, Controller.API.Listener, ?]],
+      inbound: List[(Induct.Environment.Physics[M], Transport[M, Controller.API.Listener, ?])],
       outbound:
         List[
           (
@@ -73,7 +74,7 @@ object TransferMachine:
           for {
             (tr, dP, tP, ackSFactory) <- outbound
           } yield for {
-            d: Discharge[M, Controller.API.Listener] <- tr.buildDischarge(sId, dP, tP, ackSFactory)
+            d: Discharge[M, Controller.API.Listener] <- tr.buildDischarge(sId, dP, tP, ackSFactory, inductUpstreamInjector)
           } yield tr.id -> d
         ).collectAll.map{ _.toMap }
         r1 <-
@@ -82,11 +83,12 @@ object TransferMachine:
           val processor: Processor[M, Controller.API.Listener] = processorFactory.build[Controller.API.Listener](mId, sId, maxConcurrentJobs, Some(obDistributor))
 
           val inboundCollector: Collector[M, Controller.API.Listener] =
-            Collector("IB", sId, inbound.map{ _.id }, processor, (sId, downstream) => new ProxySink[Material, Sink.Environment.Listener](sId, downstream) {})
+            Collector("IB", sId, inbound.map{ _._2.id }, processor, (sId, downstream) => new ProxySink[Material, Sink.Environment.Listener](sId, downstream) {})
 
           val monitoredIntakes = inboundCollector.inlets.map { (iId, sink) => iId -> routingTable.scanner(sink) }.toMap
+
           val inboundRs: AppResult[Map[Id, Induct[M, Controller.API.Listener]]] = inbound.map{
-            tr => tr.buildInduct(sId, monitoredIntakes(tr.id)).map{ i => i.id -> i}
+            (iP, tr) => tr.buildInduct(sId, iP, monitoredIntakes(tr.id)).map{ i => i.id -> i}
           }.collectAll.map{ _.toMap }
 
           inboundRs.map{ ib => (obDistributor, processor, inboundCollector, monitoredIntakes, ib) }

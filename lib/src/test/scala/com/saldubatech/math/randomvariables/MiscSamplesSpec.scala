@@ -54,8 +54,7 @@ class MiscSamplesSpec extends AnyWordSpec
         val data: RDD[Double] = sc.parallelize(seq)
         def expCdf(l: Double)(x: Double): Double = 1.0 - scala.math.exp(-l*x)
         val testResult = Statistics.kolmogorovSmirnovTest(data, expCdf(1.0/mean))
-//        assert(testResult.pValue > 0.2)
-        println(s"##### The result to accept is: $testResult")
+        println(s">>>>> The result to accept is: $testResult")
 
       }
     }
