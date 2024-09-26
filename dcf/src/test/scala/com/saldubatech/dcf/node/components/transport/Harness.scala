@@ -112,9 +112,10 @@ object Harness:
     engine: MockAsyncCallback
   )
   extends Discharge.API.Downstream with Discharge.Identity:
-    override def restore(at: Tick, cards: List[Id]): UnitResult = AppSuccess(engine.add(at)(() => host.restore(at, cards)))
+    override def restore(at: Tick, cards: List[Id]): UnitResult =
+      AppSuccess(engine.add(at)(() => host.restore(at, cards)))
 
-    def acknowledge(at: Tick, loadId: Id): UnitResult = AppSuccess.unit
+    def acknowledge(at: Tick, loadId: Id): UnitResult = host.acknowledge(at, loadId)
   end MockAckStub // class
 
 end Harness // object

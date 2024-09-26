@@ -206,7 +206,7 @@ class TransportSpec extends BaseSpec:
       iPhysics.underTest = induct.value
       tPhysics.underTest = underTest.link.value
       discharge.value.addCards(0, cards)
-      "Trigger the Transport and Induct Physics in Order" in {
+      "Trigger the Transport and Induct Logic in Order" in {
         discharge.value.discharge(0, probe)
         engine.pending.size shouldBe 1
         engine.pending(dischargeDelay).size shouldBe 1
@@ -219,6 +219,10 @@ class TransportSpec extends BaseSpec:
         engine.runOne()
         engine.pending.size shouldBe 1
         engine.pending(dischargeDelay+transportDelay+inductDelay).size shouldBe 1
+      }
+      "The load is 'In Arrival' in the Induct" in {
+        induct.value.cards.size shouldBe 0
+        induct.value.contents.size shouldBe 0
         underTest.link.value.currentInTransit.size shouldBe 0
       }
       "Have the load and card in the Induct" in {
@@ -226,6 +230,8 @@ class TransportSpec extends BaseSpec:
         engine.runOne()
         induct.value.cards.size shouldBe 1
         induct.value.cards.head shouldBe cards.head
+        induct.value.contents.size shouldBe 1
+        underTest.link.value.currentInTransit.size shouldBe 0
       }
       "Be able to deliver the received load to a provided sink" in {
         val currentTime = dischargeDelay+transportDelay+inductDelay
@@ -242,6 +248,11 @@ class TransportSpec extends BaseSpec:
       "Acknowledge the received cards to their senders" in {
         induct.value.restoreAll(4, discharge.value.id)
         induct.value.cards.size shouldBe 0
+        // Not restored yet, signal "in-transit"
+        discharge.value.availableCards.size shouldBe cards.size - 1
+      }
+      "The Discharge received the card when signal completes" in {
+        engine.runOne()
         discharge.value.availableCards.size shouldBe cards.size
       }
     }

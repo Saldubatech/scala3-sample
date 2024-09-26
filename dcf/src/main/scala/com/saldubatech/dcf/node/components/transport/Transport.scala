@@ -105,19 +105,14 @@ extends Transport[M, I_LISTENER, D_LISTENER]:
       case (_, None) => AppFail.fail(s"Cannot Create Discharge until the Induct is available")
       case (Some(_), _) => AppFail.fail(s"Discharge already created")
       case (None, Some(in)) =>
-        trait UPS {
-          var _upstream: Option[Discharge.API.Downstream & Discharge.Identity] = None
-        }
-        val nLink = new LinkMixIn[M] with UPS {
+        val nLink = new LinkMixIn[M] {
           override val id: Id = s"Link[${transport.id}]"
           override val maxCapacity = tCapacity
           override val physics = tPhysics
           override val downstream = inductUpstreamInjector(in)
-          override lazy val upstream = _upstream.get
         }
         val dis: DischargeImpl[M, D_LISTENER] = DischargeImpl[M, D_LISTENER](id, stationId, dPhysics, nLink, stubFactory)
         _discharge = Some(dis)
-        nLink._upstream = Some(dis.downstreamAcknowledgeEndpoint)
         _link = Some(nLink)
         AppSuccess(dis)
 end TransportImpl // class

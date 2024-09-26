@@ -2,6 +2,7 @@ package com.saldubatech.dcf.node.components.transport
 
 import com.saldubatech.lang.{Id, Identified}
 import com.saldubatech.lang.types._
+import com.saldubatech.util.stack
 import com.saldubatech.sandbox.ddes.Tick
 import com.saldubatech.dcf.material.Material
 import com.saldubatech.dcf.node.components.{Subject, SubjectMixIn, Component, Sink}
@@ -79,7 +80,7 @@ end Discharge
 trait DischargeMixIn[M <: Material, LISTENER <: Discharge.Environment.Listener]
 extends Discharge[M, LISTENER]
 with SubjectMixIn[LISTENER]:
-  val downstreamAcknowledgeEndpoint: Discharge.API.Downstream & Discharge.Identity
+  protected val downstreamAcknowledgeEndpoint: Discharge.API.Downstream & Discharge.Identity
   val downstream: Discharge.Environment.Downstream[M]
   val physics: Discharge.Environment.Physics[M]
 
@@ -115,7 +116,7 @@ with SubjectMixIn[LISTENER]:
     AppSuccess.unit
 
   def acknowledge(at: Tick, loadId: Id): UnitResult =
-    Component.inStation(id, "Acknowledgement")(_inTransit.remove)(loadId).unit
+    Component.inStation(id, s"InTransit Load")(_inTransit.remove)(loadId).unit
 
   private val _discharging = collection.mutable.Map.empty[Id, M]
 
@@ -152,7 +153,7 @@ with SubjectMixIn[LISTENER]:
   def dischargeFinalize(at: Tick, card: Id, loadId: Id): UnitResult =
     for {
       load <- Component.inStation(stationId, "Discharging")(_discharging.remove)(card)
-      rs <- downstream.loadArriving(at, this, card, load)
+      rs <- downstream.loadArriving(at, this.downstreamAcknowledgeEndpoint, card, load)
     } yield
       _inTransit += loadId -> load
       doNotify{
@@ -178,7 +179,7 @@ class DischargeImpl[M <: Material, LISTENER <: Discharge.Environment.Listener : 
     override val id: Id = s"$stationId::Discharge[$dId]"
 
     // Members declared in com.saldubatech.dcf.node.components.transport.DischargeMixIn
-    override val downstreamAcknowledgeEndpoint: Discharge.API.Downstream & Discharge.Identity = ackFactory(this)
+    override protected val downstreamAcknowledgeEndpoint: Discharge.API.Downstream & Discharge.Identity = ackFactory(this)
 
 
 end DischargeImpl // class

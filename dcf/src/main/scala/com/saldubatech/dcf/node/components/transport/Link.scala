@@ -49,23 +49,36 @@ end Link // trait
 
 trait LinkMixIn[M <: Material]
 extends Link[M]:
+  link =>
   val maxCapacity: Option[Int]
   val physics: Link.Environment.Physics[M]
   val downstream: Induct.API.Upstream[M]
-  lazy val upstream: Discharge.API.Downstream & Discharge.Identity
 
-  private val _inTransit = collection.mutable.Map.empty[Id, M]
+  private val _inTransit = collection.mutable.Map.empty[Id, (Discharge.API.Downstream & Discharge.Identity, M)]
+
+  def backSignalProxy(upstream: Discharge.API.Downstream & Discharge.Identity): Discharge.API.Downstream & Discharge.Identity =
+    new Discharge.API.Downstream() with Discharge.Identity {
+      override val id: Id = upstream.id
+      override val stationId: Id = upstream.stationId
+      override def acknowledge(at: Tick, loadId: Id): UnitResult =
+        for {
+          _ <- link.acknowledge(at, loadId)
+          _ <- upstream.acknowledge(at, loadId)
+        } yield ()
+
+      override def restore(at: Tick, cards: List[Id]): UnitResult = upstream.restore(at, cards)
+    }
 
   def acknowledge(at: Tick, loadId: Id): UnitResult =
     for {
-      load <- Component.inStation(id, "Acknowledgement")(_inTransit.remove)(loadId)
-      acknowledgement <- upstream.acknowledge(at, loadId).tapError{
-        err => _inTransit += loadId -> load
-      }
-    } yield acknowledgement
+      load <- Component.inStation(id, "InTransitLoad")(_inTransit.remove)(loadId)
+      // acknowledgement <- upstream.acknowledge(at, loadId).tapError{
+      //   err => _inTransit += loadId -> load
+      // }
+    } yield ()
 
   // From API.Control
-  def currentInTransit: List[M] = _inTransit.values.toList
+  def currentInTransit: List[M] = _inTransit.values.toList.map{ _._2 }
   // From API.Upstream
   override def canAccept(at: Tick, from: Discharge.API.Downstream & Discharge.Identity, card: Id, load: M): AppResult[M] =
     maxCapacity match
@@ -78,14 +91,15 @@ extends Link[M]:
     for {
       allow <- canAccept(at, from, card, load)
     } yield
-      _inTransit += load.id -> load
+      _inTransit += load.id -> (from, load)
       physics.transportCommand(at, id, card, load)
 
   // From API.Physics
   override def transportFinalize(at: Tick, link: Id, card: Id, loadId: Id): UnitResult =
     for {
-      load <- Component.inStation(id, "InTransit Material")(_inTransit.get)(loadId)
-      _ <- downstream.loadArriving(at, upstream, card, load).tapError{ _ => _inTransit += load.id -> load }
+      entry <- Component.inStation(id, "InTransit Material")(_inTransit.get)(loadId)
+      _ <- downstream.loadArriving(at, backSignalProxy(entry._1), card, entry._2)
+            .tapError{ _ => _inTransit += entry._2.id -> entry }
       acknowledgement <- acknowledge(at, loadId)
     } yield acknowledgement
 
