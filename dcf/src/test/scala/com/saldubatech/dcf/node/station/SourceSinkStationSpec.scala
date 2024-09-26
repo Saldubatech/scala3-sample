@@ -58,7 +58,16 @@ object SourceSinkStationSpec extends ZIOSpecDefault with LogEnabled with Matcher
     )
 
   val sink = SinkStation[ProbeInboundMaterial](sinkStation, transport, (at, card, load) => inductDelay, Some(consumer.consume), clock)
-  val source = SourceStation[ProbeInboundMaterial](sourceStation, sink, transport, (at, card, load) => dischargeDelay, (at, card, load) => transportDelay, probes, cards, clock)
+  val source = SourceStation[ProbeInboundMaterial](
+    sourceStation,
+    sink,
+    transport,
+    (at, card, load) => dischargeDelay,
+    (at, card, load) => transportDelay,
+    probes,
+    cards,
+    clock
+    )
 
   val config = new DDE.SimulationComponent {
     override def initialize(ctx: ActorContext[SupervisorProtocol]): Map[Id, ActorRef[?]] =

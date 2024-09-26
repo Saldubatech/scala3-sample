@@ -57,7 +57,12 @@ extends Link[M]:
   private val _inTransit = collection.mutable.Map.empty[Id, M]
 
   def acknowledge(at: Tick, loadId: Id): UnitResult =
-    Component.inStation(id, "Acknowledgement")(_inTransit.remove)(loadId).unit
+    for {
+      load <- Component.inStation(id, "Acknowledgement")(_inTransit.remove)(loadId)
+      acknowledgement <- upstream.acknowledge(at, loadId).tapError{
+        err => _inTransit += loadId -> load
+      }
+    } yield acknowledgement
 
   // From API.Control
   def currentInTransit: List[M] = _inTransit.values.toList
@@ -80,10 +85,9 @@ extends Link[M]:
   override def transportFinalize(at: Tick, link: Id, card: Id, loadId: Id): UnitResult =
     for {
       load <- Component.inStation(id, "InTransit Material")(_inTransit.get)(loadId)
-      rs <- downstream.loadArriving(at, upstream, card, load).tapError{ _ => _inTransit += load.id -> load }
-    } yield
-      _inTransit -= loadId
-      rs
+      _ <- downstream.loadArriving(at, upstream, card, load).tapError{ _ => _inTransit += load.id -> load }
+      acknowledgement <- acknowledge(at, loadId)
+    } yield acknowledgement
 
   override def transportFail(at: Tick, linkId: Id, card: Id, loadId: Id, cause: Option[AppError]): UnitResult =
     // This removes the load upon failure (e.g. it gets physically removed via an exit chute or something like that)

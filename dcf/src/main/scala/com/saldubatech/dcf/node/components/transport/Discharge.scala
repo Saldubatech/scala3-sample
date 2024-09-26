@@ -79,7 +79,7 @@ end Discharge
 trait DischargeMixIn[M <: Material, LISTENER <: Discharge.Environment.Listener]
 extends Discharge[M, LISTENER]
 with SubjectMixIn[LISTENER]:
-  protected val ackStub: Discharge.API.Downstream & Discharge.Identity
+  val downstreamAcknowledgeEndpoint: Discharge.API.Downstream & Discharge.Identity
   val downstream: Discharge.Environment.Downstream[M]
   val physics: Discharge.Environment.Physics[M]
 
@@ -178,7 +178,7 @@ class DischargeImpl[M <: Material, LISTENER <: Discharge.Environment.Listener : 
     override val id: Id = s"$stationId::Discharge[$dId]"
 
     // Members declared in com.saldubatech.dcf.node.components.transport.DischargeMixIn
-    override protected val ackStub: Discharge.API.Downstream & Discharge.Identity = ackFactory(this)
+    override val downstreamAcknowledgeEndpoint: Discharge.API.Downstream & Discharge.Identity = ackFactory(this)
 
 
 end DischargeImpl // class

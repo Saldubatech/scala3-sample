@@ -112,7 +112,7 @@ with Sink.API.Management[LISTENER]
 with Sink.Environment.Listener
 with SubjectMixIn[LISTENER]:
   self: LISTENER =>
-  override val id: Id = s"Proxy[$pId]::${downstream.id}"
+  override val id: Id = downstream.id
   override val stationId = downstream.stationId
 
   downstream.listen(this)

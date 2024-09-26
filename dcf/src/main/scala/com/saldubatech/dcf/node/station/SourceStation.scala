@@ -67,7 +67,7 @@ with Subject:
   private val dischargePhysics = DischargeBinding.Physics[M](this, dSuccessDuration)
   private val transportPhysics = LinkBinding.Physics[M](this, tSuccessDuration)
   private val ackStubFactory: Discharge[M, LoadSource.API.Listener] => Discharge.Identity & Discharge.API.Downstream =
-    discharge => DischargeBinding.API.ClientStubs.Downstream(this, s"Proxy[${discharge.id}]", discharge.stationId)
+    discharge => DischargeBinding.API.ClientStubs.Downstream(this, discharge.id, discharge.stationId)
 
 
   private val inductUpstreamInjector: Induct[M, ?] => Induct.API.Upstream[M] = i => InductBinding.API.ClientStubs.Upstream(target)

@@ -115,9 +115,9 @@ extends Transport[M, I_LISTENER, D_LISTENER]:
           override val downstream = inductUpstreamInjector(in)
           override lazy val upstream = _upstream.get
         }
-        val dis: Discharge[M, D_LISTENER] = DischargeImpl[M, D_LISTENER](id, stationId, dPhysics, nLink, stubFactory)
+        val dis: DischargeImpl[M, D_LISTENER] = DischargeImpl[M, D_LISTENER](id, stationId, dPhysics, nLink, stubFactory)
         _discharge = Some(dis)
-        nLink._upstream = Some(dis)
+        nLink._upstream = Some(dis.downstreamAcknowledgeEndpoint)
         _link = Some(nLink)
         AppSuccess(dis)
 end TransportImpl // class

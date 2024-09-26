@@ -56,7 +56,7 @@ class DischargeSpec extends BaseSpec:
       "enable discharging after completing a discharge and being acknowledged of a card" in {
         engine.runOne() shouldBe Symbol("isRight")
         mockInduct.receivedLoads.size shouldBe 1
-        underTest.ackStub.restore(4, List(mockInduct.receivedLoads.head._2))
+        underTest.downstreamAcknowledgeEndpoint.restore(4, List(mockInduct.receivedLoads.head._2))
         engine.run(None)
         mockInduct.receivedLoads.size shouldBe 4
         underTest.canDischarge(5, probe) shouldBe Symbol("isRight")
