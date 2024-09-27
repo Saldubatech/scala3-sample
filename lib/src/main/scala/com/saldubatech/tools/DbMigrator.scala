@@ -1,7 +1,7 @@
-package com.saldubatech.sandbox.system
+package com.saldubatech.tools
 
 import com.saldubatech.infrastructure.storage.rdbms.PGDataSourceBuilder
-import com.saldubatech.persistence.{DbMigrations, FlywayMigrations}
+import com.saldubatech.infrastructure.storage.rdbms.util.{DbMigrations, FlywayMigrations}
 import com.typesafe.config.{Config, ConfigFactory}
 import zio.{IO, Task, ZIO, ZIOAppDefault}
 

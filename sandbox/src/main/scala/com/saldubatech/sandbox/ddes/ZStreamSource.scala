@@ -4,7 +4,7 @@ package com.saldubatech.sandbox.ddes
 import com.saldubatech.math.randomvariables.Distributions.LongRVar
 import com.saldubatech.sandbox.observers.Subject.ObserverManagement
 import com.saldubatech.sandbox.observers.{NewJob, Departure, OperationEventNotification, Subject}
-import com.saldubatech.lang.types.CollectedError
+import com.saldubatech.lang.types._
 import com.saldubatech.lang.Id
 
 import com.saldubatech.util.LogEnabled
@@ -21,6 +21,9 @@ import zio.Exit.Success
 import zio.Exit.Failure
 
 import scala.reflect.ClassTag
+import com.saldubatech.ddes.types.{DomainMessage, Tick, OAMMessage}
+import com.saldubatech.ddes.runtime.Clock
+import com.saldubatech.ddes.elements.{DomainProcessor, SimActor, SimActorBehavior, SimEnvironment, DomainEvent}
 
 
 object ZStreamSource:
@@ -67,7 +70,7 @@ object ZStreamSource:
       notifier(Departure(forTime, targetMsg.job, name))
 
 
-    override def accept(at: Tick, ev: DomainEvent[StreamTrigger[SOURCED]]): ActionResult =
+    override def accept(at: Tick, ev: DomainEvent[StreamTrigger[SOURCED]]): UnitResult =
       var forTime = ev.payload.startDelay match {
         case None => at
         case Some(withDelay) => at + withDelay
@@ -98,7 +101,7 @@ class ZStreamSource[SOURCED <: DomainMessage : Typeable : ClassTag, TARGETED <: 
   override val domainProcessor: DomainProcessor[ZStreamSource.StreamTrigger[SOURCED]] =
     ZStreamSource.DP(target, transformation, name, interval, opEv => eventNotify(opEv))
 
-  override def oam(msg: OAMMessage): ActionResult =
+  override def oam(msg: OAMMessage): UnitResult =
     msg match
       case obsMsg: ObserverManagement => observerManagement(obsMsg)
       case _ => Right(())

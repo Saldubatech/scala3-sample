@@ -14,7 +14,6 @@ Test / run / fork := true
 Test / parallelExecution := false
 run / envVars += "DB_PASSWORD" -> localConfig.value.fold("")(_.getString("DB_PASSWORD"))
 run / envVars += "DB_PORT" -> localConfig.value.fold("")(_.getString("DB_PORT"))
-val wkw = ExclusionRule()
 
 envFileName := "sandbox/.env"
 

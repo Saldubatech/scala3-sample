@@ -1,6 +1,7 @@
 package com.saldubatech.sandbox.ddes
 
 import com.saldubatech.lang.Id
+import com.saldubatech.ddes.types.{DomainMessage, Tick}
 
 package object node:
   case class WorkPackage[WORK_REQUEST <: DomainMessage, INBOUND <: DomainMessage](at: Tick, wr: WORK_REQUEST):

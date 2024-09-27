@@ -1,7 +1,10 @@
 package com.saldubatech.sandbox.ddes.node.simple
 
 import com.saldubatech.lang.Id
-import com.saldubatech.sandbox.ddes.{DomainMessage, DDE, SimulationSupervisor, Clock, DomainEvent, SimActor}
+import com.saldubatech.ddes.types.DomainMessage
+import com.saldubatech.ddes.runtime.Clock
+import com.saldubatech.ddes.elements.{SimActor, DomainEvent}
+import com.saldubatech.ddes.system.SimulationSupervisor
 import com.saldubatech.math.randomvariables.Distributions
 import com.saldubatech.sandbox.ddes.node.Source.Trigger
 import com.saldubatech.sandbox.ddes.node.Source
@@ -14,12 +17,13 @@ import org.scalatest.wordspec.AnyWordSpecLike
 
 import scala.concurrent.duration.*
 import scala.language.postfixOps
-import com.saldubatech.sandbox.ddes.Tick
 import com.saldubatech.math.randomvariables.Distributions.LongRVar
+import com.saldubatech.ddes.types.{Tick, DomainMessage}
+import com.saldubatech.ddes.runtime.OAM
+import com.saldubatech.ddes.elements.SimulationComponent
 import com.saldubatech.test.BaseSpec
 import org.apache.pekko.actor.typed.scaladsl.{ActorContext}
 import org.apache.pekko.actor.typed.{ActorRef, ActorSystem}
-import com.saldubatech.sandbox.ddes.DDE.SupervisorProtocol
 
 import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
 import zio.test.{ZIOSpecDefault, assertTrue, assertCompletes}
@@ -49,8 +53,8 @@ object GgmSpec extends ZIOSpecDefault with LogEnabled with Matchers:
           Distributions.zeroLong)
           ((t: Tick, s: Trigger[ProbeMessage]) => s.supply)
 
-        val config = new DDE.SimulationComponent {
-          override def initialize(ctx: ActorContext[SupervisorProtocol]): Map[Id, ActorRef[?]] = {
+        val config = new SimulationComponent {
+          override def initialize(ctx: ActorContext[OAM.InitRequest]): Map[Id, ActorRef[?]] = {
             val sinkEntry = sink.simulationComponent.initialize(ctx)
             val mm1Entry = mm1.simulationComponent.initialize(ctx)
             val sourceEntry = source.simulationComponent.initialize(ctx)
@@ -64,9 +68,9 @@ object GgmSpec extends ZIOSpecDefault with LogEnabled with Matchers:
 
         val termProbe = fixture.createTestProbe[DomainEvent[ProbeMessage]]()
         for {
-          rootRs <- DDE.kickAwake(using 1.second, actorSystem)
+          rootRs <- OAM.kickAwake(using 1.second, actorSystem)
         } yield {
-          assertTrue(rootRs == DDE.AOK)
+          assertTrue(rootRs == OAM.AOK)
           sink.ref ! sink.InstallTarget(termProbe.ref)
 
           log.debug("Root Sending message for time: 0 (InstallTarget)")

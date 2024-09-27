@@ -12,16 +12,13 @@ import org.apache.pekko.actor.typed.scaladsl.ActorContext
 import scala.reflect.Typeable
 import scala.collection.mutable.Queue
 import com.saldubatech.lang.Id
-import com.saldubatech.sandbox.ddes.SimulationError
 import com.saldubatech.sandbox.observers.OperationEventType
-import com.saldubatech.sandbox.ddes.{Tick, Clock, OAMMessage}
-import com.saldubatech.sandbox.ddes.DomainEvent
-import com.saldubatech.sandbox.ddes.SimEnvironment
-import com.saldubatech.sandbox.ddes.ActionResult
-import com.saldubatech.sandbox.ddes.DomainMessage
-import com.saldubatech.sandbox.ddes.SimActor
-import com.saldubatech.sandbox.ddes.DomainProcessor
-import com.saldubatech.sandbox.ddes.SimActorBehavior
+import com.saldubatech.ddes.types.{DomainMessage, OAMMessage, Tick, SimulationError}
+import com.saldubatech.ddes.runtime.Clock
+import com.saldubatech.ddes.elements.DomainEvent
+import com.saldubatech.ddes.elements.SimActor
+import com.saldubatech.ddes.elements.DomainProcessor
+import com.saldubatech.ddes.elements.SimActorBehavior
 import com.saldubatech.sandbox.observers.{Departure, End, Arrival, Start, WorkRequest}
 
 object Station:
@@ -56,7 +53,7 @@ object Station:
     // Invoked as part of the book keeping to perform the external actions e.g. send signals, use transport capabilities to send the OUTBOUND payload to the target
     protected def dischargeSignal(at: Tick, outbound: OUTBOUND): UnitResult // =
 
-    protected val inboundBehavior: PartialFunction[DomainEvent[PROTOCOL[WORK_REQUEST, INBOUND]], ActionResult] = {
+    protected val inboundBehavior: PartialFunction[DomainEvent[PROTOCOL[WORK_REQUEST, INBOUND]], UnitResult] = {
       case evFromUpstream@DomainEvent(action, from, ib: INBOUND) =>
         // TODO
         // materialFlowNotifier(MaterialArrival(host.currentTime, ib.job, host.name, ib.from.name))
@@ -67,12 +64,12 @@ object Station:
             host.eventNotify(Arrival(host.currentTime, ib.job, host.name, from.name))
             rs
     }
-    protected val commandBehavior: PartialFunction[DomainEvent[PROTOCOL[WORK_REQUEST, INBOUND]], ActionResult] = {
+    protected val commandBehavior: PartialFunction[DomainEvent[PROTOCOL[WORK_REQUEST, INBOUND]], UnitResult] = {
         case command@DomainEvent(action, from, wr: WORK_REQUEST) =>
           host.eventNotify(WorkRequest(host.currentTime, wr.job, host.name))
           pendingWork.enqueueWorkRequest(host.currentTime, action, from.name, wr).map{_ => ()}
     }
-    protected val executionCompleteBehavior: PartialFunction[DomainEvent[PROTOCOL[WORK_REQUEST, INBOUND]], ActionResult] = {
+    protected val executionCompleteBehavior: PartialFunction[DomainEvent[PROTOCOL[WORK_REQUEST, INBOUND]], UnitResult] = {
       case DomainEvent(action, from , ecEv@ExecutionComplete(id, job)) =>
         for {
           completedWp <- processorResource.completedJob(job)
@@ -83,7 +80,7 @@ object Station:
           host.env.scheduleDelay(host)(packingDelay, DepartureReady(Id, job))
         }
     }
-    protected val dischargeBehavior: PartialFunction[DomainEvent[PROTOCOL[WORK_REQUEST, INBOUND]], ActionResult] = {
+    protected val dischargeBehavior: PartialFunction[DomainEvent[PROTOCOL[WORK_REQUEST, INBOUND]], UnitResult] = {
       case DomainEvent(action, from, dr@DepartureReady(id, job)) =>
         for {
           _ <- discharger.dischargeReady(host.currentTime, job)
@@ -97,7 +94,7 @@ object Station:
             }
     }
 
-    protected lazy val processingBehavior: PartialFunction[DomainEvent[PROTOCOL[WORK_REQUEST, INBOUND]], ActionResult] =
+    protected lazy val processingBehavior: PartialFunction[DomainEvent[PROTOCOL[WORK_REQUEST, INBOUND]], UnitResult] =
       commandBehavior orElse
       inboundBehavior orElse
       executionCompleteBehavior orElse
@@ -128,7 +125,7 @@ object Station:
           }
         }
 
-    override def accept(at: Tick, ev: DomainEvent[PROTOCOL[WORK_REQUEST, INBOUND]]): ActionResult =
+    override def accept(at: Tick, ev: DomainEvent[PROTOCOL[WORK_REQUEST, INBOUND]]): UnitResult =
       for {
         _ <- processingBehavior(ev)
       } yield startWorkIfPossible(at)
@@ -158,7 +155,7 @@ class Station[WORK_REQUEST <: DomainMessage, INBOUND <: DomainMessage : Typeable
   override val domainProcessor: Station.DP[WORK_REQUEST, INBOUND, FINISHED, OUTBOUND] = dpFactory(this)
 
 
-  override def oam(msg: OAMMessage): ActionResult =
+  override def oam(msg: OAMMessage): UnitResult =
     log.debug(s"Got OAM Message: $msg")
     msg match
       case obsMsg: ObserverManagement => observerManagement(obsMsg)

@@ -1,7 +1,10 @@
 package com.saldubatech.sandbox.movement
 
 import com.saldubatech.math.randomvariables.Distributions.LongRVar
-import com.saldubatech.sandbox.ddes.{Clock, DomainMessage, SimActor, SimActorBehavior}
+import com.saldubatech.ddes.types.DomainMessage
+import com.saldubatech.ddes.runtime.Clock
+import com.saldubatech.ddes.elements.SimActorBehavior
+import com.saldubatech.ddes.elements.{SimActor, SimActorBehavior}
 
 class UnlimitedTransportWithDelay0[C]
 (val target: SimActor[Load[C]], val delay: LongRVar)

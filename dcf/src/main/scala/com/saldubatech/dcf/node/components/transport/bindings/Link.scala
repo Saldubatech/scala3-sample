@@ -3,7 +3,8 @@ package com.saldubatech.dcf.node.components.transport.bindings
 import com.saldubatech.lang.{Id, Identified}
 import com.saldubatech.lang.types._
 import com.saldubatech.math.randomvariables.Distributions.probability
-import com.saldubatech.sandbox.ddes.{Tick, Duration, SimActor, DomainMessage}
+import com.saldubatech.ddes.types.{Tick, Duration, DomainMessage}
+import com.saldubatech.ddes.elements.SimActor
 import com.saldubatech.dcf.material.Material
 import com.saldubatech.dcf.node.components.{Sink, Component}
 import com.saldubatech.dcf.node.components.transport.{Induct as InductComponent, Discharge as DischargeComponent, Link as LinkComponent}

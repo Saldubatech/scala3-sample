@@ -1,4 +1,4 @@
-package com.saldubatech.sandbox.system
+package com.saldubatech.tools
 
 @main def main() =
   val toInspect = List("SHELL", "PWD", "DB_USER", "DB_PASSWORD", "DB_PORT", "DB_HOST")

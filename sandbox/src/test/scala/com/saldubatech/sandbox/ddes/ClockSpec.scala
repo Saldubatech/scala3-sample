@@ -9,7 +9,10 @@ import com.saldubatech.sandbox.ddes.node.simple.RelaySink
 import com.saldubatech.lang.Id
 import com.saldubatech.math.randomvariables.Distributions
 import org.apache.pekko.actor.typed.scaladsl.ActorContext
-import com.saldubatech.sandbox.ddes.DDE.SupervisorProtocol
+import com.saldubatech.ddes.types.{Tick, DomainMessage}
+import com.saldubatech.ddes.runtime.{OAM, Clock}
+import com.saldubatech.ddes.elements.{SimulationComponent, DomainEvent}
+import com.saldubatech.ddes.system.SimulationSupervisor
 import org.apache.pekko.actor.typed.ActorRef
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
@@ -56,8 +59,8 @@ object ClockSpec extends ZIOSpecDefault with LogEnabled:
           Distributions.zeroLong)
           ((t: Tick, s: Trigger[ProbeMessage]) => s.supply)
 
-        val config = new DDE.SimulationComponent {
-          def initialize(ctx: ActorContext[SupervisorProtocol]): Map[Id, ActorRef[?]] = {
+        val config = new SimulationComponent {
+          def initialize(ctx: ActorContext[OAM.InitRequest]): Map[Id, ActorRef[?]] = {
             val sinkEntry = sink.simulationComponent.initialize(ctx)
             val sourceEntry = source.simulationComponent.initialize(ctx)
             sinkEntry ++ sourceEntry
@@ -69,9 +72,9 @@ object ClockSpec extends ZIOSpecDefault with LogEnabled:
         val fixture = ActorTestKit(actorSystem)
         val termProbe = fixture.createTestProbe[DomainEvent[ProbeMessage]]()
         for {
-          rootRs <- DDE.kickAwake(using 1.second, actorSystem)
+          rootRs <- OAM.kickAwake(using 1.second, actorSystem)
         } yield {
-          assertTrue(rootRs == DDE.AOK)
+          assertTrue(rootRs == OAM.AOK)
           val probes = 0 to 1 map {n => ProbeMessage(n, s"Job[$n]") }
           sink.ref ! sink.InstallTarget(termProbe.ref)
           log.debug("Root Sending message for time: 3 (InstallTarget)")

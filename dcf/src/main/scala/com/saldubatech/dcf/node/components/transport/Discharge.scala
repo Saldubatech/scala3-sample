@@ -3,7 +3,7 @@ package com.saldubatech.dcf.node.components.transport
 import com.saldubatech.lang.{Id, Identified}
 import com.saldubatech.lang.types._
 import com.saldubatech.util.stack
-import com.saldubatech.sandbox.ddes.Tick
+import com.saldubatech.ddes.types.Tick
 import com.saldubatech.dcf.material.Material
 import com.saldubatech.dcf.node.components.{Subject, SubjectMixIn, Component, Sink}
 

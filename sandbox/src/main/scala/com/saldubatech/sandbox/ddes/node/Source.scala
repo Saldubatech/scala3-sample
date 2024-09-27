@@ -3,8 +3,10 @@ package com.saldubatech.sandbox.ddes.node
 import com.saldubatech.math.randomvariables.Distributions.LongRVar
 import com.saldubatech.sandbox.observers.{Subject, Departure, NewJob}
 import com.saldubatech.lang.Id
-import com.saldubatech.sandbox.ddes.{DomainMessage, Tick, Clock, SimActor, SimActorBehavior, ActionResult, OAMMessage, DomainProcessor, DomainEvent}
-import com.saldubatech.lang.types.{AppResult, UnitResult, AppSuccess, AppError, AppFail}
+import com.saldubatech.ddes.types.{DomainMessage, Tick, OAMMessage}
+import com.saldubatech.ddes.elements.{SimActor, SimActorBehavior, DomainProcessor, DomainEvent}
+import com.saldubatech.ddes.runtime.Clock
+import com.saldubatech.lang.types._
 
 
 import scala.reflect.Typeable
@@ -113,7 +115,7 @@ object Source:
         // In the future, this can go in the constructor to allow for pluggable behaviors.
         private val discharger: Discharger[Source.Trigger[SOURCED], TARGETED] = SourceDischarger(packingDelay, transformation)
 
-        override def accept(at: Tick, ev: DomainEvent[Source.Protocol]): ActionResult =
+        override def accept(at: Tick, ev: DomainEvent[Source.Protocol]): UnitResult =
           ev.payload match
             // Receive a new `SOURCED` through a trigger, results in an event in the future when
             // the received item is `unpacked`
@@ -158,7 +160,7 @@ class Source[SOURCED <: DomainMessage : Typeable, TARGETED <: DomainMessage]
   override protected val domainProcessor: DomainProcessor[Source.Protocol] =
     Source.DP(this, target)(initialDelay, interArrivalDelay, transformation)
 
-  override def oam(msg: OAMMessage): ActionResult =
+  override def oam(msg: OAMMessage): UnitResult =
     msg match
       case obsMsg: Subject.ObserverManagement => observerManagement(obsMsg)
       case _ => Right(())

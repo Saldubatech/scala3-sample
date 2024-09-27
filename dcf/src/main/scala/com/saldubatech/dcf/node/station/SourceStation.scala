@@ -3,7 +3,9 @@ package com.saldubatech.dcf.node.station
 import com.saldubatech.lang.Id
 import com.saldubatech.lang.types._
 
-import com.saldubatech.sandbox.ddes.{DomainMessage, Tick, Duration, Clock, SimActor, SimActorBehavior, ActionResult, OAMMessage, DomainProcessor, DomainEvent}
+import com.saldubatech.ddes.types.{DomainMessage, Tick, Duration, OAMMessage}
+import com.saldubatech.ddes.runtime.Clock
+import com.saldubatech.ddes.elements.{SimActor, SimActorBehavior, DomainProcessor, DomainEvent}
 import com.saldubatech.sandbox.observers.{Subject, NewJob}
 
 import com.saldubatech.dcf.material.Material
@@ -41,7 +43,7 @@ object SourceStation:
     private val lPhysicsAdaptor = LinkBinding.API.ServerAdaptors.physics(link)
     private val linkArrivalAdaptor = InductBinding.API.ServerAdaptors.upstream[M](link, Map(link.id -> Map(discharge.id -> discharge)))
 
-    override def accept(at: Tick, ev: DomainEvent[PROTOCOL]): ActionResult =
+    override def accept(at: Tick, ev: DomainEvent[PROTOCOL]): UnitResult =
       ev.payload match
         case c: LoadSourceBinding.API.Signals.Control => controlAdaptor(at)(c)
         case d: DischargeBinding.API.Signals.Downstream => dischargeDAdaptor(at)(d)
@@ -88,7 +90,7 @@ with Subject:
       dp => dp
     )
 
-  override def oam(msg: OAMMessage): ActionResult =
+  override def oam(msg: OAMMessage): UnitResult =
     msg match
       case obsMsg: Subject.ObserverManagement => observerManagement(obsMsg)
       case _ => Right(())

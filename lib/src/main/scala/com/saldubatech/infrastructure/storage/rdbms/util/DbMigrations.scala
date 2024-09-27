@@ -1,4 +1,4 @@
-package com.saldubatech.persistence
+package com.saldubatech.infrastructure.storage.rdbms.util
 
 import com.saldubatech.infrastructure.storage.rdbms.DataSourceBuilder
 import com.saldubatech.util.LogEnabled
@@ -66,13 +66,13 @@ object FlywayMigrations:
         flywayConfig.getStringList("locations").asScala.toList,
         flywayConfig.getString("migrationTable")
       )
-    
-      
+
+
   val migrationEffect: URIO[DbMigrations, Int] = ZIO.serviceWith[DbMigrations](srv => srv.doMigrate())
   def migrationLayer(config: FlywayDbConfiguration): TaskLayer[DbMigrations] = ZLayer.fromZIO(
     ZIO.attempt(FlywayMigrations(config))
   )
-  
+
 object DbMigrations
-  
+
 

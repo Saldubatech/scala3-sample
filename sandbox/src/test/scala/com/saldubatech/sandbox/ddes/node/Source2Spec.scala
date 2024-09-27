@@ -6,7 +6,6 @@ import zio.ZIO
 import com.saldubatech.lang.Id
 import com.saldubatech.math.randomvariables.Distributions
 import org.apache.pekko.actor.typed.scaladsl.ActorContext
-import com.saldubatech.sandbox.ddes.DDE.SupervisorProtocol
 import org.apache.pekko.actor.typed.ActorRef
 import org.apache.pekko.actor.typed.ActorSystem
 import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
@@ -14,7 +13,10 @@ import org.apache.pekko.actor.testkit.typed.scaladsl.ActorTestKit
 import scala.concurrent.duration._
 import scala.collection.SortedMap
 import org.apache.pekko.actor.testkit.typed.scaladsl.FishingOutcomes
-import com.saldubatech.sandbox.ddes.{Tick, DomainMessage, DomainEvent, SimulationSupervisor, DDE, Clock}
+import com.saldubatech.ddes.types.{Tick, DomainMessage}
+import com.saldubatech.ddes.runtime.{Clock, OAM}
+import com.saldubatech.ddes.elements.{DomainEvent, SimulationComponent}
+import com.saldubatech.ddes.system.SimulationSupervisor
 import com.saldubatech.sandbox.ddes.node.simple.RelaySink
 
 
@@ -32,8 +34,8 @@ object Source2Spec extends ZIOSpecDefault with LogEnabled:
           (tick: Tick, trigger: Source.Trigger[ProbeMessage]) => trigger.supply
         }
 
-        val config = new DDE.SimulationComponent {
-          def initialize(ctx: ActorContext[SupervisorProtocol]): Map[Id, ActorRef[?]] = {
+        val config = new SimulationComponent {
+          def initialize(ctx: ActorContext[OAM.InitRequest]): Map[Id, ActorRef[?]] = {
             val sinkEntry = sink.simulationComponent.initialize(ctx)
             val sourceEntry = source.simulationComponent.initialize(ctx)
             sinkEntry ++ sourceEntry
@@ -45,9 +47,9 @@ object Source2Spec extends ZIOSpecDefault with LogEnabled:
         val fixture = ActorTestKit(actorSystem)
         val termProbe = fixture.createTestProbe[DomainEvent[ProbeMessage]]()
         for {
-          rootRs <- DDE.kickAwake(using 1.second, actorSystem)
+          rootRs <- OAM.kickAwake(using 1.second, actorSystem)
         } yield {
-          assertTrue(rootRs == DDE.AOK)
+          assertTrue(rootRs == OAM.AOK)
           val probes = 0 to 1 map {n => ProbeMessage(n, s"Job[$n]") }
           sink.ref ! sink.InstallTarget(termProbe.ref)
           log.debug("Root Sending message for time: 3 (InstallTarget)")

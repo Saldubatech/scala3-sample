@@ -1,21 +1,24 @@
-package com.saldubatech.sandbox.ddes
+package com.saldubatech.ddes.runtime
 
 import com.saldubatech.lang.Id
 import com.saldubatech.util.LogEnabled
+import com.saldubatech.ddes.types.{DdesMessage, Tick, FatalError}
+import com.saldubatech.ddes.elements.Command
 import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors, TimerScheduler}
 import org.apache.pekko.actor.typed.{ActorRef, Behavior}
 import zio.{RLayer, TaskLayer, ZLayer}
 
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration._
+//import com.saldubatech.ddes.elements.SimActor
   // To approximate requiring a case class short of creating a macro.
 
 object Clock:
-  import DDE._
+
   sealed trait ClockMessage extends DdesMessage
   case class IDLE(count: Int, delay: FiniteDuration) extends ClockMessage
 
-  case class ActionComplete(action: Id, by: SimActor[?]) extends ClockMessage
+  case class ActionComplete(action: Id, by: SimNode) extends ClockMessage
 
   type PROTOCOL = ClockMessage | Command
 
@@ -32,7 +35,6 @@ class Clock(
   log.debug(s"Creating Clock: $selfClock")
 
   import Clock._
-  import DDE._
 
   private var now: Tick = startTime
   private var _ctx: Option[ActorContext[PROTOCOL]] = None
@@ -70,14 +72,14 @@ class Clock(
         log.trace(s"\t\tAnd OpenActions[${openActions.size}]: $openActions")
         if openActions.isEmpty && (now < commandQueue.head._1) then advanceClock
       case past =>
-        simError(now, ctx, FatalError(s"Event Received for the past: now: ${now}, forTime: ${past}"))
+        OAM.simError(now, ctx, FatalError(s"Event Received for the past: now: ${now}, forTime: ${past}"))
 
   private def doCompleteAction(action: Id): Unit =
     if closeAction(action) then
       if openActions.isEmpty then advanceClock
     else
       log.error(s"Action: $action is not registered in $openActions")
-      simError(now, ctx, FatalError(s"Closing a non existing action: ${action}"))
+      OAM.simError(now, ctx, FatalError(s"Closing a non existing action: ${action}"))
 
   private var _timers: Option[TimerScheduler[PROTOCOL]] = None
   lazy private val timers: TimerScheduler[PROTOCOL] = _timers.get
@@ -97,7 +99,7 @@ class Clock(
         log.debug(s"\tMaxTime: $mT, now: $now, advanceTo: $tick")
         if mT >= 0 && mT <= tick then
           log.debug(s"\tAdvanced Clock ==> Simulation End")
-          simEnd(now, ctx)
+          OAM.simEnd(now, ctx)
         else
           log.debug(s"\tAdvanced Clock ==> From: ${now} to: ${tick}")
           now = tick
@@ -121,7 +123,7 @@ class Clock(
               if idleCount == 0 then Behaviors.same
               else if count >= maxIdleCount then
                 log.warn(s"Shutting Down with $count Idle periods")
-                DDE.simEnd(selfClock.now, ctx)
+                OAM.simEnd(selfClock.now, ctx)
                 Behaviors.stopped
               else
                 idleCount = count
@@ -138,4 +140,4 @@ class Clock(
     }
 
   def request(cmd: Command): Unit = selfClock.ctx.self ! cmd
-  def complete(action: Id, by: SimActor[?]): Unit = selfClock.ctx.self ! ActionComplete(action, by)
+  def complete(action: Id, by: SimNode): Unit = selfClock.ctx.self ! ActionComplete(action, by)

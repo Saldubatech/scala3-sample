@@ -1,11 +1,10 @@
 package com.saldubatech.sandbox.ddes.node
 
-import com.saldubatech.sandbox.ddes.DomainMessage
-import com.saldubatech.lang.types.AppResult
-import com.saldubatech.sandbox.ddes.Tick
+import com.saldubatech.lang.types._
 import com.saldubatech.lang.Id
 import com.saldubatech.lang.types.{AppResult, UnitResult, AppFail, AppError, AppSuccess}
-import com.saldubatech.sandbox.ddes.SimulationError
+import com.saldubatech.ddes.types.{Tick, DomainMessage, SimulationError}
+import com.saldubatech.ddes.runtime.Clock
 
 
 trait WorkRequestQueue[WORK_REQUEST <: DomainMessage]:

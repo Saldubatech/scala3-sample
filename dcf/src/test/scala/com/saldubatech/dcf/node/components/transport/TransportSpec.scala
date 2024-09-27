@@ -4,7 +4,7 @@ package com.saldubatech.dcf.node.components.transport
 import com.saldubatech.test.BaseSpec
 import com.saldubatech.lang.Id
 import com.saldubatech.dcf.material.{Material, Wip}
-import com.saldubatech.sandbox.ddes.Tick
+import com.saldubatech.ddes.types.Tick
 import com.saldubatech.lang.types.{AppResult, UnitResult, AppSuccess, AppFail, AppError, collectAll}
 import com.saldubatech.dcf.job.{JobSpec, SimpleJobSpec}
 

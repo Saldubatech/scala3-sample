@@ -48,16 +48,15 @@ ThisBuild / libraryDependencies ++= Seq(
   "com.github.ghik" % "silencer-lib_2.13.11" % silencerVersion //% Provided cross CrossVersion.full
 )
 
-
+val libProject = (project in file("lib"))
+val ddesProject = (project in file("ddes")).dependsOn(libProject)
+val sandboxProject = (project in file("sandbox")).dependsOn(ddesProject, libProject)
+val dcfProject = (project in file("dcf")).dependsOn(sandboxProject, ddesProject, libProject)
+val appProject = (project in file("app")).dependsOn(libProject)
+val imageProject = (project in file("image")).dependsOn(appProject)
 
 lazy val root = (project in file("."))
   .settings(
     name            := "m-service-root",
     testFrameworks  ++= Seq(new TestFramework("zio.test.sbt.ZTestFramework")),
-  ).aggregate(libProject, sandboxProject, dcfProject, appProject, imageProject)
-
-val libProject = (project in file("lib"))
-val appProject = (project in file("app")).dependsOn(libProject)
-val sandboxProject = (project in file("sandbox")).dependsOn(libProject)
-val dcfProject = (project in file("dcf")).dependsOn(sandboxProject).dependsOn(libProject)
-val imageProject = (project in file("image")).dependsOn(appProject)
+  ).aggregate(libProject, ddesProject, sandboxProject, dcfProject, appProject, imageProject)

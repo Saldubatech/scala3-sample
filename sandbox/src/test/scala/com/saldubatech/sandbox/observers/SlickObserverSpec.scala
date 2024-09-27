@@ -5,7 +5,9 @@ import com.saldubatech.infrastructure.storage.rdbms.{DataSourceBuilder, PGDataSo
 import com.saldubatech.lang.Id
 import com.saldubatech.lang.predicate.{SlickPlatform, SlickRepoZioService}
 import com.saldubatech.math.randomvariables.Distributions
-import com.saldubatech.sandbox.ddes.{Tick, DomainEvent, DDE, SimulationSupervisor, DoneOK}
+import com.saldubatech.ddes.types.{Tick, DoneOK}
+import com.saldubatech.ddes.runtime.{OAM, Clock}
+import com.saldubatech.ddes.elements.{DomainEvent, SimulationComponent}
 import com.saldubatech.sandbox.ddes.node.Source
 import com.saldubatech.sandbox.observers.{Observer, Subject}
 import com.saldubatech.test.persistence.postgresql.{PostgresContainer, TestPGDataSourceBuilder}
@@ -35,7 +37,7 @@ import scala.language.postfixOps
 import com.saldubatech.infrastructure.storage.rdbms.slick.PGExtendedProfile
 import com.saldubatech.sandbox.ddes.node.simple.RelaySink
 import com.saldubatech.sandbox.ddes.Tap
-import com.saldubatech.sandbox.ddes.Clock
+import com.saldubatech.ddes.system.SimulationSupervisor
 
 object SlickObserverSpec extends  ZIOSpecDefault
 //  with Matchers
@@ -123,7 +125,7 @@ object SlickObserverSpec extends  ZIOSpecDefault
       Clock.zeroStartLayer,
       simpleSimulationComponents(lambda),
       simpleShopFloorConfiguration,
-      DDE.simSupervisorLayer("SlickObserverSpec_Supervisor"),
+      SimulationSupervisor.layer("SlickObserverSpec_Supervisor"),
       fixtureStack("SlickObserverSpec_AS"),
       probeLayer[DomainEvent[ProbeMessage]]("TermProbe"),
       probeLayer[Observer.PROTOCOL]("ObserverProbe")

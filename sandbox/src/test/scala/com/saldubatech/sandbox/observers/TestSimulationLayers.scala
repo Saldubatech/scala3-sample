@@ -4,7 +4,12 @@ import com.saldubatech.infrastructure.storage.rdbms.{DataSourceBuilder, PGDataSo
 import com.saldubatech.lang.Id
 import com.saldubatech.math.randomvariables.Distributions
 import com.saldubatech.math.randomvariables.Distributions.LongRVar
-import com.saldubatech.sandbox.ddes.{Clock, Tap, DomainMessage, SimulationSupervisor, OAMMessage, DDE}
+import com.saldubatech.ddes.types.{Tick, DoneOK}
+import com.saldubatech.ddes.types.{DomainMessage, OAMMessage}
+import com.saldubatech.ddes.runtime.{Clock, OAM}
+import com.saldubatech.ddes.elements.{DomainEvent, SimulationComponent, SimActor}
+import com.saldubatech.ddes.system.SimulationSupervisor
+import com.saldubatech.sandbox.ddes.Tap
 import com.saldubatech.sandbox.ddes.node.{Station, Source}
 import com.saldubatech.sandbox.ddes.node.simple.{SimpleStation, SimpleSink, RelaySink}
 import com.saldubatech.sandbox.observers.{Observer, Subject}
@@ -20,8 +25,6 @@ import com.saldubatech.lang.types.AppError
 import com.saldubatech.sandbox.observers.Subject.InstallObserver
 import com.saldubatech.sandbox.observers.Observer.ObserverOAM
 import com.saldubatech.sandbox.observers.Observer.PROTOCOL
-import com.saldubatech.sandbox.ddes.DomainEvent
-import com.saldubatech.sandbox.ddes.Tick
 import com.saldubatech.sandbox.ddes.node.simple.WorkRequestToken
 
 
@@ -39,20 +42,20 @@ object TestSimulationLayers:
       fixture <- ZIO.service[ActorTestKit]
     } yield fixture.spawn(Tap(Seq(observer.ref, observerProbe.ref)), "tap")
 
-  def testActorSystemLayer(asName: String): RLayer[SimulationSupervisor & DDE.SimulationComponent, ActorSystem[DDE.SupervisorProtocol]] = ZLayer(
+  def testActorSystemLayer(asName: String): RLayer[SimulationSupervisor & SimulationComponent, ActorSystem[OAM.InitRequest]] = ZLayer(
     for {
       supervisor <- ZIO.service[SimulationSupervisor]
-      configuration <- ZIO.service[DDE.SimulationComponent]
-      as <- ZIO.succeed(ActorSystem[DDE.SupervisorProtocol](supervisor.start, asName))
-      isAwake <- DDE.kickAwake(using 1.second, as)
-      rs <- if isAwake == DDE.AOK then ZIO.succeed(as) else ZIO.fail(AppError(s"Actor system did not initialize correctly: $isAwake"))
+      configuration <- ZIO.service[SimulationComponent]
+      as <- ZIO.succeed(ActorSystem[OAM.InitRequest](supervisor.start, asName))
+      isAwake <- OAM.kickAwake(using 1.second, as)
+      rs <- if isAwake == OAM.AOK then ZIO.succeed(as) else ZIO.fail(AppError(s"Actor system did not initialize correctly: $isAwake"))
     } yield rs
   )
 
 
-  def fixtureStack(asName: String): RLayer[SimulationSupervisor & DDE.SimulationComponent,  ActorSystem[DDE.SupervisorProtocol] & ActorTestKit] =
+  def fixtureStack(asName: String): RLayer[SimulationSupervisor & SimulationComponent,  ActorSystem[OAM.InitRequest] & ActorTestKit] =
     testActorSystemLayer(asName) >+> ZLayer(
-      ZIO.serviceWith[ActorSystem[DDE.SupervisorProtocol]](as => ActorTestKit(as))
+      ZIO.serviceWith[ActorSystem[OAM.InitRequest]](as => ActorTestKit(as))
     )
 
 
@@ -64,14 +67,14 @@ object TestSimulationLayers:
         SimpleSink[ProbeMessage] &
         Source[ProbeMessage, ProbeMessage] &
         RecordingObserver,
-      DDE.SimulationComponent] = ZLayer(
+      SimulationComponent] = ZLayer(
         for {
           sink <- ZIO.service[SimpleSink[ProbeMessage]]
           source <- ZIO.service[Source[ProbeMessage, ProbeMessage]]
           observer <- ZIO.service[RecordingObserver]
         } yield {
-          new DDE.SimulationComponent {
-            def initialize(ctx: ActorContext[DDE.SupervisorProtocol]): Map[Id, ActorRef[?]] =
+          new SimulationComponent {
+            def initialize(ctx: ActorContext[OAM.InitRequest]): Map[Id, ActorRef[?]] =
               val sinkEntry = sink.simulationComponent.initialize(ctx)
               val sourceEntry = source.simulationComponent.initialize(ctx)
               val observerEntry = observer.simulationComponent.initialize(ctx)
@@ -86,15 +89,15 @@ object TestSimulationLayers:
       )
 
   def simpleKickOffRun(withObserver: ActorRef[Observer.PROTOCOL], rootForTime: Tick, messages: Seq[ProbeMessage]): RIO[
-    SimulationSupervisor & ActorSystem[DDE.SupervisorProtocol] & TestProbe[DomainEvent[ProbeMessage]] & RelaySink[ProbeMessage] & Source[ProbeMessage, ProbeMessage],
+    SimulationSupervisor & ActorSystem[OAM.InitRequest] & TestProbe[DomainEvent[ProbeMessage]] & RelaySink[ProbeMessage] & Source[ProbeMessage, ProbeMessage],
     OAMMessage] =
     for {
           supervisor <- ZIO.service[SimulationSupervisor]
-          as <- ZIO.service[ActorSystem[DDE.SupervisorProtocol]]
+          as <- ZIO.service[ActorSystem[OAM.InitRequest]]
           termProbe <- ZIO.service[TestProbe[DomainEvent[TestSimulationLayers.ProbeMessage]]]
           source <- ZIO.service[Source[ProbeMessage, ProbeMessage]]
           sink <- ZIO.service[RelaySink[ProbeMessage]]
-          supervisorPing <- DDE.kickAwake(using 1.second, as)
+          supervisorPing <- OAM.kickAwake(using 1.second, as)
           rootResponse <- {
 
             source.ref ! Subject.InstallObserver("observerTap", withObserver)
@@ -119,7 +122,7 @@ object TestSimulationLayers:
         Station[WorkRequestToken, ProbeMessage, ProbeMessage, ProbeMessage] &
         Source[ProbeMessage, ProbeMessage] &
         RecordingObserver,
-      DDE.SimulationComponent] = ZLayer(
+      SimulationComponent] = ZLayer(
         for {
           sink <- ZIO.service[RelaySink[ProbeMessage]]
           mm1 <- ZIO.service[Station[WorkRequestToken, ProbeMessage, ProbeMessage, ProbeMessage]]
@@ -127,8 +130,8 @@ object TestSimulationLayers:
           observer <- ZIO.service[RecordingObserver]
           // observerProbeRef <- ZIO.service[ActorRef[Observer.PROTOCOL]]
         } yield {
-          new DDE.SimulationComponent {
-            def initialize(ctx: ActorContext[DDE.SupervisorProtocol]): Map[Id, ActorRef[?]] =
+          new SimulationComponent {
+            def initialize(ctx: ActorContext[OAM.InitRequest]): Map[Id, ActorRef[?]] =
               val sinkEntry = sink.simulationComponent.initialize(ctx)
               val mm1Entry = mm1.simulationComponent.initialize(ctx)
               val sourceEntry = source.simulationComponent.initialize(ctx)

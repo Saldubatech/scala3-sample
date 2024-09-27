@@ -5,7 +5,11 @@ import com.saldubatech.infrastructure.storage.rdbms.{DataSourceBuilder, PGDataSo
 import com.saldubatech.lang.Id
 import com.saldubatech.lang.predicate.SlickPlatform
 import com.saldubatech.math.randomvariables.Distributions
-import com.saldubatech.sandbox.ddes.{Tick, DomainEvent, DDE, SimulationSupervisor, DoneOK}
+import com.saldubatech.ddes.types.{Tick, DoneOK}
+import com.saldubatech.ddes.types.DomainMessage
+import com.saldubatech.ddes.runtime.Clock
+import com.saldubatech.ddes.elements.DomainEvent
+import com.saldubatech.ddes.system.SimulationSupervisor
 import com.saldubatech.sandbox.ddes.node.Source
 import com.saldubatech.sandbox.observers.{Observer, Subject}
 import com.saldubatech.test.persistence.postgresql.{PostgresContainer, TestPGDataSourceBuilder}
@@ -32,10 +36,11 @@ import javax.sql.DataSource
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.*
 import scala.language.postfixOps
+import com.saldubatech.ddes.types.Tick
+import com.saldubatech.ddes.system.SimulationSupervisor
 import com.saldubatech.sandbox.ddes.node.simple.RelaySink
-import com.saldubatech.sandbox.ddes.{Clock, Tap}
+import com.saldubatech.sandbox.ddes.Tap
 import com.saldubatech.sandbox.observers.TestSimulationLayers.ProbeMessage
-import com.saldubatech.sandbox.ddes.OAMMessage
 import com.saldubatech.sandbox.observers.Observer.PROTOCOL
 
 
@@ -119,7 +124,7 @@ object QuillObserverSpec extends  ZIOSpecDefault
       Clock.zeroStartLayer,
       simpleSimulationComponents(lambda),
       simpleShopFloorConfiguration,
-      DDE.simSupervisorLayer("QuillObserver_Test_Supervisor"),
+      SimulationSupervisor.layer("QuillObserver_Test_Supervisor"),
       fixtureStack("QuillObserverSpec_AS"),
       probeLayer[DomainEvent[ProbeMessage]]("TermProbe"),
       probeLayer[Observer.PROTOCOL]("ObserverProbe")

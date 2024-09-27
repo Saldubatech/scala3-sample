@@ -4,7 +4,7 @@ import com.saldubatech.dcf.job.JobSpec
 import com.saldubatech.dcf.material.{Material, Wip, MaterialPool, WipPool}
 import com.saldubatech.lang.{Id, Identified}
 import com.saldubatech.lang.types._
-import com.saldubatech.sandbox.ddes.Tick
+import com.saldubatech.ddes.types.Tick
 import com.saldubatech.lang.Identified
 
 import util.chaining.scalaUtilChainingOps

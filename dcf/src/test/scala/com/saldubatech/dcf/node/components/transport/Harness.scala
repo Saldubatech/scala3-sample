@@ -2,7 +2,7 @@ package com.saldubatech.dcf.node.components.transport
 
 import com.saldubatech.lang.Id
 import com.saldubatech.dcf.material.{Material, Wip}
-import com.saldubatech.sandbox.ddes.Tick
+import com.saldubatech.ddes.types.Tick
 import com.saldubatech.lang.types._
 import com.saldubatech.dcf.job.{JobSpec, SimpleJobSpec}
 import com.saldubatech.dcf.node.components.Sink

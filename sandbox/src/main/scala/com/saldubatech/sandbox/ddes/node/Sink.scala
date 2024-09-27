@@ -3,7 +3,9 @@ package com.saldubatech.sandbox.ddes.node
 import com.saldubatech.math.randomvariables.Distributions.LongRVar
 import com.saldubatech.sandbox.observers.{Subject, Departure, NewJob}
 import com.saldubatech.lang.Id
-import com.saldubatech.sandbox.ddes.{DomainMessage, Tick, Clock, SimActor, SimActorBehavior, ActionResult, OAMMessage, DomainProcessor, DomainEvent}
+import com.saldubatech.ddes.types.{DomainMessage, Tick, OAMMessage}
+import com.saldubatech.ddes.runtime.Clock
+import com.saldubatech.ddes.elements.{SimActorBehavior, DomainProcessor, SimActor, DomainEvent}
 import com.saldubatech.lang.types.{AppResult, UnitResult, AppSuccess, AppError, AppFail}
 
 
@@ -45,7 +47,7 @@ object Sink:
       protected def executeCompletion(at: Tick, wr: WORK_REQUEST, wp: WorkPackage[WORK_REQUEST, INBOUND]): UnitResult
       protected def executeArrival(at: Tick, ib: INBOUND): UnitResult
 
-      override def accept(at: Tick, ev: DomainEvent[WORK_REQUEST | INBOUND]): ActionResult =
+      override def accept(at: Tick, ev: DomainEvent[WORK_REQUEST | INBOUND]): UnitResult =
         ev match
           case ib@DomainEvent(action, from, payload : INBOUND) =>
             for {
@@ -70,7 +72,7 @@ abstract class Sink[WORK_REQUEST <: DomainMessage : Typeable, INBOUND <: DomainM
 
   protected given Typeable[WORK_REQUEST| INBOUND] = Sink.spTT[WORK_REQUEST, INBOUND]
 
-  override def oam(msg: OAMMessage): ActionResult =
+  override def oam(msg: OAMMessage): UnitResult =
     msg match
       case obsMsg: Subject.ObserverManagement => observerManagement(obsMsg)
       case _ => Right(())

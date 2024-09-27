@@ -1,10 +1,11 @@
 package com.saldubatech.sandbox.ddes.node
 
 import com.saldubatech.math.randomvariables.Distributions.LongRVar
-import com.saldubatech.sandbox.ddes.SimEnvironment
 import com.saldubatech.sandbox.observers.{Subject, Departure, NewJob}
 import com.saldubatech.lang.Id
-import com.saldubatech.sandbox.ddes.{DomainMessage, Tick, Clock, SimActor, SimActorBehavior, ActionResult, OAMMessage, DomainProcessor, DomainEvent}
+import com.saldubatech.ddes.types.{DomainMessage, Tick, OAMMessage}
+import com.saldubatech.ddes.runtime.Clock
+import com.saldubatech.ddes.elements.{SimActor, SimActorBehavior, DomainProcessor, DomainEvent}
 import com.saldubatech.lang.types.{AppResult, UnitResult, AppSuccess, AppError, AppFail}
 
 
@@ -142,7 +143,7 @@ object ZStreamSource:
         // In the future, this can go in the constructor to allow for pluggable behaviors.
         private val discharger: Discharger[StreamTrigger[SOURCED], TARGETED] = SourceDischarger(packingDelay, transformation)
 
-        override def accept(at: Tick, ev: DomainEvent[Protocol]): ActionResult =
+        override def accept(at: Tick, ev: DomainEvent[Protocol]): UnitResult =
           ev.payload match
             // Receive a new `SOURCED` through a trigger, results in an event in the future when
             // the received item is `unpacked`
@@ -189,7 +190,7 @@ class ZStreamSource[SOURCED <: DomainMessage : Typeable : ClassTag, TARGETED <: 
       override protected val domainProcessor: DomainProcessor[ZStreamSource.Protocol] =
         ZStreamSource.DP(source, target)(packingDelay, transportationDelay, transformation)
 
-      override def oam(msg: OAMMessage): ActionResult =
+      override def oam(msg: OAMMessage): UnitResult =
         msg match
           case obsMsg: Subject.ObserverManagement => observerManagement(obsMsg)
           case _ => Right(())

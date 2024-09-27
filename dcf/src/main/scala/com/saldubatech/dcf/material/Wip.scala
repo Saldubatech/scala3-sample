@@ -3,7 +3,8 @@ package com.saldubatech.dcf.material
 import com.saldubatech.dcf.job.JobSpec
 import com.saldubatech.dcf.material.Material
 import com.saldubatech.lang.{Id, Identified}
-import com.saldubatech.sandbox.ddes.Tick
+import com.saldubatech.ddes.types.Tick
+
 
 object Wip:
   trait AtRest extends Wip

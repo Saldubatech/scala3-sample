@@ -1,7 +1,8 @@
 package com.saldubatech.sandbox.movement
 
 import com.saldubatech.lang.Id
-import com.saldubatech.sandbox.ddes.{DomainEvent, DomainMessage}
+import com.saldubatech.ddes.types.DomainMessage
+import com.saldubatech.ddes.elements.DomainEvent
 
 
 case class Load[+C] private (c: C, override val id: Id, override val job: Id) extends DomainMessage

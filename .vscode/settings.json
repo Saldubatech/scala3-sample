@@ -13,13 +13,17 @@
     "gridspec",
     "Hmmss",
     "hspace",
+    "Indc",
+    "Kolmogorov",
     "Rdbms",
     "RFOLD",
+    "scalac",
     "scalafix",
     "scalafmt",
     "semanticdb",
     "sharex",
     "sharey",
+    "Smirnov",
     "SRIO",
     "suptitle",
     "SZIO",
@@ -29,10 +33,7 @@
     "URIO",
     "wspace",
     "xlabel",
-    "ylabel",
-    "Indc",
-    "Kolmogorov",
-    "Smirnov"
+    "ylabel"
   ],
   "metals": {
     "inlayHints": {
@@ -41,8 +42,6 @@
     },
     "envFile": ".env"
   },
-  "metals.inlayHints.implicitArguments.enable": true,
-  "metals.inlayHints.implicitConversions.enable": true,
   "code-runner.runInTerminal": true,
   "code-runner.saveAllFilesBeforeRun": true,
   "code-runner.languageIdToFileExtensionMap": {
@@ -171,5 +170,7 @@
   "python.analysis.diagnosticSeverityOverrides": {
     "reportUnknownMembertype": "info"
   },
-  "plantuml.render": "Local"
+  "plantuml.render": "Local",
+  "metals.inlayHints.implicitArguments.enable": true,
+  "metals.inlayHints.implicitConversions.enable": true
 }

@@ -3,7 +3,7 @@ package com.saldubatech.dcf.node.components.connectors
 import com.saldubatech.lang.Id
 import com.saldubatech.lang.types._
 import com.saldubatech.util.LogEnabled
-import com.saldubatech.sandbox.ddes.{Tick, DomainMessage}
+import com.saldubatech.ddes.types.{Tick, DomainMessage}
 import com.saldubatech.dcf.material.Material
 import com.saldubatech.dcf.job.SimpleJobSpec
 import com.saldubatech.dcf.node.components.{Sink, ProxySink, Source}

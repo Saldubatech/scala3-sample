@@ -1,6 +1,9 @@
-package com.saldubatech.sandbox.ddes
+package com.saldubatech.ddes.elements
 
+import com.saldubatech.lang.types._
 import com.saldubatech.util.LogEnabled
+import com.saldubatech.ddes.types.{Tick, DomainMessage, OAMMessage}
+import com.saldubatech.ddes.runtime.{SimNode, Clock, OAM}
 import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
 import org.apache.pekko.actor.typed.{ActorRef, Behavior}
 
@@ -8,13 +11,13 @@ import scala.reflect.Typeable
 import com.saldubatech.lang.Id
 
 trait DomainProcessor[-DM <: DomainMessage : Typeable] extends LogEnabled:
-  def accept(at: Tick, ev: DomainEvent[DM]): ActionResult
+  def accept(at: Tick, ev: DomainEvent[DM]): UnitResult
 
 /**
   * The External view of a participant in the simulation. This allows it to be
   * contra-variant on the DomainMessage (acts as a pure "Consumer" of DomainMessages)
   */
-trait SimActor[-DM <: DomainMessage : Typeable] extends LogEnabled:
+trait SimActor[-DM <: DomainMessage : Typeable] extends SimNode with LogEnabled:
   selfSimActor =>
 
   val name: String
@@ -68,9 +71,9 @@ extends SimActor[DM] with SimActorContext[DM]:
 
   protected val domainProcessor: DomainProcessor[DM]
 
-  final val simulationComponent: DDE.SimulationComponent =
-    new DDE.SimulationComponent {
-      override def initialize(ctx: ActorContext[DDE.SupervisorProtocol]): Map[Id, ActorRef[?]] =
+  final val simulationComponent: SimulationComponent =
+    new SimulationComponent {
+      override def initialize(ctx: ActorContext[OAM.InitRequest]): Map[Id, ActorRef[?]] =
         Map(name -> ctx.spawn[DomainAction[DM] | OAMMessage](selfActorBehavior.init(), name))
     }
   override val env: SimEnvironment = new SimEnvironment() {
@@ -106,6 +109,6 @@ extends SimActor[DM] with SimActorContext[DM]:
         }
     }
 
-  def oam(msg: OAMMessage): ActionResult
+  def oam(msg: OAMMessage): UnitResult
 
 

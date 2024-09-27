@@ -3,7 +3,10 @@ package com.saldubatech.sandbox.ddes.node.simple
 import com.saldubatech.math.randomvariables.Distributions.LongRVar
 import com.saldubatech.sandbox.observers.{Subject, Departure, NewJob}
 import com.saldubatech.lang.Id
-import com.saldubatech.sandbox.ddes.{DomainMessage, Tick, Clock, SimActor, SimActorBehavior, ActionResult, OAMMessage, DomainProcessor, DomainEvent}
+import com.saldubatech.ddes.types.{DomainMessage, Tick, OAMMessage}
+import com.saldubatech.ddes.runtime.Clock
+import com.saldubatech.ddes.elements.{SimActor, SimActorBehavior, DomainEvent}
+import com.saldubatech.ddes.elements.DomainProcessor
 import com.saldubatech.lang.types.{AppResult, UnitResult, AppSuccess, AppError, AppFail}
 
 
@@ -57,7 +60,7 @@ class RelaySink[INBOUND <: DomainMessage : Typeable]
       }
 
     private var target: Option[ActorRef[DomainEvent[INBOUND]]] = None
-    override def oam(msg: OAMMessage): ActionResult =
+    override def oam(msg: OAMMessage): UnitResult =
       msg match
         case InstallTarget(tg) =>
           target = Some(tg)

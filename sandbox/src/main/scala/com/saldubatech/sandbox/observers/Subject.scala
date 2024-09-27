@@ -1,8 +1,8 @@
 package com.saldubatech.sandbox.observers
 
 import com.saldubatech.lang.{Id, Partial}
-import com.saldubatech.sandbox.ddes.DDE.simError
-import com.saldubatech.sandbox.ddes.*
+import com.saldubatech.lang.types._
+import com.saldubatech.ddes.types.OAMMessage
 import com.saldubatech.sandbox.observers.Observer.ObserverRef
 import com.saldubatech.util.LogEnabled
 import org.apache.pekko.actor.typed.{ActorRef, Behavior}
@@ -21,7 +21,7 @@ trait Subject extends LogEnabled:
 
   private val observers = collection.mutable.Map[String, (Int, ObserverRef)]()
 
-  protected val observerManagement: PartialFunction[ObserverManagement, ActionResult] = Partial{
+  protected val observerManagement: PartialFunction[ObserverManagement, UnitResult] = Partial{
       case InstallObserver(name, observer) =>
         observers.updateWith(name){
           case None => Some(1 -> observer)

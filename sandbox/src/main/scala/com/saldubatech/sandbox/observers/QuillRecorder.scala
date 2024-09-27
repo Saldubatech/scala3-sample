@@ -6,7 +6,7 @@ import com.saldubatech.lang.predicate.platforms.{QuillPlatform, QuillRepo}
 import com.saldubatech.lang.predicate.Repo
 import com.saldubatech.lang.types.{AppError, AppResult}
 import com.saldubatech.sandbox
-import com.saldubatech.sandbox.ddes.Tick
+import com.saldubatech.ddes.types.Tick
 import com.saldubatech.sandbox.observers
 import io.getquill._
 import zio.Exit.{Failure, Success}

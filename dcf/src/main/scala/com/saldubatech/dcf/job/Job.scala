@@ -1,7 +1,7 @@
 package com.saldubatech.dcf.job
 
 import com.saldubatech.lang.Id
-import com.saldubatech.sandbox.ddes.Tick
+import com.saldubatech.ddes.types.Tick
 import com.saldubatech.dcf.material.Material
 
 enum JobProcessingState:

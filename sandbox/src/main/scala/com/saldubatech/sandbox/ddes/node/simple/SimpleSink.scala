@@ -3,9 +3,10 @@ package com.saldubatech.sandbox.ddes.node.simple
 import com.saldubatech.math.randomvariables.Distributions.LongRVar
 import com.saldubatech.sandbox.observers.{Subject, Departure, NewJob}
 import com.saldubatech.lang.Id
-import com.saldubatech.sandbox.ddes.{DomainMessage, Tick, Clock, SimActor, SimActorBehavior, ActionResult, OAMMessage, DomainProcessor, DomainEvent}
+import com.saldubatech.ddes.types.{DomainMessage, Tick, OAMMessage}
+import com.saldubatech.ddes.elements.{SimActor, SimActorBehavior, DomainEvent, DomainProcessor}
+import com.saldubatech.ddes.runtime.Clock
 import com.saldubatech.lang.types.{AppResult, UnitResult, AppSuccess, AppError, AppFail}
-
 
 import scala.reflect.Typeable
 import scala.collection.SortedMap

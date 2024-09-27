@@ -3,7 +3,9 @@ package com.saldubatech.dcf.node.station
 import com.saldubatech.lang.Id
 import com.saldubatech.lang.types._
 
-import com.saldubatech.sandbox.ddes.{DomainMessage, Tick, Duration, Clock, SimActor, SimActorBehavior, ActionResult, OAMMessage, DomainProcessor, DomainEvent}
+import com.saldubatech.ddes.types.{DomainMessage, Tick, Duration, OAMMessage}
+import com.saldubatech.ddes.runtime.Clock
+import com.saldubatech.ddes.elements.{SimActor, SimActorBehavior, DomainProcessor, DomainEvent}
 import com.saldubatech.sandbox.observers.Subject
 
 import com.saldubatech.dcf.material.Material
@@ -52,7 +54,7 @@ object SinkStation:
       } yield InductBinding.API.ServerAdaptors.physics(i)
 
 
-    override def accept(at: Tick, ev: DomainEvent[PROTOCOL]): ActionResult =
+    override def accept(at: Tick, ev: DomainEvent[PROTOCOL]): UnitResult =
       ev.payload match
         case i@InductBinding.API.Signals.LoadArriving(_, _, _, _, _, _ : M) =>
           maybeInductAdaptor.flatMap{
@@ -87,7 +89,7 @@ with Subject:
   override protected val domainProcessor: DomainProcessor[SinkStation.PROTOCOL] =
     SinkStation.DP[M](this, iPhysics, inbound, consumer)
 
-  override def oam(msg: OAMMessage): ActionResult =
+  override def oam(msg: OAMMessage): UnitResult =
     msg match
       case obsMsg: Subject.ObserverManagement => observerManagement(obsMsg)
       case _ => Right(())

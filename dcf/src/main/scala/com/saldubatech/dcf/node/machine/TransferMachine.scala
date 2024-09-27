@@ -3,7 +3,7 @@ package com.saldubatech.dcf.node.machine
 import com.saldubatech.lang.{Id, Identified}
 import com.saldubatech.lang.types._
 import com.saldubatech.util.LogEnabled
-import com.saldubatech.sandbox.ddes.Tick
+import com.saldubatech.ddes.types.Tick
 import com.saldubatech.dcf.material.{Material, Wip}
 import com.saldubatech.dcf.job.{JobSpec, SimpleJobSpec}
 import com.saldubatech.dcf.node.components.{Sink, ProxySink, Processor, Operation, Source, Component, Controller, PushController}

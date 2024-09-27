@@ -1,7 +1,7 @@
 package com.saldubatech.sandbox.observers
 
 import com.saldubatech.lang.Id
-import com.saldubatech.sandbox.ddes.Tick
+import com.saldubatech.ddes.types.Tick
 import com.saldubatech.lang.types.datetime.Epoch
 import com.saldubatech.lang.types.SIO
 import zio.ZIO

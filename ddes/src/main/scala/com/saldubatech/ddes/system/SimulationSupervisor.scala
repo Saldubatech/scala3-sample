@@ -1,23 +1,19 @@
-package com.saldubatech.sandbox.ddes
+package com.saldubatech.ddes.system
 
 
-
-import com.saldubatech.lang.Id
-import com.saldubatech.sandbox.observers.Observer
+import zio.{ZIO, Task, URLayer, ZLayer}
 import org.apache.pekko.actor.typed.{Behavior, ActorRef, ActorSystem}
 import org.apache.pekko.actor.typed.scaladsl.{Behaviors, AskPattern, ActorContext}
-import zio.{ZIO, ZLayer, URLayer, ULayer, Task}
 import org.apache.pekko.util.Timeout
-import cats.syntax.contravariantMonoidal
 
-import scala.concurrent.duration._
-import scala.concurrent.Future
-import com.saldubatech.lang.types.AppError
-import com.saldubatech.util.LogEnabled
+import com.saldubatech.lang.Id
+import com.saldubatech.lang.types._
+import com.saldubatech.ddes.types.{Tick, DomainMessage, OAMRequest, OAMMessage, Fail}
+import com.saldubatech.ddes.runtime.{Clock, OAM}
+import com.saldubatech.ddes.elements.{SimActor, SimActorContext, SimulationComponent, SimEnvironment, DomainAction}
 
-
-object DDE extends LogEnabled:
-  def simSupervisorLayer(name: String): URLayer[Clock & SimulationComponent, SimulationSupervisor] =
+object SimulationSupervisor:
+    def layer(name: String): URLayer[Clock & SimulationComponent, SimulationSupervisor] =
     ZLayer(
       for {
         clk <- ZIO.service[Clock]
@@ -25,51 +21,12 @@ object DDE extends LogEnabled:
       } yield SimulationSupervisor(name, clk, Some(simConf))
     )
 
+end SimulationSupervisor // object
 
-  def simEnd(tick: Tick, ctx: ActorContext[?]): Unit =
-    log.info(s"Calling for termination at Virtual Time: $tick")
-    ctx.log.warn(s"Simulation ended at $tick")
-    ctx.system.terminate()
+class SimulationSupervisor(val name: String, val clock: Clock, private val simulationConfiguration: Option[SimulationComponent]):
 
-  def simError(at: Tick, ctx: ActorContext[?], err: SimulationError): SimulationError = {
-    ctx.log.error(err.getMessage, err)
-    err match
-      case FatalError(msg, cause) => simEnd(at, ctx)
-      case _ => ()
-    err
-  }
-
-  trait SimulationComponent:
-    def initialize(ctx: ActorContext[SupervisorProtocol]): Map[Id, ActorRef[?]]
-
-  sealed class NoMessage extends DomainMessage:
-    override val id: Id = ""
-    override val job: Id = ""
-    override def canEqual(that: Any): Boolean = false
-
-    override val productArity: Int = 0
-    override def productElement(n: Int): Any = None
-
-//  case class FinalizeInit[RES](replyTo: ActorRef[RES]) extends OAMMessage
-
-  sealed trait SupervisorProtocol extends OAMMessage:
-    val ref: ActorRef[? >: SupervisorResponse]
-  case class Ping(override val ref: ActorRef[? >: SupervisorResponse]) extends SupervisorProtocol
-
-  sealed trait SupervisorResponse extends OAMMessage
-  case object AOK extends SupervisorResponse
-  case object NotInitialized extends SupervisorResponse
-
-  def kickAwake(using to: Timeout, ac: ActorSystem[SupervisorProtocol]): Task[SupervisorResponse] =
-    import AskPattern._
-    ZIO.fromFuture(implicit ec => ac.ask[SupervisorResponse](ref => Ping(ref)))
-end DDE
-
-class SimulationSupervisor(val name: String, val clock: Clock, private val simulationConfiguration: Option[DDE.SimulationComponent]):
-  import DDE._
-
-  private var _ctx: Option[ActorContext[DDE.SupervisorProtocol]] = None
-  private lazy val context: ActorContext[DDE.SupervisorProtocol] = _ctx.get
+  private var _ctx: Option[ActorContext[OAM.InitRequest]] = None
+  private lazy val context: ActorContext[OAM.InitRequest] = _ctx.get
 
   private var _components: Option[Map[Id, ActorRef[?]]] = None
   lazy val components: Map[Id, ActorRef[?]] = _components.get
@@ -127,21 +84,23 @@ class SimulationSupervisor(val name: String, val clock: Clock, private val simul
   def rootCheck(using to: Timeout): Task[OAMMessage] =
     import AskPattern._
     given ActorSystem[?] = ctx.system
-    ZIO.fromFuture(implicit ec => ctx.self.ask[OAMMessage](ref => Ping(ref)))
+    ZIO.fromFuture(implicit ec => ctx.self.ask[OAMMessage](ref => OAM.Ping(ref)))
 
-  lazy val ctx: ActorContext[SupervisorProtocol] = _ctx.get
+  lazy val ctx: ActorContext[OAM.InitRequest] = _ctx.get
 
-  val start: Behavior[DDE.SupervisorProtocol] =
+  val start: Behavior[OAM.InitRequest] =
     Behaviors.setup{
       context =>
         _ctx = Some(context)
         _clkRef = Some(context.spawn[Clock.PROTOCOL](clock.start(), "Clock"))
         _components = simulationConfiguration.map{s => s.initialize(context)}
         _rootRef = Some(context.spawn[DomainAction[DomainMessage] | OAMMessage](root.init(), "ROOT"))
-        Behaviors.receiveMessage[DDE.SupervisorProtocol]{
-          case Ping(ref) =>
-            ref ! AOK
+        Behaviors.receiveMessage[OAM.InitRequest]{
+          case OAM.Ping(ref) =>
+            ref ! OAM.AOK
             Behaviors.same
         }
     }
+
+end SimulationSupervisor // class
 

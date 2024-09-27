@@ -1,7 +1,8 @@
 package com.saldubatech.dcf.material
 
 import com.saldubatech.lang.Id
-import com.saldubatech.sandbox.ddes.Tick
+import com.saldubatech.ddes.types.Tick
+
 
 
 object WipPool:

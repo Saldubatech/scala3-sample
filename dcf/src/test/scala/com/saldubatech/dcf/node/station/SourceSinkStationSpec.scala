@@ -3,8 +3,11 @@ package com.saldubatech.dcf.node.station
 import com.saldubatech.lang.Id
 import com.saldubatech.lang.types._
 import com.saldubatech.util.LogEnabled
-import com.saldubatech.sandbox.ddes.{Tick, Duration, Clock, SimulationSupervisor, DDE}
-import com.saldubatech.sandbox.ddes.DDE.SupervisorProtocol
+import com.saldubatech.ddes.types.{Tick, Duration}
+import com.saldubatech.ddes.types.DomainMessage
+import com.saldubatech.ddes.runtime.{Clock, OAM}
+import com.saldubatech.ddes.elements.SimulationComponent
+import com.saldubatech.ddes.system.SimulationSupervisor
 import com.saldubatech.dcf.node.components.transport.{Transport, TransportImpl, Induct, Discharge}
 import com.saldubatech.dcf.node.components.transport.bindings.{Induct as InductBinding}
 import com.saldubatech.dcf.node.machine.bindings.{LoadSource as LoadSourceBinding}
@@ -69,8 +72,8 @@ object SourceSinkStationSpec extends ZIOSpecDefault with LogEnabled with Matcher
     clock
     )
 
-  val config = new DDE.SimulationComponent {
-    override def initialize(ctx: ActorContext[SupervisorProtocol]): Map[Id, ActorRef[?]] =
+  val config = new SimulationComponent {
+    override def initialize(ctx: ActorContext[OAM.InitRequest]): Map[Id, ActorRef[?]] =
       val sinkEntry = sink.simulationComponent.initialize(ctx)
       val sourceEntry = source.simulationComponent.initialize(ctx)
       sinkEntry ++ sourceEntry
@@ -85,9 +88,9 @@ object SourceSinkStationSpec extends ZIOSpecDefault with LogEnabled with Matcher
     suite("A Source and a Sink Stations")(
       test("Accept a Run Command to the Source and send all inputs to the Consumer") {
         for {
-          rootRs <- DDE.kickAwake(using 1.second, actorSystem)
+          rootRs <- OAM.kickAwake(using 1.second, actorSystem)
         } yield
-          rootRs shouldBe DDE.AOK
+          rootRs shouldBe OAM.AOK
           simSupervisor.directRootSend(source)(0, LoadSourceBinding.API.Signals.Run(Id, Id))(using 1.second)
           var found = 0
           val r = termProbe.fishForMessage(10.second){

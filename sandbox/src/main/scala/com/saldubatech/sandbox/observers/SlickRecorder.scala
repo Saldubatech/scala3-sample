@@ -7,7 +7,7 @@ import com.saldubatech.lang.predicate.SlickPlatform.REPO_IO
 import com.saldubatech.lang.predicate.{Repo, SlickPlatform, SlickRepoZioService}
 import com.saldubatech.lang.types.{AppError, AppResult}
 import com.saldubatech.sandbox
-import com.saldubatech.sandbox.ddes.Tick
+import com.saldubatech.ddes.types.Tick
 import com.saldubatech.sandbox.observers
 import slick.interop.zio.DatabaseProvider
 import slick.jdbc.JdbcProfile

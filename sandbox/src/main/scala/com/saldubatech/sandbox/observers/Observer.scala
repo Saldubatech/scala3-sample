@@ -1,11 +1,12 @@
 package com.saldubatech.sandbox.observers
 
 import com.saldubatech.lang.Id
-import com.saldubatech.sandbox.ddes.{Tick, DDE}
+import com.saldubatech.ddes.types.Tick
 import com.saldubatech.util.LogEnabled
 import org.apache.pekko.actor.typed.scaladsl.Behaviors
 import org.apache.pekko.actor.typed.{ActorRef, Behavior}
-import com.saldubatech.sandbox.ddes.DDE.SimulationComponent
+import com.saldubatech.ddes.runtime.OAM
+import com.saldubatech.ddes.elements.SimulationComponent
 import org.apache.pekko.actor.typed.scaladsl.ActorContext
 
 
@@ -27,9 +28,9 @@ trait Observer extends LogEnabled:
   private var _ref: Option[ActorRef[PROTOCOL]] = None
   lazy val ref: ActorRef[PROTOCOL] = _ref.get
 
-  final val simulationComponent: DDE.SimulationComponent =
-    new DDE.SimulationComponent {
-      def initialize(ctx: ActorContext[DDE.SupervisorProtocol]): Map[Id, ActorRef[?]] =
+  final val simulationComponent: SimulationComponent =
+    new SimulationComponent {
+      def initialize(ctx: ActorContext[OAM.InitRequest]): Map[Id, ActorRef[?]] =
         observer._ref = Some(ctx.spawn[PROTOCOL](observer.init(), name))
         log.debug(s"Initialize Observer Component for $observer with ${observer.ref}")
         Map(name -> observer.ref)

@@ -4,7 +4,10 @@ import com.dimafeng.testcontainers.PostgreSQLContainer
 import com.saldubatech.infrastructure.storage.rdbms.{DataSourceBuilder, PGDataSourceBuilder, PersistenceError}
 import com.saldubatech.lang.Id
 import com.saldubatech.math.randomvariables.Distributions
-import com.saldubatech.sandbox.ddes.*
+import com.saldubatech.ddes.types.{DomainMessage, Tick, DoneOK}
+import com.saldubatech.ddes.elements.DomainEvent
+import com.saldubatech.ddes.runtime.{OAM, Clock}
+import com.saldubatech.ddes.system.SimulationSupervisor
 import com.saldubatech.sandbox.observers.{Observer, Subject}
 import com.saldubatech.test.persistence.postgresql.{PostgresContainer, TestPGDataSourceBuilder}
 import com.saldubatech.util.LogEnabled
@@ -72,9 +75,9 @@ object QuillMM1ObservationSpec extends  ZIOSpecDefault
       test("Will send all the messages it is provided in the constructor") {
         for {
           supervisor <- ZIO.service[SimulationSupervisor] // Inactive Supervisor
-          as <- ZIO.service[ActorSystem[DDE.SupervisorProtocol]] // Initializes Actor System with Supervisor as root actor with the given configuration
+          as <- ZIO.service[ActorSystem[OAM.InitRequest]] // Initializes Actor System with Supervisor as root actor with the given configuration
           fixture <- ZIO.service[ActorTestKit] // Start the TestKit with the provided actor system
-          isAwake <-  DDE.kickAwake(using 1.second, as) // Kicks Awake the actor system before doing anything else
+          isAwake <-  OAM.kickAwake(using 1.second, as) // Kicks Awake the actor system before doing anything else
           observerProbe <- ZIO.service[TestProbe[Observer.PROTOCOL]]
           termProbe <- ZIO.service[TestProbe[DomainEvent[ProbeMessage]]]
           tapRef <- wireTap
@@ -121,7 +124,7 @@ object QuillMM1ObservationSpec extends  ZIOSpecDefault
       Clock.zeroStartLayer,
       mm1SimulationComponents(lambda, tau),
       mm1ShopFloorConfiguration,
-      DDE.simSupervisorLayer("QuillMM1ObservationSpec_Supervisor"),
+      SimulationSupervisor.layer("QuillMM1ObservationSpec_Supervisor"),
       fixtureStack("QuillMM1ObservationSpec_AS"),
       probeLayer[DomainEvent[ProbeMessage]]("TermProbe"),
       probeLayer[Observer.PROTOCOL]("ObserverProbe")

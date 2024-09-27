@@ -1,6 +1,8 @@
 package com.saldubatech.sandbox.ddes.node.simple
 
-import com.saldubatech.sandbox.ddes.{Tick, Clock, DomainMessage, SimActor, DomainProcessor, SimulationError, DomainEvent, ActionResult}
+import com.saldubatech.ddes.types.{DomainMessage, Tick, OAMMessage, SimulationError}
+import com.saldubatech.ddes.elements.{SimActor, SimActorBehavior, DomainEvent, DomainProcessor}
+import com.saldubatech.ddes.runtime.Clock
 import com.saldubatech.sandbox.observers.OperationEventNotification
 import com.saldubatech.sandbox.ddes.node.{WorkPackage, ProcessorResource, Station, Discharger, Inductor, FIFOWorkQueue}
 

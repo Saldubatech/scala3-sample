@@ -14,7 +14,10 @@ import zio.{ZIO, Runtime as ZRuntime, IO}
 import zio.stream.{ZStream, UStream}
 import com.saldubatech.test.BaseSpec
 import org.apache.pekko.actor.typed.scaladsl.ActorContext
-import com.saldubatech.sandbox.ddes.DDE.SupervisorProtocol
+import com.saldubatech.ddes.types.{DomainMessage, Tick}
+import com.saldubatech.ddes.runtime.{OAM, Clock}
+import com.saldubatech.ddes.elements.{SimulationComponent, DomainEvent}
+import com.saldubatech.ddes.system.SimulationSupervisor
 import com.saldubatech.sandbox.ddes.node.simple.RelaySink
 import org.apache.pekko.actor.typed.ActorRef
 import org.apache.pekko.actor.typed.ActorSystem
@@ -48,9 +51,9 @@ object StreamSourceSpec extends ZIOSpecDefault with LogEnabled with Matchers:
           clock
       )
 
-      val config = new DDE.SimulationComponent {
+      val config = new SimulationComponent {
 
-        def initialize(ctx: ActorContext[SupervisorProtocol]): Map[Id, ActorRef[?]] = {
+        def initialize(ctx: ActorContext[OAM.InitRequest]): Map[Id, ActorRef[?]] = {
           val sinkEntry = sink.simulationComponent.initialize(ctx)
           val sourceEntry = streamSource.simulationComponent.initialize(ctx)
           sinkEntry ++ sourceEntry
@@ -65,7 +68,7 @@ object StreamSourceSpec extends ZIOSpecDefault with LogEnabled with Matchers:
       val termProbe = fixture.createTestProbe[DomainEvent[ResultMessage]]()
 
       for {
-        rootRs <- DDE.kickAwake(using 1.second, actorSystem)
+        rootRs <- OAM.kickAwake(using 1.second, actorSystem)
       } yield {
         sink.ref ! sink.InstallTarget(termProbe.ref)
 

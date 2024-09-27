@@ -45,6 +45,21 @@ libraryDependencies ++= Seq(
   // Math, etc...
   Dependencies.Spark.mlLib,
 
+  // Schema & Optics
+  Dependencies.Zio.Ecosystem.optics,
+  Dependencies.Zio.Ecosystem.schema,
+  Dependencies.Zio.Ecosystem.schemaJson,
+  Dependencies.Zio.Ecosystem.schemaDerivation,
+  Dependencies.Zio.Ecosystem.schemaOptics,
+
+  // logging
+  //  Dependencies.Zio.Runtime.logging,
+  //  Dependencies.Zio.Runtime.sl4jBridge,
+  Dependencies.Zio.Runtime.slf4j,
+  //  Dependencies.Logging.sl4jSimple,
+  //  Dependencies.Logging.logbackClassic,
+  //  Dependencies.Logging.logbackCore,
+
   // ZIO Runtime
   Dependencies.Zio.Runtime.zio,
   // Needed to access the "Chunk" type.
@@ -63,6 +78,9 @@ libraryDependencies ++= Seq(
   Dependencies.Persistence.slickPg,
   Dependencies.Persistence.pgCirce,
   Dependencies.Persistence.slickHikari,
+  Dependencies.Persistence.flywayDb,
+  Dependencies.Zio.Runtime.quillCaliban,
+  Dependencies.Zio.Runtime.quillJdbcZio,
 
   // Schema & Optics
   Dependencies.Zio.Ecosystem.optics,
