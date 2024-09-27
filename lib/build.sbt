@@ -42,6 +42,9 @@ libraryDependencies ++= Seq(
   Dependencies.Circe.generic,
   Dependencies.Circe.parser,
 
+  // Actors
+  Dependencies.Pekko.actor,
+
   // Math, etc...
   Dependencies.Spark.mlLib,
 
@@ -106,7 +109,8 @@ libraryDependencies ++= Seq(
   Dependencies.Zio.Testing.magnolia % Test,
   Dependencies.Testing.scalatic % Test, // Currently not used in production code.
   Dependencies.Testing.scalaTest, // Needed in production for developing tests by client libraries.
-  Dependencies.Zio.Ecosystem.schemaTest % Test
+  Dependencies.Zio.Ecosystem.schemaTest % Test,
+  Dependencies.Pekko.test // Could be Needed to provide library support for testing for other projects.
 
 )
 publish / skip := false

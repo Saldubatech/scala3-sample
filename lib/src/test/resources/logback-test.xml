@@ -2,13 +2,15 @@
   <appender name="console" class="ch.qos.logback.core.ConsoleAppender">
     <encoder>
       <!-- https://logback.qos.ch/manual/layouts.html -->
-      <pattern>%d %highlight(%-5level) [%50.-50thread] %-30logger\t%msg%n</pattern>
+      <pattern>[%date{mm:ss.SSS} %highlight(%-5level) %15.15logger{10}:%3.3line] %-130.-130msg [%thread]%n</pattern>
     </encoder>
   </appender>
 
   <root level="error">
     <appender-ref ref="console" />
   </root>
+  <logger name="slick.interop.zio" level="warn"/>
+  <logger name="com.saldubatech" level="warn"/>
   <logger name="com.saldubatech" level="INFO"/>
   <logger name="com.saldubatech.util.ErrorLog$" level="ERROR"/>
   <logger name="com.saldubatech.util.WarnLog$" level="WARN"/>

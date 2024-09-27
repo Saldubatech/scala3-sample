@@ -36,7 +36,7 @@ import scala.concurrent.duration.*
 import scala.language.postfixOps
 import com.saldubatech.infrastructure.storage.rdbms.slick.PGExtendedProfile
 import com.saldubatech.sandbox.ddes.node.simple.RelaySink
-import com.saldubatech.sandbox.ddes.Tap
+import com.saldubatech.test.ddes.Tap
 import com.saldubatech.ddes.system.SimulationSupervisor
 
 object SlickObserverSpec extends  ZIOSpecDefault

@@ -39,7 +39,7 @@ import scala.language.postfixOps
 import com.saldubatech.ddes.types.Tick
 import com.saldubatech.ddes.system.SimulationSupervisor
 import com.saldubatech.sandbox.ddes.node.simple.RelaySink
-import com.saldubatech.sandbox.ddes.Tap
+import com.saldubatech.test.ddes.Tap
 import com.saldubatech.sandbox.observers.TestSimulationLayers.ProbeMessage
 import com.saldubatech.sandbox.observers.Observer.PROTOCOL
 

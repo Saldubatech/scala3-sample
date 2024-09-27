@@ -3,7 +3,7 @@ package com.saldubatech.ddes.elements
 import com.saldubatech.lang.types._
 import com.saldubatech.util.LogEnabled
 import com.saldubatech.ddes.types.{Tick, DomainMessage, OAMMessage}
-import com.saldubatech.ddes.runtime.{SimNode, Clock, OAM}
+import com.saldubatech.ddes.runtime.{SimNode, Clock, OAM, Command}
 import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors}
 import org.apache.pekko.actor.typed.{ActorRef, Behavior}
 

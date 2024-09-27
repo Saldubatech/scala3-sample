@@ -11,10 +11,7 @@
   </root>
   <logger name="slick.interop.zio" level="warn"/>
   <logger name="com.saldubatech" level="warn"/>
-  <logger name="com.saldubatech.sandbox" level="info"/>
-  <logger name="slick.interop.zio" level="info"/>
-  <logger name="com.saldubatech.sandbox.ddes" level="info"/>
-  <!-- <logger name="com.saldubatech.sandbox.observers" level="debug"/> -->
-  <logger name="com.saldubatech.sandbox.ddes.node" level="info"/>
+  <logger name="com.saldubatech.ddes" level="info"/>
+  <logger name="com.saldubatech.ddes.runtime" level="info"/>
 
 </configuration>

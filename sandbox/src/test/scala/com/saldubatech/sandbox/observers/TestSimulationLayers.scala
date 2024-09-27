@@ -9,7 +9,7 @@ import com.saldubatech.ddes.types.{DomainMessage, OAMMessage}
 import com.saldubatech.ddes.runtime.{Clock, OAM}
 import com.saldubatech.ddes.elements.{DomainEvent, SimulationComponent, SimActor}
 import com.saldubatech.ddes.system.SimulationSupervisor
-import com.saldubatech.sandbox.ddes.Tap
+import com.saldubatech.test.ddes.Tap
 import com.saldubatech.sandbox.ddes.node.{Station, Source}
 import com.saldubatech.sandbox.ddes.node.simple.{SimpleStation, SimpleSink, RelaySink}
 import com.saldubatech.sandbox.observers.{Observer, Subject}

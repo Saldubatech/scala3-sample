@@ -2,19 +2,15 @@
   <appender name="console" class="ch.qos.logback.core.ConsoleAppender">
     <encoder>
       <!-- https://logback.qos.ch/manual/layouts.html -->
-      <pattern>%d %highlight(%-5level) [%50.50thread] %-30logger[%3.-3line]\t%msg%n</pattern>
+      <pattern>[%date{mm:ss.SSS} %highlight(%-5level) %15.15logger{10}:%3.3line] %-130.-130msg [%thread]%n</pattern>
     </encoder>
   </appender>
 
   <root level="error">
     <appender-ref ref="console" />
   </root>
-  <logger name="com.saldubatech.sandbox" level="info"/>
-  <logger name="slick.interop.zio" level="info"/>
-  <logger name="com.saldubatech.sandbox.ddes" level="info"/>
-  <logger name="com.saldubatech.sandbox.ddes.Clock" level="info"/>
-  <logger name="com.saldubatech.sandbox.ddes.SimAction" level="info"/>
-  <!-- <logger name="com.saldubatech.sandbox.observers" level="debug"/> -->
-  <logger name="com.saldubatech.sandbox.ddes.node" level="info"/>
-
+  <logger name="slick.interop.zio" level="warn"/>
+  <logger name="com.saldubatech" level="warn"/>
+  <logger name="com.saldubatech.dcf" level="info"/>
 </configuration>
+

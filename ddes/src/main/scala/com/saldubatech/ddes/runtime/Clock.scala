@@ -3,15 +3,12 @@ package com.saldubatech.ddes.runtime
 import com.saldubatech.lang.Id
 import com.saldubatech.util.LogEnabled
 import com.saldubatech.ddes.types.{DdesMessage, Tick, FatalError}
-import com.saldubatech.ddes.elements.Command
 import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors, TimerScheduler}
 import org.apache.pekko.actor.typed.{ActorRef, Behavior}
 import zio.{RLayer, TaskLayer, ZLayer}
 
-import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration._
-//import com.saldubatech.ddes.elements.SimActor
-  // To approximate requiring a case class short of creating a macro.
+import scala.util.chaining.scalaUtilChainingOps
 
 object Clock:
 
@@ -22,13 +19,19 @@ object Clock:
 
   type PROTOCOL = ClockMessage | Command
 
+  sealed trait MonitorSignal
+  case class Shutdown(at: Tick, cause: String) extends MonitorSignal
+  case class Abort(at: Tick, cause: String) extends MonitorSignal
+
+
   def startTimeLayer(maxTime: Option[Tick], at: Tick): TaskLayer[Clock] = ZLayer.succeed { Clock(maxTime, at) }
   val zeroStartLayer: TaskLayer[Clock] = startTimeLayer(None, 0L)
-
+end Clock // object
 
 class Clock(
   val maxTime: Option[Tick],
-  val startTime: Tick = Tick(0L)
+  val startTime: Tick = Tick(0L),
+  monitor: Option[ActorRef[Clock.MonitorSignal]] = None
 ) extends LogEnabled:
   selfClock =>
 
@@ -40,6 +43,9 @@ class Clock(
   private var _ctx: Option[ActorContext[PROTOCOL]] = None
   lazy val ctx: ActorContext[PROTOCOL] = _ctx.get
 
+  private def notifyMonitor(event: MonitorSignal): Unit =
+    monitor.foreach( _ ! event )
+
   private val commandQueue:
     collection.mutable.SortedMap[Tick, collection.mutable.ListBuffer[Command]] =
     collection.mutable.SortedMap()
@@ -47,14 +53,16 @@ class Clock(
   private def updateCommandQueue(cmd: Command): Unit =
     commandQueue.getOrElseUpdate(cmd.forEpoch, collection.mutable.ListBuffer()) += cmd
 
-  private def popNextCommands(): Option[(Tick, ListBuffer[Command])] =
+  private def popNextCommands(): Option[(Tick, scala.collection.mutable.ListBuffer[Command])] =
     commandQueue.headOption.map { t => commandQueue.remove(t._1); t }
 
   private val openActions: collection.mutable.Set[Id] = collection.mutable.Set()
   private def openAction(a: Id): Id =
-    openActions += a
-    log.debug(s"Added $a to openActions")
-    a
+    a.tap{
+      _ =>
+        openActions += a
+        log.debug(s"Added $a to openActions")
+    }
 
   private def closeAction(a: Id): Boolean =
     log.debug(s"Removing $a from openActions")
@@ -63,15 +71,16 @@ class Clock(
   private def scheduleCommand(ctx: ActorContext[PROTOCOL], cmd: Command): Unit =
     cmd.forEpoch match
       case present if present == now =>
-        log.debug(s"\tPresent ${cmd}")
+        log.debug(s" > Present ${cmd}")
         openAction(cmd.send)
       case future if future > now =>
-        log.debug(s"\tFuture ${cmd}")
+        log.debug(s" > Future ${cmd}")
         updateCommandQueue(cmd)
-        log.trace(s"\tWith Queue[${commandQueue.size}]: $commandQueue")
-        log.trace(s"\t\tAnd OpenActions[${openActions.size}]: $openActions")
+        log.trace(s" > With Queue[${commandQueue.size}]: $commandQueue")
+        log.trace(s"  > And OpenActions[${openActions.size}]: $openActions")
         if openActions.isEmpty && (now < commandQueue.head._1) then advanceClock
       case past =>
+        notifyMonitor(Abort(now, s"Event Received for the past: now: ${now}, forTime: ${past}"))
         OAM.simError(now, ctx, FatalError(s"Event Received for the past: now: ${now}, forTime: ${past}"))
 
   private def doCompleteAction(action: Id): Unit =
@@ -79,6 +88,7 @@ class Clock(
       if openActions.isEmpty then advanceClock
     else
       log.error(s"Action: $action is not registered in $openActions")
+      notifyMonitor(Abort(now, s"Closing a non existing action: ${action}"))
       OAM.simError(now, ctx, FatalError(s"Closing a non existing action: ${action}"))
 
   private var _timers: Option[TimerScheduler[PROTOCOL]] = None
@@ -95,15 +105,15 @@ class Clock(
       timers.startSingleTimer(IDLE(idleCount, 1.second), 1.second)
     }{
       (tick, commands) =>
-        val mT: Tick = maxTime.getOrElse(-1L)
-        log.debug(s"\tMaxTime: $mT, now: $now, advanceTo: $tick")
-        if mT >= 0 && mT <= tick then
-          log.debug(s"\tAdvanced Clock ==> Simulation End")
-          OAM.simEnd(now, ctx)
-        else
-          log.debug(s"\tAdvanced Clock ==> From: ${now} to: ${tick}")
-          now = tick
-          commands.foreach { cmd => openAction(cmd.send) }
+        maxTime match
+          case Some(mT) if tick >= mT =>
+            log.debug(s"  > Now($now) > MaxTime($mT)  ==> Simulation End")
+            notifyMonitor(Shutdown(now, s"Time Exceeding Simulation Limit: $mT"))
+            OAM.simEnd(now, ctx)
+          case _ =>
+            log.debug(s" > Advanced Clock ==> From: ${now} to: ${tick}")
+            now = tick
+            commands.foreach { cmd => openAction(cmd.send) }
     }
 
   def start(): Behavior[PROTOCOL] =
@@ -123,6 +133,7 @@ class Clock(
               if idleCount == 0 then Behaviors.same
               else if count >= maxIdleCount then
                 log.warn(s"Shutting Down with $count Idle periods")
+                notifyMonitor(Shutdown(now, s"Shutting Down with $count Idle periods"))
                 OAM.simEnd(selfClock.now, ctx)
                 Behaviors.stopped
               else
