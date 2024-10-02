@@ -60,7 +60,7 @@ object ZStreamSource:
    private val name: String,
    private val interval: LongRVar,
    private val notifier: OperationEventNotification => Unit)
-   (using rt: ZRuntime[Any], env: SimEnvironment)
+   (using rt: ZRuntime[Any], env: SimEnvironment[TARGETED])
     extends DomainProcessor[StreamTrigger[SOURCED]] with LogEnabled:
 
     private def scheduleSend(at: Tick, forTime: Tick, targetMsg: TARGETED, target: SimActor[TARGETED]): Unit =
@@ -97,6 +97,7 @@ class ZStreamSource[SOURCED <: DomainMessage : Typeable : ClassTag, TARGETED <: 
   node =>
 
   import ZStreamSource._
+  given tEnv: SimEnvironment[TARGETED] = target.env
 
   override val domainProcessor: DomainProcessor[ZStreamSource.StreamTrigger[SOURCED]] =
     ZStreamSource.DP(target, transformation, name, interval, opEv => eventNotify(opEv))

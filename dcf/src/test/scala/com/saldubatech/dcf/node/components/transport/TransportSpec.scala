@@ -26,54 +26,88 @@ class TransportSpec extends BaseSpec:
 
   val cards = (0 to 4).map{ _ => Id}.toList
   val probe = ProbeInboundMaterial(Id, 0)
+  def buildUnderTest(engine: MockAsyncCallback): TransportImpl[ProbeInboundMaterial, Induct.Environment.Listener, Discharge.Environment.Listener] =
+    def dPhysics(host: Discharge.API.Physics): Discharge.Environment.Physics[ProbeInboundMaterial] = Harness.MockDischargePhysics[ProbeInboundMaterial](() => dischargeDelay, engine)
+    def tPhysics(host: Link.API.Physics): Link.Environment.Physics[ProbeInboundMaterial] = Harness.MockLinkPhysics[ProbeInboundMaterial](() => transportDelay, engine)
+    def iPhysics(host: Induct.API.Physics): Induct.Environment.Physics[ProbeInboundMaterial] = Harness.MockInductPhysics[ProbeInboundMaterial](() => inductDelay, engine)
+    val inductStore = Induct.Component.FIFOArrivalBuffer[ProbeInboundMaterial]()
+    val inductUpstreamInjector: Induct[ProbeInboundMaterial, ?] => Induct.API.Upstream[ProbeInboundMaterial] = i => i
+    val linkAcknowledgeFactory: Link[ProbeInboundMaterial] => Link.API.Downstream = l => new Link.API.Downstream {
+      override def acknowledge(at: Tick, loadId: Id): UnitResult = AppSuccess{ engine.add(at){ () => l.acknowledge(at, loadId) } }
+    }
+    val cardRestoreFactory: Discharge[ProbeInboundMaterial, Discharge.Environment.Listener] => Discharge.Identity & Discharge.API.Downstream = d =>
+      Harness.MockAckStub(d.id, d.stationId, d, engine)
+    TransportImpl[ProbeInboundMaterial, Induct.Environment.Listener, Discharge.Environment.Listener](
+          "underTest", iPhysics, None, inductStore, tPhysics, dPhysics, inductUpstreamInjector, linkAcknowledgeFactory, cardRestoreFactory
+          )
+
 
   "A Transport" when {
     "Just Initialized" should {
       val engine = MockAsyncCallback()
-      val mockDownstream = Harness.MockSink[ProbeInboundMaterial]("Mock", "TestDownstreamStation")
-      val dPhysics = Harness.MockDischargePhysics[ProbeInboundMaterial](() => dischargeDelay, engine)
-      val tPhysics = Harness.MockLinkPhysics[ProbeInboundMaterial](() => transportDelay, engine)
-      val iPhysics = Harness.MockInductPhysics[ProbeInboundMaterial](() => inductDelay, engine)
-      val inductStore = Induct.Component.FIFOArrivalBuffer[ProbeInboundMaterial]()
-      val underTest =
-        TransportImpl[ProbeInboundMaterial, Induct.Environment.Listener, Discharge.Environment.Listener](
-          "underTest", None, inductStore
-          )
+      val underTest = buildUnderTest(engine)
+      def utDischargeAPIPhysics(): AppResult[Discharge.API.Physics] = underTest.discharge
+      def utLinkAPIPhysics(): AppResult[Link.API.Physics] = underTest.link
+      def utInductAPIPhysics(): AppResult[Induct.API.Physics] = underTest.induct
+      val linkAPIPhysics: Link.API.Physics = new Link.API.Physics {
+        def transportFinalize(at: Tick, linkId: Id, card: Id, loadId: Id): UnitResult =
+          utLinkAPIPhysics().map{ l => engine.add(at){ () => l.transportFinalize(at, linkId, card, loadId) } }
+        def transportFail(at: Tick, linkId: Id, card: Id, loadId: Id, cause: Option[AppError]): UnitResult =
+          utLinkAPIPhysics().map{ l => engine.add(at){ () => l.transportFail(at, linkId, card, loadId, cause) } }
+      }
+      val dischargeAPIPhysics: Discharge.API.Physics = new Discharge.API.Physics {
+        def dischargeFinalize(at: Tick, card: Id, loadId: Id): UnitResult =
+          utDischargeAPIPhysics().map{ d => engine.add(at){ () => d.dischargeFinalize(at, card, loadId) } }
+        def dischargeFail(at: Tick, card: Id, loadId: Id, cause: Option[AppError]): UnitResult =
+          utDischargeAPIPhysics().map{ d => engine.add(at){ () => d.dischargeFail(at, card, loadId, cause) } }
+      }
+      val inductAPIPhysics: Induct.API.Physics = new Induct.API.Physics {
+        def inductionFail(at: Tick, card: Id, loadId: Id, cause: Option[AppError]): UnitResult =
+          utInductAPIPhysics().map{ i => engine.add(at){ () => i.inductionFail(at, card, loadId, cause) } }
+        def inductionFinalize(at: Tick, card: Id, loadId: Id): UnitResult =
+          utInductAPIPhysics().map{ i => engine.add(at){ () => i.inductionFinalize(at, card, loadId) } }
+      }
       "not have induct or discharge" in {
         underTest.induct shouldBe Symbol("isLeft")
         underTest.discharge shouldBe Symbol("isLeft")
       }
       "not be able to Configure the discharge first" in {
-        underTest.buildDischarge(
-          "TestUpstreamStation",
-          dPhysics,
-          tPhysics,
-          d => Harness.MockAckStub(d.id, d.stationId, d, engine),
-          i => i
-        ) shouldBe Symbol("isLeft")
+        underTest.discharge("TestUpstreamStation", linkAPIPhysics, dischargeAPIPhysics) shouldBe Symbol("isLeft")
       }
     }
     "Its Induct is configured" should {
       val engine = MockAsyncCallback()
       val mockDownstream = Harness.MockSink[ProbeInboundMaterial]("Mock", "TestDownstreamStation")
-      val dPhysics = Harness.MockDischargePhysics[ProbeInboundMaterial](() => dischargeDelay, engine)
-      val tPhysics = Harness.MockLinkPhysics[ProbeInboundMaterial](() => transportDelay, engine)
-      val iPhysics = Harness.MockInductPhysics[ProbeInboundMaterial](() => inductDelay, engine)
-      val inductStore = Induct.Component.FIFOArrivalBuffer[ProbeInboundMaterial]()
-      val underTest =
-        TransportImpl[ProbeInboundMaterial, Induct.Environment.Listener, Discharge.Environment.Listener](
-          "underTest", None, inductStore
-          )
-      val builtInduct = underTest.buildInduct("TestDownstreamStation", iPhysics, mockDownstream)
+      val underTest = buildUnderTest(engine)
+      def utDischargeAPIPhysics(): AppResult[Discharge.API.Physics] = underTest.discharge
+      def utLinkAPIPhysics(): AppResult[Link.API.Physics] = underTest.link
+      def utInductAPIPhysics(): AppResult[Induct.API.Physics] = underTest.induct
+      val linkAPIPhysics: Link.API.Physics = new Link.API.Physics {
+        def transportFinalize(at: Tick, linkId: Id, card: Id, loadId: Id): UnitResult =
+          utLinkAPIPhysics().map{ l => engine.add(at){ () => l.transportFinalize(at, linkId, card, loadId) } }
+        def transportFail(at: Tick, linkId: Id, card: Id, loadId: Id, cause: Option[AppError]): UnitResult =
+          utLinkAPIPhysics().map{ l => engine.add(at){ () => l.transportFail(at, linkId, card, loadId, cause) } }
+      }
+      val dischargeAPIPhysics: Discharge.API.Physics = new Discharge.API.Physics {
+        def dischargeFinalize(at: Tick, card: Id, loadId: Id): UnitResult =
+          utDischargeAPIPhysics().map{ d => engine.add(at){ () => d.dischargeFinalize(at, card, loadId) } }
+        def dischargeFail(at: Tick, card: Id, loadId: Id, cause: Option[AppError]): UnitResult =
+          utDischargeAPIPhysics().map{ d => engine.add(at){ () => d.dischargeFail(at, card, loadId, cause) } }
+      }
+      val inductAPIPhysics: Induct.API.Physics = new Induct.API.Physics {
+        def inductionFail(at: Tick, card: Id, loadId: Id, cause: Option[AppError]): UnitResult =
+          utInductAPIPhysics().map{ i => engine.add(at){ () => i.inductionFail(at, card, loadId, cause) } }
+        def inductionFinalize(at: Tick, card: Id, loadId: Id): UnitResult =
+          utInductAPIPhysics().map{ i => engine.add(at){ () => i.inductionFinalize(at, card, loadId) } }
+      }
+      val builtInduct = underTest.induct("TestDownstreamStation", inductAPIPhysics)
       "return it when requested" in {
         builtInduct shouldBe Symbol("isRight")
         underTest.induct shouldBe Symbol("isRight")
         underTest.induct.value.id shouldBe builtInduct.value.id
       }
       "allow to configure the Discharge once the Induct is configured" in {
-        val builtDischarge = underTest.buildDischarge(
-          "TestUpstreamStation", dPhysics, tPhysics, d => Harness.MockAckStub(d.id, d.stationId, d, engine), i => i
-          )
+        val builtDischarge = underTest.discharge("TestUpstreamStation", linkAPIPhysics, dischargeAPIPhysics)
         builtDischarge shouldBe Symbol("isRight")
         underTest.discharge.value.id shouldBe builtDischarge.value.id
       }
@@ -81,22 +115,31 @@ class TransportSpec extends BaseSpec:
     "Building is complete" should {
       val engine = MockAsyncCallback()
       val mockDownstream = Harness.MockSink[ProbeInboundMaterial]("Mock", "TestDownstreamStation")
-      val dPhysics = Harness.MockDischargePhysics[ProbeInboundMaterial](() => dischargeDelay, engine)
-      val tPhysics = Harness.MockLinkPhysics[ProbeInboundMaterial](() => transportDelay, engine)
-      val iPhysics = Harness.MockInductPhysics[ProbeInboundMaterial](() => inductDelay, engine)
-      val inductStore = Induct.Component.FIFOArrivalBuffer[ProbeInboundMaterial]()
-      val underTest =
-        TransportImpl[ProbeInboundMaterial, Induct.Environment.Listener, Discharge.Environment.Listener](
-          "underTest", None, inductStore
-          )
-      val induct2 = underTest.buildInduct("TestDownstreamStation", iPhysics, mockDownstream)
-      val discharge2 = underTest.buildDischarge(
-          "TestUpstreamStation",
-          dPhysics,
-          tPhysics,
-          d => Harness.MockAckStub(d.id, d.stationId, d, engine),
-          i => i
-        )
+      val underTest = buildUnderTest(engine)
+      def utDischargeAPIPhysics(): AppResult[Discharge.API.Physics] = underTest.discharge
+      def utLinkAPIPhysics(): AppResult[Link.API.Physics] = underTest.link
+      def utInductAPIPhysics(): AppResult[Induct.API.Physics] = underTest.induct
+      val linkAPIPhysics: Link.API.Physics = new Link.API.Physics {
+        def transportFinalize(at: Tick, linkId: Id, card: Id, loadId: Id): UnitResult =
+          utLinkAPIPhysics().map{ l => engine.add(at){ () => l.transportFinalize(at, linkId, card, loadId) } }
+        def transportFail(at: Tick, linkId: Id, card: Id, loadId: Id, cause: Option[AppError]): UnitResult =
+          utLinkAPIPhysics().map{ l => engine.add(at){ () => l.transportFail(at, linkId, card, loadId, cause) } }
+      }
+      val dischargeAPIPhysics: Discharge.API.Physics = new Discharge.API.Physics {
+        def dischargeFinalize(at: Tick, card: Id, loadId: Id): UnitResult =
+          utDischargeAPIPhysics().map{ d => engine.add(at){ () => d.dischargeFinalize(at, card, loadId) } }
+        def dischargeFail(at: Tick, card: Id, loadId: Id, cause: Option[AppError]): UnitResult =
+          utDischargeAPIPhysics().map{ d => engine.add(at){ () => d.dischargeFail(at, card, loadId, cause) } }
+      }
+      val inductAPIPhysics: Induct.API.Physics = new Induct.API.Physics {
+        def inductionFail(at: Tick, card: Id, loadId: Id, cause: Option[AppError]): UnitResult =
+          utInductAPIPhysics().map{ i => engine.add(at){ () => i.inductionFail(at, card, loadId, cause) } }
+        def inductionFinalize(at: Tick, card: Id, loadId: Id): UnitResult =
+          utInductAPIPhysics().map{ i => engine.add(at){ () => i.inductionFinalize(at, card, loadId) } }
+      }
+      val induct2 = underTest.induct("TestDownstreamStation", inductAPIPhysics)
+      val deliverer2 = induct2.map{ _.delivery(mockDownstream) }
+      val discharge2 = underTest.discharge("TestUpstreamStation", linkAPIPhysics, dischargeAPIPhysics)
       "Have no contents or available elements in its induct" in {
         induct2.value.contents shouldBe Symbol("isEmpty")
         induct2.value.available shouldBe Symbol("isEmpty")
@@ -108,23 +151,30 @@ class TransportSpec extends BaseSpec:
     }
     "It is provided with cards" should {
       val engine = MockAsyncCallback()
-      val mockDownstream = Harness.MockSink[ProbeInboundMaterial]("Mock", "TestDownstreamStation")
-      val dPhysics = Harness.MockDischargePhysics[ProbeInboundMaterial](() => dischargeDelay, engine)
-      val tPhysics = Harness.MockLinkPhysics[ProbeInboundMaterial](() => transportDelay, engine)
-      val iPhysics = Harness.MockInductPhysics[ProbeInboundMaterial](() => inductDelay, engine)
-      val inductStore = Induct.Component.FIFOArrivalBuffer[ProbeInboundMaterial]()
-      val underTest =
-        TransportImpl[ProbeInboundMaterial, Induct.Environment.Listener, Discharge.Environment.Listener](
-          "underTest", None, inductStore
-          )
-      val induct = underTest.buildInduct("TestDownstreamStation", iPhysics, mockDownstream)
-      val discharge = underTest.buildDischarge(
-          "TestUpstreamStation",
-          dPhysics,
-          tPhysics,
-          d => Harness.MockAckStub(d.id, d.stationId, d, engine),
-          i => i
-        )
+      val underTest = buildUnderTest(engine)
+      def utDischargeAPIPhysics(): AppResult[Discharge.API.Physics] = underTest.discharge
+      def utLinkAPIPhysics(): AppResult[Link.API.Physics] = underTest.link
+      def utInductAPIPhysics(): AppResult[Induct.API.Physics] = underTest.induct
+      val linkAPIPhysics: Link.API.Physics = new Link.API.Physics {
+        def transportFinalize(at: Tick, linkId: Id, card: Id, loadId: Id): UnitResult =
+          utLinkAPIPhysics().map{ l => engine.add(at){ () => l.transportFinalize(at, linkId, card, loadId) } }
+        def transportFail(at: Tick, linkId: Id, card: Id, loadId: Id, cause: Option[AppError]): UnitResult =
+          utLinkAPIPhysics().map{ l => engine.add(at){ () => l.transportFail(at, linkId, card, loadId, cause) } }
+      }
+      val dischargeAPIPhysics: Discharge.API.Physics = new Discharge.API.Physics {
+        def dischargeFinalize(at: Tick, card: Id, loadId: Id): UnitResult =
+          utDischargeAPIPhysics().map{ d => engine.add(at){ () => d.dischargeFinalize(at, card, loadId) } }
+        def dischargeFail(at: Tick, card: Id, loadId: Id, cause: Option[AppError]): UnitResult =
+          utDischargeAPIPhysics().map{ d => engine.add(at){ () => d.dischargeFail(at, card, loadId, cause) } }
+      }
+      val inductAPIPhysics: Induct.API.Physics = new Induct.API.Physics {
+        def inductionFail(at: Tick, card: Id, loadId: Id, cause: Option[AppError]): UnitResult =
+          utInductAPIPhysics().map{ i => engine.add(at){ () => i.inductionFail(at, card, loadId, cause) } }
+        def inductionFinalize(at: Tick, card: Id, loadId: Id): UnitResult =
+          utInductAPIPhysics().map{ i => engine.add(at){ () => i.inductionFinalize(at, card, loadId) } }
+      }
+      val induct = underTest.induct("TestDownstreamStation", inductAPIPhysics)
+      val discharge = underTest.discharge("TestUpstreamStation", linkAPIPhysics, dischargeAPIPhysics)
       "allow discharging" in {
         discharge.value.addCards(0, cards.take(1))
         discharge.value.canDischarge(0, probe) shouldBe Symbol("isRight")
@@ -143,27 +193,36 @@ class TransportSpec extends BaseSpec:
     }
     "Once Discharge physics complete" should {
       val engine = MockAsyncCallback()
-      val mockDownstream = Harness.MockSink[ProbeInboundMaterial]("Mock", "TestDownstreamStation")
-      val dPhysics = Harness.MockDischargePhysics[ProbeInboundMaterial](() => dischargeDelay, engine)
-      val tPhysics = Harness.MockLinkPhysics[ProbeInboundMaterial](() => transportDelay, engine)
-      val iPhysics = Harness.MockInductPhysics[ProbeInboundMaterial](() => inductDelay, engine)
-      val inductStore = Induct.Component.FIFOArrivalBuffer[ProbeInboundMaterial]()
-      val underTest =
-        TransportImpl[ProbeInboundMaterial, Induct.Environment.Listener, Discharge.Environment.Listener](
-          "underTest", None, inductStore
-          )
-      val induct = underTest.buildInduct("TestDownstreamStation", iPhysics, mockDownstream)
-      val discharge = underTest.buildDischarge(
-          "TestUpstreamStation",
-          dPhysics,
-          tPhysics,
-          d => Harness.MockAckStub(d.id, d.stationId, d, engine),
-          i => i
-        )
-      dPhysics.underTest = discharge.value
-      iPhysics.underTest = induct.value
-      tPhysics.underTest = underTest.link.value
-      discharge.value.addCards(0, cards)
+      val underTest = buildUnderTest(engine)
+      def utDischargeAPIPhysics(): AppResult[Discharge.API.Physics] = underTest.discharge
+      def utLinkAPIPhysics(): AppResult[Link.API.Physics] = underTest.link
+      def utInductAPIPhysics(): AppResult[Induct.API.Physics] = underTest.induct
+      val linkAPIPhysics: Link.API.Physics = new Link.API.Physics {
+        def transportFinalize(at: Tick, linkId: Id, card: Id, loadId: Id): UnitResult =
+          utLinkAPIPhysics().map{ l => engine.add(at){ () => l.transportFinalize(at, linkId, card, loadId) } }
+        def transportFail(at: Tick, linkId: Id, card: Id, loadId: Id, cause: Option[AppError]): UnitResult =
+          utLinkAPIPhysics().map{ l => engine.add(at){ () => l.transportFail(at, linkId, card, loadId, cause) } }
+      }
+      val dischargeAPIPhysics: Discharge.API.Physics = new Discharge.API.Physics {
+        def dischargeFinalize(at: Tick, card: Id, loadId: Id): UnitResult =
+          utDischargeAPIPhysics().map{ d => engine.add(at){ () => d.dischargeFinalize(at, card, loadId) } }
+        def dischargeFail(at: Tick, card: Id, loadId: Id, cause: Option[AppError]): UnitResult =
+          utDischargeAPIPhysics().map{ d => engine.add(at){ () => d.dischargeFail(at, card, loadId, cause) } }
+      }
+      val inductAPIPhysics: Induct.API.Physics = new Induct.API.Physics {
+        def inductionFail(at: Tick, card: Id, loadId: Id, cause: Option[AppError]): UnitResult =
+          utInductAPIPhysics().map{ i => engine.add(at){ () => i.inductionFail(at, card, loadId, cause) } }
+        def inductionFinalize(at: Tick, card: Id, loadId: Id): UnitResult =
+          utInductAPIPhysics().map{ i => engine.add(at){ () => i.inductionFinalize(at, card, loadId) } }
+      }
+      val induct = underTest.induct("TestDownstreamStation", inductAPIPhysics)
+      val discharge = underTest.discharge("TestUpstreamStation", linkAPIPhysics, dischargeAPIPhysics)
+      "configure the physics callbacks" in {
+        underTest.dischargePhysics.asInstanceOf[Harness.MockDischargePhysics[ProbeInboundMaterial]].underTest = discharge.value
+        underTest.inductPhysics.asInstanceOf[Harness.MockInductPhysics[ProbeInboundMaterial]].underTest = induct.value
+        underTest.linkPhysics.asInstanceOf[Harness.MockLinkPhysics[ProbeInboundMaterial]].underTest = underTest.link.value
+        discharge.value.addCards(0, cards)
+      }
       "successfully complete the discharge" in {
         discharge.value.discharge(0, probe) shouldBe Symbol("isRight")
         engine.runOne() shouldBe Symbol("isRight")
@@ -183,29 +242,40 @@ class TransportSpec extends BaseSpec:
         induct.value.cards shouldBe Symbol("isEmpty")
       }
     }
-    "Once Discharge and Transport physics complete" should {
+    "Discharge and Transport physics are complete" should {
       val engine = MockAsyncCallback()
       val mockDownstream = Harness.MockSink[ProbeInboundMaterial]("Mock", "TestDownstreamStation")
-      val dPhysics = Harness.MockDischargePhysics[ProbeInboundMaterial](() => dischargeDelay, engine)
-      val tPhysics = Harness.MockLinkPhysics[ProbeInboundMaterial](() => transportDelay, engine)
-      val iPhysics = Harness.MockInductPhysics[ProbeInboundMaterial](() => inductDelay, engine)
-      val inductStore = Induct.Component.FIFOArrivalBuffer[ProbeInboundMaterial]()
-      val underTest =
-        TransportImpl[ProbeInboundMaterial, Induct.Environment.Listener, Discharge.Environment.Listener](
-          "underTest", None, inductStore
-          )
-      val induct = underTest.buildInduct("TestDownstreamStation", iPhysics, mockDownstream)
-      val discharge = underTest.buildDischarge(
-          "TestUpstreamStation",
-          dPhysics,
-          tPhysics,
-          d => Harness.MockAckStub(d.id, d.stationId, d, engine),
-          i => i
-        )
-      dPhysics.underTest = discharge.value
-      iPhysics.underTest = induct.value
-      tPhysics.underTest = underTest.link.value
-      discharge.value.addCards(0, cards)
+      val underTest = buildUnderTest(engine)
+      def utDischargeAPIPhysics(): AppResult[Discharge.API.Physics] = underTest.discharge
+      def utLinkAPIPhysics(): AppResult[Link.API.Physics] = underTest.link
+      def utInductAPIPhysics(): AppResult[Induct.API.Physics] = underTest.induct
+      val linkAPIPhysics: Link.API.Physics = new Link.API.Physics {
+        def transportFinalize(at: Tick, linkId: Id, card: Id, loadId: Id): UnitResult =
+          utLinkAPIPhysics().map{ l => engine.add(at){ () => l.transportFinalize(at, linkId, card, loadId) } }
+        def transportFail(at: Tick, linkId: Id, card: Id, loadId: Id, cause: Option[AppError]): UnitResult =
+          utLinkAPIPhysics().map{ l => engine.add(at){ () => l.transportFail(at, linkId, card, loadId, cause) } }
+      }
+      val dischargeAPIPhysics: Discharge.API.Physics = new Discharge.API.Physics {
+        def dischargeFinalize(at: Tick, card: Id, loadId: Id): UnitResult =
+          utDischargeAPIPhysics().map{ d => engine.add(at){ () => d.dischargeFinalize(at, card, loadId) } }
+        def dischargeFail(at: Tick, card: Id, loadId: Id, cause: Option[AppError]): UnitResult =
+          utDischargeAPIPhysics().map{ d => engine.add(at){ () => d.dischargeFail(at, card, loadId, cause) } }
+      }
+      val inductAPIPhysics: Induct.API.Physics = new Induct.API.Physics {
+        def inductionFail(at: Tick, card: Id, loadId: Id, cause: Option[AppError]): UnitResult =
+          utInductAPIPhysics().map{ i => engine.add(at){ () => i.inductionFail(at, card, loadId, cause) } }
+        def inductionFinalize(at: Tick, card: Id, loadId: Id): UnitResult =
+          utInductAPIPhysics().map{ i => engine.add(at){ () => i.inductionFinalize(at, card, loadId) } }
+      }
+      val induct = underTest.induct("TestDownstreamStation", inductAPIPhysics)
+      val deliverer = induct.value.delivery(mockDownstream)
+      val discharge = underTest.discharge("TestUpstreamStation", linkAPIPhysics, dischargeAPIPhysics)
+      "configure the physics callbacks" in {
+        underTest.dischargePhysics.asInstanceOf[Harness.MockDischargePhysics[ProbeInboundMaterial]].underTest = discharge.value
+        underTest.inductPhysics.asInstanceOf[Harness.MockInductPhysics[ProbeInboundMaterial]].underTest = induct.value
+        underTest.linkPhysics.asInstanceOf[Harness.MockLinkPhysics[ProbeInboundMaterial]].underTest = underTest.link.value
+        discharge.value.addCards(0, cards)
+      }
       "Trigger the Transport and Induct Logic in Order" in {
         discharge.value.discharge(0, probe)
         engine.pending.size shouldBe 1
@@ -217,7 +287,7 @@ class TransportSpec extends BaseSpec:
         underTest.link.value.currentInTransit.size shouldBe 1
         // Execute the transport
         engine.runOne()
-        engine.pending.size shouldBe 1
+        engine.pending.size shouldBe 2
         engine.pending(dischargeDelay+transportDelay+inductDelay).size shouldBe 1
       }
       "The load is 'In Arrival' in the Induct" in {
@@ -227,7 +297,7 @@ class TransportSpec extends BaseSpec:
       }
       "Have the load and card in the Induct" in {
         // Execute the induction
-        engine.runOne()
+        engine.run(None)
         induct.value.cards.size shouldBe 1
         induct.value.cards.head shouldBe cards.head
         induct.value.contents.size shouldBe 1
@@ -235,7 +305,7 @@ class TransportSpec extends BaseSpec:
       }
       "Be able to deliver the received load to a provided sink" in {
         val currentTime = dischargeDelay+transportDelay+inductDelay
-        induct.value.deliver(currentTime+2, probe.id)
+        deliverer.deliver(currentTime+2, probe.id)
         mockDownstream.received.size shouldBe 1
         mockDownstream.received.head should be (currentTime+2, "TestUpstreamStation", discharge.value.id, probe)
         induct.value.contents.size shouldBe 0
@@ -246,7 +316,7 @@ class TransportSpec extends BaseSpec:
         induct.value.cards.head shouldBe cards(0)
       }
       "Acknowledge the received cards to their senders" in {
-        induct.value.restoreAll(4, discharge.value.id)
+        induct.value.restoreAll(4)
         induct.value.cards.size shouldBe 0
         // Not restored yet, signal "in-transit"
         discharge.value.availableCards.size shouldBe cards.size - 1

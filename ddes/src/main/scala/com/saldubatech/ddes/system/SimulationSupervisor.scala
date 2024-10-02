@@ -40,9 +40,10 @@ class SimulationSupervisor(val name: String, val clock: Clock, private val simul
     selfRoot =>
       override val name: String = "ROOT"
 
-    override val env: SimEnvironment = new SimEnvironment() {
+    override val env: SimEnvironment[DomainMessage] = new SimEnvironment() {
       // NOT TO BE USED, ROOT IS SPECIAL.
       override def currentTime: Tick = ???
+      override def selfSchedule(forTime: Tick, targetMsg: DomainMessage): Unit = schedule(selfRoot)(forTime, targetMsg)
       override def schedule[TARGET_DM <: DomainMessage]
         (target: SimActor[TARGET_DM])(forTime: Tick, targetMsg: TARGET_DM): Unit = ???
     }

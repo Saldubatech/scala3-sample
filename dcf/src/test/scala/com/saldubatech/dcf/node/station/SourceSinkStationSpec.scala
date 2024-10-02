@@ -3,14 +3,15 @@ package com.saldubatech.dcf.node.station
 import com.saldubatech.lang.Id
 import com.saldubatech.lang.types._
 import com.saldubatech.util.LogEnabled
-import com.saldubatech.ddes.types.{Tick, Duration}
-import com.saldubatech.ddes.types.DomainMessage
+import com.saldubatech.ddes.types.{Tick, Duration, DomainMessage}
 import com.saldubatech.ddes.runtime.{Clock, OAM}
-import com.saldubatech.ddes.elements.SimulationComponent
+import com.saldubatech.ddes.elements.{SimulationComponent, SimActor}
 import com.saldubatech.ddes.system.SimulationSupervisor
-import com.saldubatech.dcf.node.components.transport.{Transport, TransportImpl, Induct, Discharge}
-import com.saldubatech.dcf.node.components.transport.bindings.{Induct as InductBinding}
+import com.saldubatech.dcf.node.components.transport.{Transport, TransportImpl, Induct, Discharge, Link}
+import com.saldubatech.dcf.node.components.transport.bindings.{Induct as InductBinding, Discharge as DischargeBinding, DLink as LinkBinding}
 import com.saldubatech.dcf.node.machine.bindings.{LoadSource as LoadSourceBinding}
+
+import com.saldubatech.dcf.node.station.configurations.{Inbound, Outbound}
 
 import org.apache.pekko.actor.typed.scaladsl.{ActorContext}
 import org.apache.pekko.actor.typed.{ActorRef, ActorSystem}
@@ -24,6 +25,7 @@ import org.apache.pekko.actor.testkit.typed.scaladsl.{ActorTestKit, FishingOutco
 import com.saldubatech.dcf.node.ProbeInboundMaterial
 
 object SourceSinkStationSpec extends ZIOSpecDefault with LogEnabled with Matchers:
+
   case class Consumed(at: Tick, fromStation: Id, fromSource: Id, atStation: Id, atSink: Id, load: ProbeInboundMaterial)
 
   val nProbes = 10
@@ -43,32 +45,54 @@ object SourceSinkStationSpec extends ZIOSpecDefault with LogEnabled with Matcher
   val tCapacity: Int = 1000
 
   class Consumer {
-    val consumed = collection.mutable.ListBuffer.empty[(Tick, Id, Id, Id, Id, ProbeInboundMaterial)]
+    val consumed = collection.mutable.ListBuffer.empty[Consumed]
     var target: ActorRef[Consumed] = _
     def consume(at: Tick, fromStation: Id, fromSource: Id, atStation: Id, atSink: Id, load: ProbeInboundMaterial): UnitResult =
-      consumed += ((at, fromStation, fromSource, atStation, atSink, load))
-      target ! Consumed(at, fromStation, fromSource, atStation, atSink,load)
+      val consuming = Consumed(at, fromStation, fromSource, atStation, atSink, load)
+      consumed += consuming
+      target ! consuming
       AppSuccess.unit
   }
 
   val consumer = Consumer()
   val clock = Clock(None)
 
+  def iPhysics(target: Induct.API.Physics): Induct.Environment.Physics[ProbeInboundMaterial] =
+    Induct.Physics[ProbeInboundMaterial](target, (at, card, load) => inductDelay)
+  def tPhysics(target: Link.API.Physics): Link.Environment.Physics[ProbeInboundMaterial] =
+    Link.Physics(transportId, target, (at, card, load) => transportDelay)
+  def dPhysics(target: Discharge.API.Physics): Discharge.Environment.Physics[ProbeInboundMaterial] =
+    Discharge.Physics(target, (at, card, load) => dischargeDelay)
+  val inductUpstreamInjector: Induct[ProbeInboundMaterial, Induct.Environment.Listener] => Induct.API.Upstream[ProbeInboundMaterial] =
+    i => InductBinding.API.ClientStubs.Upstream(sink.stationId, sourceId, sink)
+  val linkAcknowledgeFactory: Link[ProbeInboundMaterial] => Link.API.Downstream =
+    l => LinkBinding.API.ClientStubs.Downstream(source)
+  val cardRestoreFactory: Discharge[ProbeInboundMaterial, Discharge.Environment.Listener] => Discharge.Identity & Discharge.API.Downstream =
+    d =>  DischargeBinding.API.ClientStubs.Downstream(source, d.stationId, d.id)
+
   val transport = TransportImpl[ProbeInboundMaterial, Induct.Environment.Listener, Discharge.Environment.Listener](
       transportId,
+      iPhysics,
       Some(tCapacity),
-      Induct.Component.FIFOArrivalBuffer[ProbeInboundMaterial]()
+      Induct.Component.FIFOArrivalBuffer[ProbeInboundMaterial](),
+      tPhysics,
+      dPhysics,
+      inductUpstreamInjector,
+      linkAcknowledgeFactory,
+      cardRestoreFactory
     )
 
-  val sink = SinkStation[ProbeInboundMaterial](sinkStation, transport, (at, card, load) => inductDelay, Some(consumer.consume), clock)
-  val source = SourceStation[ProbeInboundMaterial](
+  lazy val sink = SinkStation[ProbeInboundMaterial](sinkStation, Inbound(transport, (at, card, load) => inductDelay), Some(consumer.consume), clock)
+  lazy val source = SourceStation[ProbeInboundMaterial](
     sourceStation,
-    sink,
-    transport,
-    (at, card, load) => dischargeDelay,
-    (at, card, load) => transportDelay,
+    Outbound(
+      transport,
+      sink,
+      (at, card, load) => dischargeDelay,
+      (at, card, load) => transportDelay,
+      cards
+    ),
     probes,
-    cards,
     clock
     )
 
@@ -97,7 +121,7 @@ object SourceSinkStationSpec extends ZIOSpecDefault with LogEnabled with Matcher
             c =>
               found += 1
               c match
-                case Consumed(_, "SOURCE_STATION", s"SOURCE_STATION::Discharge[transport]", "SINK_STATION", "SINK_STATION::LoadSink[sink]", _) =>
+                case Consumed(_, "SOURCE_STATION", "SOURCE_STATION::Discharge[transport]", "SINK_STATION", "SINK_STATION::LoadSink[sink]", _) =>
                   if found == probes.size then FishingOutcomes.complete else FishingOutcomes.continue
                 case other => FishingOutcomes.fail(s"Found $other")
           }

@@ -17,10 +17,10 @@ object Harness:
   class MockInductUpstream[M <: Material] extends Induct.API.Upstream[M]:
     val receivedLoads: collection.mutable.ListBuffer[(Tick, Id, M)] = collection.mutable.ListBuffer.empty[(Tick, Id, M)]
 
-    override def canAccept(at: Tick, from: Discharge.API.Downstream & Discharge.Identity, card: Id, load: M): AppResult[M] =
+    override def canAccept(at: Tick, card: Id, load: M): AppResult[M] =
       AppSuccess(load)
 
-    override def loadArriving(at: Tick, from: Discharge.API.Downstream & Discharge.Identity, card: Id, load: M): UnitResult =
+    override def loadArriving(at: Tick, card: Id, load: M): UnitResult =
       receivedLoads += ((at, card, load))
       AppSuccess.unit
 
@@ -82,9 +82,9 @@ object Harness:
   extends Induct.Environment.Physics[M]:
     var underTest: Induct[M, ?] = _
 
-    override def inductCommand(at: Tick, fromStation: Id, card: Id, load: M): UnitResult =
+    override def inductCommand(at: Tick, card: Id, load: M): UnitResult =
       val forTime = at + delay()
-      engine.add(forTime){ () => underTest.inductionFinalize(forTime, fromStation, card, load.id) }
+      engine.add(forTime){ () => underTest.inductionFinalize(forTime, card, load.id) }
       AppSuccess.unit
 
   end MockInductPhysics // class
@@ -97,10 +97,12 @@ object Harness:
     override val id = s"$stationId::MockSink[$sId]"
     val received = collection.mutable.ListBuffer.empty[(Tick, Id, Id, M)]
 
+    def entry(at: Tick, fromStation: Id, fromSource: Id, load: M): (Tick, Id, Id, M) = (at, fromStation, fromSource, load)
+
     override def canAccept(at: Tick, from: Id, load: M): UnitResult = AppSuccess.unit
 
     override def acceptMaterialRequest(at: Tick, fromStation: Id, fromSource: Id, load: M): UnitResult =
-      received += ((at, fromStation, fromSource, load))
+      received += entry(at, fromStation, fromSource, load)
       AppSuccess.unit
   end MockSink // class
 
@@ -117,6 +119,17 @@ object Harness:
 
     def acknowledge(at: Tick, loadId: Id): UnitResult = host.acknowledge(at, loadId)
   end MockAckStub // class
+
+  def bindMockPhysics[M <: Material](t: TransportImpl[M, Induct.Environment.Listener, Discharge.Environment.Listener]): Unit =
+    for {
+      i <- t.induct
+      l <- t.link
+      d <- t.discharge
+    } yield
+      t.dischargePhysics.asInstanceOf[MockDischargePhysics[M]].underTest = d
+      t.inductPhysics.asInstanceOf[MockInductPhysics[M]].underTest = i
+      t.linkPhysics.asInstanceOf[MockLinkPhysics[M]].underTest = l
+
 
 end Harness // object
 
@@ -147,26 +160,3 @@ class TestDischarge[M <: Material, LISTENER <: Discharge.Environment.Listener : 
       }
 
 end TestDischarge // class
-
-
-class TestInduct[M <: Material, LISTENER <: Induct.Environment.Listener : Typeable]
-(
-  iId: Id,
-  override val stationId: Id,
-  override val physics: Induct.Environment.Physics[M],
-  override val binding: Sink.API.Upstream[M]
-)
-extends InductMixIn[M, LISTENER]:
-  override val id: Id = s"$stationId::Induct[$iId]"
-
-  // Members declared in com.saldubatech.dcf.node.components.transport.InductMixIn
-  protected val arrivalStore: Induct.Component.FIFOArrivalBuffer[M] = Induct.Component.FIFOArrivalBuffer()
-
-end TestInduct // class
-
-class TestInductFactory[M <: Material]
-(
-  physics: Induct.Environment.Physics[M]
-) extends Induct.Factory[M]:
-  override def induct[LISTENER <: Induct.Environment.Listener : Typeable](iId: Id, stationId: Id, binding: Sink.API.Upstream[M]): AppResult[TestInduct[M, LISTENER]] =
-    AppSuccess(TestInduct(iId, stationId, physics, binding))

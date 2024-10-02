@@ -2,7 +2,7 @@ package com.saldubatech.dcf.node.machine
 
 import com.saldubatech.lang.{Id, Identified}
 import com.saldubatech.lang.types._
-import com.saldubatech.util.LogEnabled
+import com.saldubatech.util.{LogEnabled, stack}
 import com.saldubatech.ddes.types.Tick
 import com.saldubatech.dcf.material.Material
 import com.saldubatech.dcf.node.components.{SubjectMixIn, Component, Sink}
@@ -49,23 +49,36 @@ extends LoadSink[M, LISTENER]:
   loadSink =>
   override val id = s"$stationId::LoadSink[$lId]"
 
+  private val sink = new Sink.API.Upstream[M] {
+    override val id: Id = loadSink.id
+    override val stationId: Id = loadSink.stationId
+    override def canAccept(at: Tick, from: Id, load: M): UnitResult = AppSuccess.unit
+    override def acceptMaterialRequest(at: Tick, fromStation: Id, fromSource: Id, load: M): UnitResult =
+      consumer match
+        case None => AppSuccess.unit
+        case Some(c) =>
+          c(at, fromStation, fromSource, loadSink.stationId, loadSink.id, load)
+  }
+
   def listening(induct: Induct.API.Management[Induct.Environment.Listener] & Induct.API.Control[M]): Unit =
+
+    val deliverer = induct.delivery(sink)
     val listener =  new Induct.Environment.Listener() {
       override val id: Id = loadSink.id
-      override final def loadArrival(at: Tick, fromStation: Id, atStation: Id, atInduct: Id, load: Material): Unit =
-        induct.deliver(at, load.id)
+      override final def loadArrival(at: Tick, fromStation: Id, atStation: Id, atInduct: Id, load: Material): Unit = deliverer.deliver(at, load.id)
       override final def loadDelivered(at: Tick, fromStation: Id, atStation: Id, fromInduct: Id, toSink: Id, load: Material): Unit = ()
     }
     induct.listen(listener)
 
   // Unrestricted acceptance
-  override def canAccept(at: Tick, from: Id, load: M): UnitResult = AppSuccess.unit
-  override def acceptMaterialRequest(at: Tick, fromStation: Id, fromSource: Id, load: M): UnitResult =
-    consumer match
-      case None => AppSuccess.unit
-      case Some(f) =>
-        f(at, fromStation, fromSource, stationId, id, load).map{
-          _ => doNotify{ l => l.loadDeparted(at, stationId, id, load)}
-        }
+  export sink.{canAccept, acceptMaterialRequest}
+  // override def canAccept(at: Tick, from: Id, load: M): UnitResult = AppSuccess.unit
+  // override def acceptMaterialRequest(at: Tick, fromStation: Id, fromSource: Id, load: M): UnitResult =
+  //   consumer match
+  //     case None => AppSuccess.unit
+  //     case Some(f) =>
+  //       f(at, fromStation, fromSource, stationId, id, load).map{
+  //         _ => doNotify{ l => l.loadDeparted(at, stationId, id, load)}
+  //       }
 
 end LoadSinkImpl // class

@@ -21,8 +21,8 @@ object Processor:
     type Listener = Sink.Environment.Listener & Operation.Environment.Listener & Source.Environment.Listener
   end Environment // object
 
-  trait Physics
-  extends Sink.Environment.Physics[Material] with Operation.Environment.Physics with Source.Environment.Physics
+  trait Physics[PRODUCT <: Material]
+  extends Sink.Environment.Physics[Material] with Operation.Environment.Physics[PRODUCT] with Source.Environment.Physics
 
 
 end Processor // object
@@ -32,7 +32,7 @@ class Processor[M <: Material, LISTENER <: Processor.Environment.Listener : Type
   val pId: Id,
   override val stationId: Id,
   override val maxConcurrentJobs: Int,
-  override val physics: Processor.Physics,
+  override val physics: Processor.Physics[M],
   override val produce: (Tick, Wip.InProgress) => AppResult[Option[M]],
   override val downstream: Option[Sink.API.Upstream[M]]
 )
@@ -43,6 +43,12 @@ with SourceMixIn[M, LISTENER]:
   override val id: Id = s"$stationId::PR[$pId]"
   protected val readyWipPool = com.saldubatech.dcf.material.WipPool.InMemory[Wip.Unloaded[M]]()
   protected val acceptedPool = com.saldubatech.dcf.material.MaterialPool.SimpleInMemory[Material](stationId)
+
+  override def accepted(at: Tick, by: Option[Tick]): AppResult[List[Material]] =
+    AppSuccess(acceptedPool.content(at, by))
+
+
+
 
 
 

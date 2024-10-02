@@ -52,31 +52,59 @@ object LoadSinkSpec:
   ): AppResult[(Discharge[M, Discharge.Environment.Listener], LoadSink[M, com.saldubatech.dcf.node.machine.LoadSink.Environment.Listener], Consumer[M])] =
     val consumer = Consumer[M]
 
-    val ibDistPhysics = TransportHarness.MockDischargePhysics[M](() => ibDiscDelay, engine)
-    val ibTranPhysics = TransportHarness.MockLinkPhysics[M](() => ibTranDelay, engine)
-    val ibIndcPhysics = TransportHarness.MockInductPhysics[M](() => ibIndcDelay, engine)
+    def ibDistPhysics(host: Discharge.API.Physics): Discharge.Environment.Physics[M] = TransportHarness.MockDischargePhysics[M](() => ibDiscDelay, engine)
+    def ibTranPhysics(host: Link.API.Physics): Link.Environment.Physics[M] = TransportHarness.MockLinkPhysics[M](() => ibTranDelay, engine)
+    def ibIndcPhysics(host: Induct.API.Physics): Induct.Environment.Physics[M] = TransportHarness.MockInductPhysics[M](() => ibIndcDelay, engine)
+    val inductUpstreamInjector: Induct[M, ?] => Induct.API.Upstream[M] = i => i
+    val linkAcknowledgeFactory: Link[M] => Link.API.Downstream = l => new Link.API.Downstream {
+      override def acknowledge(at: Tick, loadId: Id): UnitResult = AppSuccess{ engine.add(at){ () => l.acknowledge(at, loadId) } }
+    }
+    val cardRestoreFactory: Discharge[M, Discharge.Environment.Listener] => Discharge.Identity & Discharge.API.Downstream = d =>
+      TransportHarness.MockAckStub(d.id, d.stationId, d, engine)
 
     val ibTransport = TransportImpl[M, Induct.Environment.Listener, Discharge.Environment.Listener](
       s"T_IB",
+      ibIndcPhysics,
       Some(obTranCapacity),
-      Induct.Component.FIFOArrivalBuffer[M]()
+      Induct.Component.FIFOArrivalBuffer[M](),
+      ibTranPhysics,
+      ibDistPhysics,
+      inductUpstreamInjector,
+      linkAcknowledgeFactory,
+      cardRestoreFactory
     )
+    def ibDisAPIPhysics(): AppResult[Discharge.API.Physics] = ibTransport.discharge
+    def ibLnkAPIPhysics(): AppResult[Link.API.Physics] = ibTransport.link
+    def ibIndAPIPhysics(): AppResult[Induct.API.Physics] = ibTransport.induct
+    val ibLinkAPIPhysics: Link.API.Physics = new Link.API.Physics {
+      def transportFinalize(at: Tick, linkId: Id, card: Id, loadId: Id): UnitResult =
+        ibLnkAPIPhysics().map{ l => engine.add(at){ () => l.transportFinalize(at, linkId, card, loadId) } }
+      def transportFail(at: Tick, linkId: Id, card: Id, loadId: Id, cause: Option[AppError]): UnitResult =
+        ibLnkAPIPhysics().map{ l => engine.add(at){ () => l.transportFail(at, linkId, card, loadId, cause) } }
+    }
+    val ibDischargeAPIPhysics: Discharge.API.Physics = new Discharge.API.Physics {
+      def dischargeFinalize(at: Tick, card: Id, loadId: Id): UnitResult =
+        ibDisAPIPhysics().map{ d => engine.add(at){ () => d.dischargeFinalize(at, card, loadId) } }
+      def dischargeFail(at: Tick, card: Id, loadId: Id, cause: Option[AppError]): UnitResult =
+        ibDisAPIPhysics().map{ d => engine.add(at){ () => d.dischargeFail(at, card, loadId, cause) } }
+    }
+    val ibInductAPIPhysics: Induct.API.Physics = new Induct.API.Physics {
+      def inductionFail(at: Tick, card: Id, loadId: Id, cause: Option[AppError]): UnitResult =
+        ibIndAPIPhysics().map{ i => engine.add(at){ () => i.inductionFail(at, card, loadId, cause) } }
+      def inductionFinalize(at: Tick, card: Id, loadId: Id): UnitResult =
+        ibIndAPIPhysics().map{ i => engine.add(at){ () => i.inductionFinalize(at, card, loadId) } }
+    }
     for {
       inductAndSink <-
         val rs = LoadSinkImpl[M, LoadSink.Environment.Listener]("underTest", "InStation", Some(consumer.consume))
-        ibTransport.buildInduct("TestHarness", ibIndcPhysics, rs).map{ i =>
+        ibTransport.induct("TestHarness", ibInductAPIPhysics).map{ i =>
           rs.listening(i)
           i -> rs
         }
-      ibDischarge <- ibTransport.buildDischarge("TestHarness", ibDistPhysics, ibTranPhysics, ackStubFactory(engine), i => i)
-      i <- ibTransport.induct
-      l <- ibTransport.link
-      d <- ibTransport.discharge
+      ibDischarge <- ibTransport.discharge("TestHarness", ibLinkAPIPhysics, ibDischargeAPIPhysics)
     } yield
       ibDischarge.addCards(0, ibCards)
-      ibDistPhysics.underTest = d
-      ibTranPhysics.underTest = l
-      ibIndcPhysics.underTest = i
+      TransportHarness.bindMockPhysics(ibTransport)
       (ibDischarge, inductAndSink._2, consumer)
 
 end LoadSinkSpec // object

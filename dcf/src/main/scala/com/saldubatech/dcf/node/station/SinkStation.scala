@@ -15,6 +15,8 @@ import com.saldubatech.dcf.node.components.transport.bindings.{Discharge as Disc
 import com.saldubatech.dcf.node.machine.{LoadSink, LoadSinkImpl}
 import com.saldubatech.dcf.node.machine.bindings.{LoadSink as LoadSinkBinding}
 
+import com.saldubatech.dcf.node.station.configurations.Inbound
+
 import scala.reflect.Typeable
 import scala.util.chaining.scalaUtilChainingOps
 
@@ -23,8 +25,7 @@ object SinkStation:
 
   class DP[M <: Material : Typeable](
     host: SinkStation[M],
-    iPhysics: Induct.Environment.Physics[M],
-    inbound: Transport[M, LoadSink.API.Listener, ?],
+    induct: Induct[M, LoadSink.API.Listener],
     consumer: Option[(at: Tick, fromStation: Id, fromSource: Id, atStation: Id, atSink: Id, load: M) => UnitResult] = None
   ) extends DomainProcessor[PROTOCOL]:
 
@@ -32,42 +33,19 @@ object SinkStation:
       "sink",
       host.stationId,
       consumer
-    )
+    ).tap{ i => i.listening(induct) }
 
     private val listener = LoadSinkBinding.Environment.ClientStubs.Listener(host.name, host).tap{ ls => impl.listen(ls) }
 
-    private val maybeInduct = inbound.buildInduct(host.stationId, iPhysics, impl).map{
-      i =>
-        impl.listening(i)
-        i
-    }
-
-    private lazy val maybeInductAdaptor =
-      for {
-        i <- inbound.induct
-        d <- inbound.discharge
-      } yield InductBinding.API.ServerAdaptors.upstream(i, Map(d.stationId -> Map(d.id -> d)))
-
-    private lazy val maybePhysicsAPIAdaptor =
-      for {
-        i <- inbound.induct
-      } yield InductBinding.API.ServerAdaptors.physics(i)
+    private lazy val inductAdaptor = InductBinding.API.ServerAdaptors.upstream(induct)
+    private lazy val physicsAdaptor = InductBinding.API.ServerAdaptors.physics(induct)
 
 
     override def accept(at: Tick, ev: DomainEvent[PROTOCOL]): UnitResult =
       ev.payload match
-        case i@InductBinding.API.Signals.LoadArriving(_, _, _, _, _, _ : M) =>
-          maybeInductAdaptor.flatMap{
-            adaptor =>
-              adaptor(at)(i)
-            }
-        case p: InductBinding.API.Signals.Physics =>
-          maybePhysicsAPIAdaptor.flatMap{
-            adaptor =>
-              adaptor(at)(p)
-          }
-        case other =>
-          AppFail.fail(s"The Payload Material is not of the expected type at ${host.stationId}")
+        case i@InductBinding.API.Signals.LoadArriving(_, _, _, _, _, _ : M) => inductAdaptor(at)(i)
+        case p: InductBinding.API.Signals.Physics => physicsAdaptor(at)(p)
+        case other => AppFail.fail(s"The Payload Material is not of the expected type at ${host.stationId}")
 
   end DP // class
 
@@ -76,18 +54,22 @@ end SinkStation // object
 class SinkStation[M <: Material : Typeable]
 (
   val stationId: Id,
-  inbound: Transport[M, LoadSink.API.Listener, ?],
-  inductDuration: (at: Tick, card: Id, load: M) => Duration,
+  inbound: Inbound[M, LoadSink.API.Listener],
   consumer: Option[(at: Tick, fromStation: Id, fromSource: Id, atStation: Id, atSink: Id, load: M) => UnitResult] = None,
   clock: Clock
 ) extends SimActorBehavior[SinkStation.PROTOCOL](stationId, clock)
 with Subject:
 
-  val iPhysics: Induct.Environment.Physics[M] = InductBinding.Physics[M](this, inductDuration)
+  private val inductPhysicsHost: Induct.API.Physics = InductBinding.API.ClientStubs.Physics(this)
 
+  private val maybeInduct = inbound.transport.induct(stationId, inductPhysicsHost)
 
   override protected val domainProcessor: DomainProcessor[SinkStation.PROTOCOL] =
-    SinkStation.DP[M](this, iPhysics, inbound, consumer)
+    maybeInduct.fold(
+      // TODO something smarter here.
+      err => ???,
+      i => SinkStation.DP(this, i, consumer)
+    )
 
   override def oam(msg: OAMMessage): UnitResult =
     msg match

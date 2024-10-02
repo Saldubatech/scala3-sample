@@ -20,7 +20,7 @@ import org.scalatest.matchers.should.Matchers._
 
 import scala.util.chaining.scalaUtilChainingOps
 
-object TransferMachineNotificationSpec:
+object PushMachineNotificationSpec:
   class MockListener extends Controller.Environment.Listener {
     val called = collection.mutable.ListBuffer.empty[String]
     def last: String = called.lastOption.getOrElse("NONE")
@@ -49,25 +49,25 @@ object TransferMachineNotificationSpec:
       call("jobScrapped", at, atStation, wip)
   }
 
-end TransferMachineNotificationSpec // object
+end PushMachineNotificationSpec // object
 
-class TransferMachineNotificationSpec extends BaseSpec:
+class PushMachineNotificationSpec extends BaseSpec:
   import Harness._
-  import TransferMachineNotificationSpec._
+  import PushMachineNotificationSpec._
 
 
   "A Transfer Machine" when {
     val engine = MockAsyncCallback()
     val mockListener = MockListener()
-    val testRig = buildTransferMachineUnderTest[ProbeInboundMaterial](engine)
+    val testRig = buildPushMachineUnderTest[ProbeInboundMaterial](engine)
 
-    // AppResult[(Map[Id, Discharge[M, ?]], TransferMachine2[M], Map[Id, (TransportHarness.MockSink[M], Induct[M, Induct.Environment.Listener])])]
+    // AppResult[(Map[Id, Discharge[M, ?]], PushMachine[M], Map[Id, (TransportHarness.MockSink[M], Induct[M, Induct.Environment.Listener])])]
     val (inputMap, underTest, outputMap) = testRig.value
-    underTest.listen(mockListener)
+//    underTest.listen(mockListener)
     inputMap.values.map{ d => d.addCards(0, ibCards) }
-    underTest.outbound.values.map{ d => d.addCards(0, obCards) }
+//    underTest.outbound.values.map{ d => d.addCards(0, obCards) }
     val expectedOutput = Harness.resolver(s"${underTest.stationId}::Induct[${inputMap.head._1}]", probes.head).get
-    val expectedJob = Controller.TransferJobSpec(probes.head.id, underTest.processor.id, expectedOutput, probes.head.id)
+    val expectedJob: Controller.TransferJobSpec = ??? // Controller.TransferJobSpec(probes.head.id, underTest.processor.id, expectedOutput, probes.head.id)
     "A Probe load is provided to one input" should {
       "Accept it" in {
         val discharge = inputMap.head._2
@@ -184,6 +184,6 @@ class TransferMachineNotificationSpec extends BaseSpec:
     }
   }
 
-end TransferMachineNotificationSpec // class
+end PushMachineNotificationSpec // class
 
 

@@ -2,8 +2,9 @@ package com.saldubatech.dcf.node.components.transport
 
 import com.saldubatech.lang.{Id, Identified}
 import com.saldubatech.lang.types._
+import com.saldubatech.math.randomvariables.Distributions.probability
 import com.saldubatech.util.stack
-import com.saldubatech.ddes.types.Tick
+import com.saldubatech.ddes.types.{Tick, Duration}
 import com.saldubatech.dcf.material.Material
 import com.saldubatech.dcf.node.components.{Subject, SubjectMixIn, Component, Sink}
 
@@ -63,6 +64,21 @@ object Discharge:
     type Downstream[M <: Material] = Induct.API.Upstream[M]
   end Environment
 
+  class Physics[-M <: Material](
+    host: API.Physics,
+    successDuration: (at: Tick, card: Id, load: M) => Duration,
+    minSlotDuration: Duration = 1,
+    failDuration: (at: Tick, card: Id, load: M) =>  Duration = (at: Tick, card: Id, load: M) => 0,
+    failureRate: (at: Tick, card: Id, load: M) => Double = (at: Tick, card: Id, load: M) => 0.0
+  ) extends Environment.Physics[M] {
+    private var latestDischargeTime: Tick = 0
+    override def dischargeCommand(at: Tick, card: Id, load: M): UnitResult =
+      if (probability() > failureRate(at, card, load)) then
+        // Ensures FIFO delivery
+        latestDischargeTime = math.max(latestDischargeTime+minSlotDuration, at + successDuration(at, card, load))
+        host.dischargeFinalize(latestDischargeTime, card, load.id)
+      else host.dischargeFail(at + failDuration(at, card, load), card, load.id, None)
+  }
 end Discharge // object
 
 
@@ -80,7 +96,6 @@ end Discharge
 trait DischargeMixIn[M <: Material, LISTENER <: Discharge.Environment.Listener]
 extends Discharge[M, LISTENER]
 with SubjectMixIn[LISTENER]:
-  protected val downstreamAcknowledgeEndpoint: Discharge.API.Downstream & Discharge.Identity
   val downstream: Discharge.Environment.Downstream[M]
   val physics: Discharge.Environment.Physics[M]
 
@@ -88,24 +103,24 @@ with SubjectMixIn[LISTENER]:
   private val _cards = collection.mutable.Queue.empty[Id]
   private val _inTransit = collection.mutable.Map.empty[Id, M]
 
-  def addCards(at: Tick, cards: List[Id]): UnitResult =
+  override def addCards(at: Tick, cards: List[Id]): UnitResult =
     provisionedCards.addAll(cards)
     if _cards.isEmpty then
       doNotify{ _.availableNotification(at, stationId, id) }
     _cards.enqueueAll(cards.filter( c => !_cards.contains(c)))
     AppSuccess.unit
 
-  def removeCards(at: Tick, cards: List[Id]): UnitResult =
+  override def removeCards(at: Tick, cards: List[Id]): UnitResult =
     cards.foreach( provisionedCards.remove(_) )
     _cards.removeAll(c => !provisionedCards(c))
     if _cards.isEmpty then
       doNotify{ _.busyNotification(at, stationId, id) }
     AppSuccess.unit
 
-  def availableCards: List[Id] = _cards.toList
+  override def availableCards: List[Id] = _cards.toList
 
   // Members declared in com.saldubatech.dcf.node.components.transport.Discharge$.API$.Downstream
-  def restore(at: Tick, cards: List[Id]): UnitResult =
+  override def restore(at: Tick, cards: List[Id]): UnitResult =
     val available = _cards.size
     cards.foreach{
       c =>
@@ -115,18 +130,18 @@ with SubjectMixIn[LISTENER]:
     if available == 0 && _cards.size != 0 then doNotify{ _.availableNotification(at, stationId, id) }
     AppSuccess.unit
 
-  def acknowledge(at: Tick, loadId: Id): UnitResult =
+  override def acknowledge(at: Tick, loadId: Id): UnitResult =
     Component.inStation(id, s"InTransit Load")(_inTransit.remove)(loadId).unit
 
   private val _discharging = collection.mutable.Map.empty[Id, M]
 
   // Members declared in com.saldubatech.dcf.node.components.transport.Discharge$.API$.Upstream
-  def canDischarge(at: Tick, load: M): AppResult[M] =
+  override def canDischarge(at: Tick, load: M): AppResult[M] =
     _cards.headOption match
       case None => AppFail.fail(s"No capacity (cards) available in Discharge[$id] of Station[$stationId] at $at")
       case Some(c) => AppSuccess(load)
 
-  def discharge(at: Tick, load: M): UnitResult =
+  override def discharge(at: Tick, load: M): UnitResult =
     for {
       l <- canDischarge(at, load)
       rs <-
@@ -142,7 +157,7 @@ with SubjectMixIn[LISTENER]:
       rs
 
   // Members declared in com.saldubatech.dcf.node.components.transport.Discharge$.API$.Physics
-  def dischargeFail(at: Tick, card: Id, loadId: Id, cause: Option[AppError]): UnitResult =
+  override def dischargeFail(at: Tick, card: Id, loadId: Id, cause: Option[AppError]): UnitResult =
     Component.inStation(stationId, "Discharging")(_discharging.remove)(card).flatMap{
       l =>
         cause match
@@ -150,10 +165,10 @@ with SubjectMixIn[LISTENER]:
           case Some(c) => AppFail(c)
     }
 
-  def dischargeFinalize(at: Tick, card: Id, loadId: Id): UnitResult =
+  override def dischargeFinalize(at: Tick, card: Id, loadId: Id): UnitResult =
     for {
       load <- Component.inStation(stationId, "Discharging")(_discharging.remove)(card)
-      rs <- downstream.loadArriving(at, this.downstreamAcknowledgeEndpoint, card, load)
+      rs <- downstream.loadArriving(at, card, load)
     } yield
       _inTransit += loadId -> load
       doNotify{
@@ -171,15 +186,10 @@ class DischargeImpl[M <: Material, LISTENER <: Discharge.Environment.Listener : 
     override val stationId: Id,
     override val physics: Discharge.Environment.Physics[M],
     override val downstream: Induct.API.Upstream[M],
-    ackFactory: Discharge[M, LISTENER] => Discharge.Identity & Discharge.API.Downstream
   )
   extends DischargeMixIn[M, LISTENER]:
     self =>
     // Members declared in com.saldubatech.lang.Identified
     override val id: Id = s"$stationId::Discharge[$dId]"
-
-    // Members declared in com.saldubatech.dcf.node.components.transport.DischargeMixIn
-    override protected val downstreamAcknowledgeEndpoint: Discharge.API.Downstream & Discharge.Identity = ackFactory(this)
-
 
 end DischargeImpl // class

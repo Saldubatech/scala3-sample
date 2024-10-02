@@ -19,6 +19,26 @@ type Result[+ER <: AppError, +R] = Either[ER, R]
 type AppResult[R] = Result[AppError, R]
 type UnitResult = AppResult[Unit]
 
+object AppResult:
+  def fromZio[A](z: zio.IO[AppError, A])(using rt: zio.Runtime[Any]): AppResult[A] = zio.Unsafe.unsafe{
+    implicit u =>
+      rt.unsafe.run(z) match
+        case zio.Exit.Failure(cause) =>
+          cause.fold(
+            empty0=AppFail.fail(s"Empty Cause, Unknown Failure"),
+            failCase0=(appError: AppError, stack: zio.StackTrace) => AppFail(appError),
+            dieCase0=(th, stack) => AppFail(AppError(s"Unexpected Error", Some(th))),
+            interruptCase0=(fiber, stack) => AppFail.fail(AppError(s"Zio Effect Interrupted"))
+            )(
+              thenCase0=(l, r) => AppFail(CollectedError("Multiple Parallel Errors", List(l.value, r.value))),
+              bothCase0=(first, second) => AppFail(CollectedError("Multiple Sequential Error", List(first.value, second.value))),
+              stacklessCase0=(appErr, st) => AppFail(appErr.value)
+            )
+        case zio.Exit.Success(rs) => AppSuccess(rs)
+  }
+
+end AppResult // object
+
 extension [R] (rs: AppResult[R]) def tapError(r: AppError => Unit): AppResult[R] =
   rs match
     case Left(err) =>
@@ -71,7 +91,7 @@ object AppFail:
 implicit def fromOption[A](optA: Option[A]): AppResult[A] =
   optA.fold(AppFail.fail(s"No value in Option"))((inA: A) => AppSuccess(inA))
 
-extension [R](elements: Seq[AppResult[R]])
+extension [R](elements: Iterable[AppResult[R]])
   def collectAll: AppResult[List[R]] =
     elements.foldLeft(AppSuccess[List[R]](List.empty)) {
       case (Right(acc), Right(element)) => AppSuccess(element :: acc)
@@ -83,19 +103,7 @@ extension [R](elements: Seq[AppResult[R]])
           case other => AppFail(CollectedError("Multiple Errors", List(other, err)))
     }
 
-extension [R](elements: Seq[AppResult[R]])
-  def collectAll2: AppResult[Seq[R]] =
-    elements.foldLeft(AppSuccess[List[R]](List.empty)) {
-      case (Right(acc), Right(element)) => AppSuccess(element :: acc)
-      case (Right(acc), Left(err)) => AppFail(err)
-      case (Left(errAcc), Right(_)) => AppFail(errAcc)
-      case (Left(errAcc), Left(err)) =>
-        err match
-          case ce: CollectedError => AppFail(CollectedError("Multiple Errors", ce.causes :+ err))
-          case other => AppFail(CollectedError("Multiple Errors", List(other, err)))
-    }
-
-extension[R] (elements: List[AppResult[R]] )
+extension[R] (elements: Iterable[AppResult[R]] )
   def collectAny: AppResult[List[R]] =
     elements.foldLeft(AppSuccess[List[R]](List.empty)) {
       case (Right(acc), Right(element)) => AppSuccess(element :: acc)

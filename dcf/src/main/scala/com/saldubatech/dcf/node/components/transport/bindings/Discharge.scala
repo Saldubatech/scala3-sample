@@ -26,7 +26,7 @@ object Discharge:
 
 
     object ClientStubs:
-      class Downstream(target: SimActor[Signals.Downstream], override val id: Id, override val stationId: Id)
+      class Downstream(target: SimActor[Signals.Downstream], override val stationId: Id, override val id: Id)
       extends DischargeComponent.API.Downstream
       with DischargeComponent.Identity:
         def restore(at: Tick, cards: List[Id]): UnitResult =
@@ -55,30 +55,5 @@ object Discharge:
       }
     end ServerAdaptors
   end API
-
-  class Physics[M <: Material]
-  (
-    target: SimActor[API.Signals.Physics],
-    successDuration: (at: Tick, card: Id, load: M) => Duration,
-    minSlotDuration: Duration = 1,
-    failDuration: (at: Tick, card: Id, load: M) => Duration = (at: Tick, card: Id, load: M) => 0,
-    failureRate: (at: Tick, card: Id, load: M) => Double = (at: Tick, card: Id, load: M) => 0.0
-  )
-  extends DischargeComponent.Environment.Physics[M]:
-    var latestDischargeTime: Tick = 0
-    override def dischargeCommand(at: Tick, card: Id, load: M): UnitResult =
-      if (probability() > failureRate(at, card, load)) then
-        // Ensures FIFO delivery
-        latestDischargeTime = math.max(latestDischargeTime+minSlotDuration, at + successDuration(at, card, load))
-        target.env.schedule(target)(
-          latestDischargeTime,
-          API.Signals.DischargeFinalize(Id, Id, card, load.id))
-        AppSuccess.unit
-      else AppSuccess(
-        target.env.schedule(target)(
-          at + failDuration(at, card, load),
-          API.Signals.DischargeFail(Id, Id, card, load.id, None))
-        )
-  end Physics
 
 end Discharge

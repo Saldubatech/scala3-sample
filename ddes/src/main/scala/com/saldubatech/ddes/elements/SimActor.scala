@@ -24,7 +24,7 @@ trait SimActor[-DM <: DomainMessage : Typeable] extends SimNode with LogEnabled:
   protected lazy val ctx: ActorContext[? >: DomainAction[DM] | OAMMessage]
   final lazy val ref: ActorRef[DomainAction[DM] | OAMMessage] = ctx.self
 
-  val env: SimEnvironment
+  val env: SimEnvironment[DM]
 
   private var _currentTime: Option[Tick] = Some(0)
   protected def setTime(t: Tick): Unit = _currentTime = Some(t)
@@ -76,15 +76,17 @@ extends SimActor[DM] with SimActorContext[DM]:
       override def initialize(ctx: ActorContext[OAM.InitRequest]): Map[Id, ActorRef[?]] =
         Map(name -> ctx.spawn[DomainAction[DM] | OAMMessage](selfActorBehavior.init(), name))
     }
-  override val env: SimEnvironment = new SimEnvironment() {
+  override val env: SimEnvironment[DM] = new SimEnvironment[DM]() {
     override def currentTime: Tick = selfActorBehavior.currentTime
+    override def selfSchedule(forTime: Tick, targetMsg: DM): Unit =
+      clock.request(selfActorBehavior.command(forTime, selfActorBehavior, targetMsg))
 
     override def schedule[TARGET_DM <: DomainMessage]
     (target: SimActor[TARGET_DM])(forTime: Tick, targetMsg: TARGET_DM): Unit =
       clock.request(target.command(forTime, selfActorBehavior, targetMsg))
   }
 
-  given _env: SimEnvironment = env
+  given _env: SimEnvironment[DM] = env
 
   def init(): Behavior[DomainAction[DM] | OAMMessage] =
     Behaviors.setup {

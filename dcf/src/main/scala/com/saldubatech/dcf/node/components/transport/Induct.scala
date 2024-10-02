@@ -2,11 +2,16 @@ package com.saldubatech.dcf.node.components.transport
 
 import com.saldubatech.lang.{Id, Identified}
 import com.saldubatech.lang.types._
-import com.saldubatech.ddes.types.Tick
+import com.saldubatech.math.randomvariables.Distributions.probability
+import com.saldubatech.ddes.types.{Tick, Duration}
 import com.saldubatech.dcf.material.Material
 import com.saldubatech.dcf.node.components.{Subject, SubjectMixIn, Sink, Component as GComponent}
 
+import zio.ZIO
+
 import scala.reflect.Typeable
+import com.saldubatech.dcf.node.components.transport.Induct.API.Deliverer
+import com.saldubatech.dcf.node.components.Sink.API.Upstream
 
 object Induct:
   type Identity = GComponent.Identity
@@ -14,23 +19,26 @@ object Induct:
   object API:
 
     trait Upstream[M <: Material]:
-      def canAccept(at: Tick, from: Discharge.API.Downstream & Discharge.Identity, card: Id, load: M): AppResult[M]
-      def loadArriving(at: Tick, from: Discharge.API.Downstream & Discharge.Identity, card: Id, load: M): UnitResult
+      def canAccept(at: Tick, card: Id, load: M): AppResult[M]
+      def loadArriving(at: Tick, card: Id, load: M): UnitResult
     end Upstream
 
     trait Control[M <: Material]:
-      val binding: Sink.API.Upstream[M]
 
       def contents: List[M]
       def available: List[M]
       def cards: List[Id]
 
-      def restoreOne(at: Tick, dischargeId: Id): UnitResult
-      def restoreAll(at: Tick, dischargeId: Id): UnitResult
-      def restoreSome(at: Tick, nCards: Int, dischargeId: Id): UnitResult
+      def restoreOne(at: Tick): UnitResult
+      def restoreAll(at: Tick): UnitResult
+      def restoreSome(at: Tick, nCards: Int): UnitResult
 
-      def deliver(at: Tick, loadId: Id): UnitResult
+      def delivery(binding: Sink.API.Upstream[M]): Deliverer
     end Control
+
+    trait Deliverer:
+      def deliver(at: Tick, loadId: Id): UnitResult
+    end Deliverer // trait
 
     type Management[+LISTENER <: Environment.Listener] = GComponent.API.Management[LISTENER]
 
@@ -40,14 +48,14 @@ object Induct:
     end Downstream
 
     trait Physics:
-      def inductionFail(at: Tick, fromStation: Id, card: Id, loadId: Id, cause: Option[AppError]): UnitResult
-      def inductionFinalize(at: Tick, fromStation: Id, card: Id, loadId: Id): UnitResult
+      def inductionFail(at: Tick, card: Id, loadId: Id, cause: Option[AppError]): UnitResult
+      def inductionFinalize(at: Tick, card: Id, loadId: Id): UnitResult
     end Physics
   end API
 
   object Environment:
-    trait Physics[M <: Material]:
-      def inductCommand(at: Tick, fromStation: Id, card: Id, load: M): UnitResult
+    trait Physics[-M <: Material]:
+      def inductCommand(at: Tick, card: Id, load: M): UnitResult
     end Physics
 
     trait Listener extends Identified:
@@ -62,7 +70,7 @@ object Induct:
   end Environment
 
   object Component:
-    case class Arrival[M <: Material](at: Tick, from: Discharge.API.Downstream & Discharge.Identity, card: Id, material: M)
+    case class Arrival[M <: Material](at: Tick, card: Id, material: M)
     trait ArrivalBuffer[M <: Material]:
       def retrieve(at: Tick, loadId: Id): AppResult[Arrival[M]]
       def store(at: Tick, load: Arrival[M]): UnitResult
@@ -94,6 +102,23 @@ object Induct:
 
   end Component
 
+  class Physics[-M <: Material]
+  (
+      host: API.Physics,
+      successDuration: (at: Tick, card: Id, load: M) => Duration,
+      minSlotDuration: Duration = 1,
+      failDuration: (at: Tick, card: Id, load: M) => Duration = (at: Tick, card: Id, load: M) => 0,
+      failureRate: (at: Tick, card: Id, load: M) => Double = (at: Tick, card: Id, load: M) => 0.0
+  ) extends Environment.Physics[M]:
+    var latestDischargeTime: Tick = 0
+    override def inductCommand(at: Tick, card: Id, load: M): UnitResult =
+      if (probability() > failureRate(at, card, load)) then
+      // Ensures FIFO delivery
+        latestDischargeTime = math.max(latestDischargeTime+minSlotDuration, at + successDuration(at, card, load))
+        host.inductionFinalize(latestDischargeTime, card, load.id)
+      else host.inductionFail(at + failDuration(at, card, load), card, load.id, None)
+  end Physics // class
+
   trait Factory[M <: Material]:
     def induct[LISTENER <: Induct.Environment.Listener : Typeable](iId: Id, stationId: Id, binding: Sink.API.Upstream[M]):
       AppResult[Induct[M, LISTENER]]
@@ -118,102 +143,107 @@ with SubjectMixIn[LISTENER]:
 
   val physics: Induct.Environment.Physics[M]
   protected val arrivalStore: Induct.Component.ArrivalBuffer[M]
+  protected lazy val origin: AppResult[Discharge.API.Downstream & Discharge.Identity]
+  protected lazy val link: AppResult[Link.API.Downstream]
 
   export arrivalStore.{contents, available}
 
-  private val cardsByOrigin = collection.mutable.Map.empty[Id, (Discharge.API.Downstream & Discharge.Identity, collection.mutable.Queue[Id])]
-  private val cardsInTransit = collection.mutable.Map.empty[Id, Discharge.API.Downstream & Discharge.Identity]
+  private val cardsInTransit = collection.mutable.Set.empty[Id]
 
   // Members declared in Induct$.API$.Control
 
-  override def cards: List[Id] = cardsByOrigin.values.toList.flatMap( _._2.toList )
-  override def restoreAll(at: Tick, dischargeId: Id): UnitResult =
-    cardsByOrigin.get(dischargeId) match
-      case None => AppSuccess.unit
-      case Some((target, cards)) => target.restore(at, cards.dequeueAll(_ => true).toList)
+  private val _cards = collection.mutable.Queue.empty[Id]
+  override def cards: List[Id] = _cards.toList
+  override def restoreAll(at: Tick): UnitResult =
+    origin.flatMap{ o => o.restore(at, _cards.dequeueAll( _ => true).toList) }
 
-  override def restoreOne(at: Tick, dischargeId: Id): UnitResult =
-    cardsByOrigin.get(dischargeId) match
-      case None => AppSuccess.unit
-      case Some((target, cards)) => target.restore(at, List(cards.dequeue()))
+  override def restoreOne(at: Tick): UnitResult =
+    origin.flatMap{ o => o.restore(at, List(_cards.dequeue())) }
 
-  override def restoreSome(at: Tick, nCards: Int, dischargeId: Id): UnitResult =
-    cardsByOrigin.get(dischargeId) match
-      case None => AppSuccess.unit
-      case Some((target, cards)) => target.restore(at, (0 to nCards).map(_ => cards.dequeue()).toList)
+  override def restoreSome(at: Tick, nCards: Int): UnitResult =
+    origin.flatMap{ o => o.restore(at, (0 to nCards).map(_ => _cards.dequeue()).toList) }
 
   /*
     Management of available Loads, to be implemented by subclasses with different behaviors (e.g. FIFO, multiplicity, ...)
   */
 
-  override def deliver(at: Tick, loadId: Id): UnitResult =
-    for {
-      arrival <- arrivalStore.retrieve(at, loadId)
-      rs <-
-        binding.acceptMaterialRequest(at, arrival.from.stationId, arrival.from.id, arrival.material)
-          .tapError{ _ => arrivalStore.store(at, arrival) }
-    } yield
-      doNotify( l =>
-        l.loadDelivered(at, arrival.from.stationId, stationId, id, binding.id, arrival.material))
-      rs
+  override def delivery(binding: Upstream[M]): Deliverer = new Deliverer() {
+    override def deliver(at: Tick, loadId: Id): UnitResult =
+      for {
+        arrival <- arrivalStore.retrieve(at, loadId)
+        o <- origin
+        rs <-
+          binding.acceptMaterialRequest(at, o.stationId, o.id, arrival.material)
+            .tapError{ _ => arrivalStore.store(at, arrival) }
+      } yield
+        doNotify( l =>
+          l.loadDelivered(at, o.stationId, stationId, id, binding.id, arrival.material))
+        rs
+  }
 
   // Indexed by Card.
   private val _inducting = collection.mutable.Map.empty[Id, Induct.Component.Arrival[M]]
   // Members declared in Induct$.API$.Upstream
-  override def canAccept(at: Tick, from: Discharge.API.Downstream & Discharge.Identity, card: Id, load: M): AppResult[M] =
+  override def canAccept(at: Tick, card: Id, load: M): AppResult[M] =
     AppSuccess(load)
 
-  override def loadArriving(at: Tick, from: Discharge.API.Downstream & Discharge.Identity, card: Id, load: M): UnitResult =
-    from.acknowledge(at, load.id)
+  override def loadArriving(at: Tick, card: Id, load: M): UnitResult =
     for {
-      allowed <- canAccept(at, from, card, load)
+      l <- link
+      allowed <- canAccept(at, card, load)
       _ <-
-        _inducting += card -> Induct.Component.Arrival(at, from, card, load)
-        physics.inductCommand(at, from.stationId, card, load).tapError{ _ => _inducting -= card }
-      rs <-
-        cardsInTransit.get(card) match
-        case None =>
-          cardsInTransit += card -> from
+        _inducting += card -> Induct.Component.Arrival(at, card, load)
+        physics.inductCommand(at, card, load).tapError{ _ => _inducting -= card }
+      _ <-
+        cardsInTransit(card) match
+        case false =>
+          cardsInTransit += card
           AppSuccess.unit
-        case Some(f) =>
-          if f.id == from.id then AppSuccess.unit // idempotence
-          // Note that we don't keep memory of what load is associated with a card to check for dup card errors from the same source
-          else AppFail.fail(s"Card[${card}] already in Transit from a different origin")
+        case true =>
+          AppFail.fail(s"Card[${card}] already in Transit") // Consider making it simply redundant to allow for "idempotent" loadArriving events.
+      rs <- l.acknowledge(at, load.id)
     } yield rs
 
+
   // Members declared in Induct$.API$.Physics
-  override def inductionFail(at: Tick, fromStation: Id, card: Id, loadId: Id, cause: Option[AppError]): UnitResult =
+  override def inductionFail(at: Tick, card: Id, loadId: Id, cause: Option[AppError]): UnitResult =
     GComponent.inStation(stationId, "Inducting")(_inducting.remove)(card).flatMap{
       arr =>
         cause match
           case None => AppFail.fail(s"Unknown Error in Induction[$id] of Station[$stationId] for Load[${loadId}] at $at")
           case Some(c) => AppFail(c)
     }
-  override def inductionFinalize(at: Tick, fromStation: Id, card: Id, loadId: Id): UnitResult =
+  override def inductionFinalize(at: Tick, card: Id, loadId: Id): UnitResult =
     for {
       arrival <- GComponent.inStation(stationId, "Inducting Materials")(_inducting.remove)(card)
-      from <- cardsInTransit.get(card) match
-        case None => AppFail.fail(s"Card[$card] is not in transit at Induct[$id]")
-        case Some(f) => AppSuccess(f)
+      o <- origin
+      from <-
+        if cardsInTransit(card) then
+          _cards.enqueue(card)
+          AppSuccess(card)
+        else
+          AppFail.fail(s"Card[$card] is not in transit at Induct[$id]")
       _ <- arrivalStore.store(at, arrival)
     } yield
-      cardsByOrigin.getOrElseUpdate(from.id, (from, collection.mutable.Queue.empty[Id]))._2.enqueue(card)
       doNotify( l =>
-        l.loadArrival(at, fromStation, stationId, id, arrival.material)
+        l.loadArrival(at, o.stationId, stationId, id, arrival.material)
         )
-
+end InductMixIn // trait
 
 class InductImpl[M <: Material, LISTENER <: Induct.Environment.Listener : Typeable]
 (
   iId: Id,
   override val stationId: Id,
   // from Induct.API.Control
-  override val binding: Sink.API.Upstream[M],
   // from InductMixIn
   override val arrivalStore: Induct.Component.ArrivalBuffer[M],
-  override val physics: Induct.Environment.Physics[M]
+  override val physics: Induct.Environment.Physics[M],
+  linkP: () => AppResult[Link.API.Downstream],
+  originP: () => AppResult[Discharge.API.Downstream & Discharge.Identity]
 )
 extends InductMixIn[M, LISTENER]:
-    override val id: Id = s"$stationId::Induct[$iId]"
+  override val id: Id = s"$stationId::Induct[$iId]"
+  override lazy val origin: AppResult[Discharge.API.Downstream & Discharge.Identity] = originP()
+  override lazy val link: AppResult[Link.API.Downstream] = linkP()
 
 end InductImpl // class

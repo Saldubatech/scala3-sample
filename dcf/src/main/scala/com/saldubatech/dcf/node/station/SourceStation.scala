@@ -15,6 +15,8 @@ import com.saldubatech.dcf.node.components.transport.bindings.{Discharge as Disc
 import com.saldubatech.dcf.node.machine.{LoadSource, LoadSourceImpl}
 import com.saldubatech.dcf.node.machine.bindings.{LoadSource as LoadSourceBinding}
 
+import com.saldubatech.dcf.node.station.configurations.{Outbound}
+
 import scala.reflect.Typeable
 import scala.util.chaining.scalaUtilChainingOps
 
@@ -41,7 +43,7 @@ object SourceStation:
     private val controlAdaptor = LoadSourceBinding.API.ServerAdaptors.control(implementation)
     private val dPhysicsAdaptor = DischargeBinding.API.ServerAdaptors.physics(discharge)
     private val lPhysicsAdaptor = LinkBinding.API.ServerAdaptors.physics(link)
-    private val linkArrivalAdaptor = InductBinding.API.ServerAdaptors.upstream[M](link, Map(link.id -> Map(discharge.id -> discharge)))
+    private val linkArrivalAdaptor = LinkBinding.API.ServerAdaptors.upstream[M](link)
 
     override def accept(at: Tick, ev: DomainEvent[PROTOCOL]): UnitResult =
       ev.payload match
@@ -49,7 +51,7 @@ object SourceStation:
         case d: DischargeBinding.API.Signals.Downstream => dischargeDAdaptor(at)(d)
         case dp: DischargeBinding.API.Signals.Physics => dPhysicsAdaptor(at)(dp)
         case lp: LinkBinding.API.Signals.Physics => lPhysicsAdaptor(at)(lp)
-        case lu@InductBinding.API.Signals.LoadArriving(_, _, _, _, _, _ : M) => linkArrivalAdaptor(at)(lu)
+        case lu: LinkBinding.API.Signals.Upstream => linkArrivalAdaptor(at)(lu)
         case other => AppFail.fail(s"The Payload Material for ${ev.payload} is not of the expected type at ${host.stationId}")
   end DP // class
 
@@ -59,34 +61,27 @@ end SourceStation
 class SourceStation[M <: Material : Typeable]
 (
   val stationId: Id,
-  target: SimActor[InductBinding.API.Signals.Upstream],
-  outbound: Transport[M, ?, LoadSource.API.Listener],
-  dSuccessDuration: (at: Tick, card: Id, load: M) => Duration,
-  tSuccessDuration: (at: Tick, card: Id, load: M) => Duration,
+  outbound: Outbound[M, LoadSource.API.Listener],
   gen: Seq[(Tick, M)],
-  cards: List[Id],
   clock: Clock
 ) extends SimActorBehavior[SourceStation.PROTOCOL](stationId, clock)
 with Subject:
 
-  private val dischargePhysics = DischargeBinding.Physics[M](this, dSuccessDuration)
-  private val transportPhysics = LinkBinding.Physics[M](this, tSuccessDuration)
-  private val ackStubFactory: Discharge[M, LoadSource.API.Listener] => Discharge.Identity & Discharge.API.Downstream =
-    discharge => DischargeBinding.API.ClientStubs.Downstream(this, discharge.id, discharge.stationId)
+  private val linkPhysicsHost: Link.API.Physics = LinkBinding.API.ClientStubs.Physics(this)
+  private val dischargePhysicsHost: Discharge.API.Physics = DischargeBinding.API.ClientStubs.Physics(this)
 
 
-  private val inductUpstreamInjector: Induct[M, ?] => Induct.API.Upstream[M] = i => InductBinding.API.ClientStubs.Upstream(target)
   private val maybeDP: AppResult[SourceStation.DP[M]] = for {
-    discharge <- outbound.buildDischarge(stationId, dischargePhysics, transportPhysics, ackStubFactory, inductUpstreamInjector)
-    link <- outbound.link
+    discharge <- outbound.transport.discharge(stationId, linkPhysicsHost, dischargePhysicsHost)
+    link <- outbound.transport.link
   } yield
-    discharge.addCards(0, cards)
+    discharge.addCards(0, outbound.cards)
     SourceStation.DP(this, discharge, link, gen)
 
   override protected val domainProcessor: DomainProcessor[SourceStation.PROTOCOL] =
     maybeDP.fold(
       // TODO something smarter here.
-      err => null,
+      err => ???,
       dp => dp
     )
 

@@ -1,13 +1,15 @@
 package com.saldubatech.dcf.node.components
 
-import com.saldubatech.dcf.job.JobSpec
-import com.saldubatech.dcf.material.{Material, Wip, MaterialPool, WipPool}
 import com.saldubatech.lang.{Id, Identified}
 import com.saldubatech.lang.types._
-import com.saldubatech.ddes.types.Tick
-import com.saldubatech.lang.Identified
+import com.saldubatech.math.randomvariables.Distributions.probability
+import com.saldubatech.ddes.types.{Tick, Duration}
+import com.saldubatech.dcf.job.JobSpec
+import com.saldubatech.dcf.material.{Material, Wip, MaterialPool, WipPool}
 
 import util.chaining.scalaUtilChainingOps
+
+import scala.reflect.Typeable
 
 
 object Operation:
@@ -20,6 +22,8 @@ object Operation:
 
     trait Control[PRODUCT <: Material]:
       def nJobsInProgress(at: Tick): Int
+
+      def accepted(at: Tick, by: Option[Tick]): AppResult[List[Material]]
 
       def canLoad(at: Tick, js: JobSpec): AppResult[Wip.New]
       def loaded(at: Tick): AppResult[List[Wip.Loaded]]
@@ -40,6 +44,7 @@ object Operation:
       def unloaded(at: Tick): AppResult[List[Wip.Unloaded[PRODUCT]]]
 
       def scrap(at: Tick, jobId: Id): AppResult[Wip.Scrap]
+      def deliver(at: Tick, jobId: Id): UnitResult
 
     end Control // trait
 
@@ -50,7 +55,7 @@ object Operation:
 
     trait Physics[PRODUCT <: Material]:
       def loadFinalize(at: Tick, jobId: Id): UnitResult
-      def loadFailed(at: Tick, jobId: Id, request: Option[Wip.New], cause: Option[AppError]): UnitResult
+      def loadFailed(at: Tick, jobId: Id, request: Option[Wip.Failed], cause: Option[AppError]): UnitResult
 
       def completeFinalize(at: Tick, jobId: Id): UnitResult
       def completeFailed(at: Tick, jobId: Id, request: Option[Wip.Failed], cause: Option[AppError]): UnitResult
@@ -61,14 +66,14 @@ object Operation:
   end API // object
 
   object Environment:
-    trait Physics:
+    trait Physics[M <: Material]:
       def loadJobCommand(at: Tick, wip: Wip.New): UnitResult
       def startCommand(at: Tick, wip: Wip.InProgress): UnitResult
 
-      def unloadCommand(at: Tick, jobId: Id): UnitResult
+      def unloadCommand(at: Tick, jobId: Id, wip: Wip.Complete[M]): UnitResult
     end Physics
 
-    trait Listener extends Identified:
+    trait Listener extends Identified with Sink.Environment.Listener:
       def jobLoaded(at: Tick, stationId: Id, processorId: Id, loaded: Wip.Loaded): Unit
       def jobStarted(at: Tick, stationId: Id, processorId: Id, inProgress: Wip.InProgress): Unit
       def jobCompleted(at: Tick, stationId: Id, processorId: Id, completed: Wip.Complete[?]): Unit
@@ -83,26 +88,85 @@ object Operation:
     trait Downstream:
     end Downstream
   end Environment // object
+
+  class Physics[M <: Material]
+  (
+    host: API.Physics[M],
+    loadingSuccessDuration: (at: Tick, wip: Wip.New) => Duration,
+    processSuccessDuration: (at: Tick, wip: Wip.InProgress) => Duration,
+    unloadingSuccessDuration: (at: Tick, wip: Wip.Complete[M]) => Duration,
+    loadingFailureRate: (at: Tick, wip: Wip.New) => Double = (_, _) => 0.0,
+    loadingFailDuration: (at: Tick, wip: Wip.New) => Duration = (_, _) => 0,
+    processFailureRate: (at: Tick, wip: Wip.InProgress) => Double = (_, _) => 0,
+    processFailDuration: (at: Tick, wip: Wip.InProgress) => Duration = (_, _) => 0,
+    unloadingFailureRate: (at: Tick, wip: Wip.Complete[M]) => Double = (_, _ : Wip.Complete[M]) => 0.0,
+    unloadingFailDuration: (at: Tick, wip: Wip.Complete[M]) => Duration = (_, _ : Wip.Complete[M]) => 0
+  )
+  extends Environment.Physics[M]:
+    override def loadJobCommand(at: Tick, wip: Wip.New): UnitResult =
+      if (probability() > loadingFailureRate(at, wip)) then
+        host.loadFinalize(at+loadingSuccessDuration(at, wip), wip.jobSpec.id)
+      else
+        host.loadFailed(at+loadingFailDuration(at, wip), wip.jobSpec.id, Some(wip.failed(at)), None)
+
+    override def startCommand(at: Tick, wip: Wip.InProgress): UnitResult =
+      if (probability() > processFailureRate(at, wip)) then
+        host.completeFinalize(at+processSuccessDuration(at, wip), wip.jobSpec.id)
+      else
+        host.completeFailed(at+processFailDuration(at, wip), wip.jobSpec.id, Some(wip.failed(at)), None)
+
+    override def unloadCommand(at: Tick, jobId: Id, wip: Wip.Complete[M]): UnitResult =
+      if (probability() > unloadingFailureRate(at, wip)) then
+        host.unloadFinalize(at+unloadingSuccessDuration(at, wip), wip.jobSpec.id)
+      else
+        host.unloadFailed(at+unloadingFailDuration(at, wip), wip.jobSpec.id, Some(wip), None)
+  end Physics // class
 end Operation // object
 
-trait Operation[PRODUCT <: Material, LISTENER <: Operation.Environment.Listener]
+trait Operation[M <: Material, LISTENER <: Operation.Environment.Listener]
 extends
 Operation.API.Identity
 with Operation.API.Upstream
-with Operation.API.Control[PRODUCT]
+with Operation.API.Control[M]
 with Operation.API.Management[LISTENER]
-with Operation.API.Physics[PRODUCT]
+with Operation.API.Physics[M]:
+
+  val upstreamEndpoint: Sink.API.Upstream[M]
+
+end Operation // trait
 
 trait OperationMixIn[M <: Material, LISTENER <: Operation.Environment.Listener]
 extends Operation[M, LISTENER]
 with SubjectMixIn[LISTENER]:
+  operationSelf =>
 
   val maxConcurrentJobs: Int
-  val physics: Operation.Environment.Physics
+  val physics: Operation.Environment.Physics[M]
   val produce: (Tick, Wip.InProgress) => AppResult[Option[M]]
 
   protected val readyWipPool: WipPool[Wip.Unloaded[M]]
   protected val acceptedPool: MaterialPool[Material]
+
+  val downstream: Option[Sink.API.Upstream[M]]
+
+  override def accepted(at: Tick, by: Option[Tick]): AppResult[List[Material]] =
+    AppSuccess(acceptedPool.content(at, by))
+
+  override val upstreamEndpoint: Sink.API.Upstream[M] = new Sink.API.Upstream[M] {
+    override val id: Id = operationSelf.id
+    override val stationId: Id = operationSelf.stationId
+
+    def acceptMaterialRequest(at: Tick, fromStation: Id, fromSource: Id, load: M): UnitResult =
+      for {
+        allowed <- canAccept(at, fromSource, load)
+      } yield
+        acceptedPool.add(at, load)
+        operationSelf.doNotify{ l => l.loadAccepted(at, stationId, id, load)}
+
+    def canAccept(at: Tick, from: Id, load: M): UnitResult =
+      // For now accept always, in the future, restrictions based on capacity, capabilities, available Jobs, ...
+      AppSuccess.unit
+  }
 
 
   // Loading Implementation
@@ -134,7 +198,7 @@ with SubjectMixIn[LISTENER]:
         }
     } yield requested
 
-  override def loadFailed(at: Tick, jobId: Id, request: Option[Wip.New], cause: Option[AppError]): UnitResult =
+  override def loadFailed(at: Tick, jobId: Id, request: Option[Wip.Failed], cause: Option[AppError]): UnitResult =
     Component.inStation(stationId, "Loading Job")(_loading.remove)(jobId).flatMap {
       w =>
         // Load failed, so return all materials to accepted. (note arrival time is updated...?)
@@ -153,7 +217,7 @@ with SubjectMixIn[LISTENER]:
     }
 
   override def canStart(at: Tick, jobId: Id): AppResult[Wip.Loaded] =
-    Component.inStation(stationId, "Startable Job")(_inProgress.get)(jobId).flatMap {
+    Component.inStation(stationId, "Ready to start Job")(_inProgress.get)(jobId).flatMap {
         case w: Wip.Loaded => AppSuccess(w)
         case other => AppFail.fail(s"Job[$jobId] is not ready to start in Station[$stationId] at $at")
     }
@@ -242,13 +306,10 @@ with SubjectMixIn[LISTENER]:
       toUnload <- canUnload(at, jobId)
       unload <-
         _unloading += jobId -> toUnload
-        val current = _inProgress.remove(jobId)
-        physics.unloadCommand(at, jobId).tapError{
-          err =>
-            _unloading -= jobId
-            _inProgress += jobId -> current.get
-        }
-    } yield unload
+        physics.unloadCommand(at, jobId, toUnload).tapError{ err => _unloading -= jobId }
+    } yield
+      _inProgress.remove(jobId) // will succeed b/c canUnload already checked
+      unload
 
   // Members declared in com.saldubatech.dcf.node.structure.components.Operation$.API$.Physics
   override def unloadFailed(at: Tick, jobId: Id, wip: Option[Wip.Complete[M]], cause: Option[AppError]): UnitResult =
@@ -272,3 +333,34 @@ with SubjectMixIn[LISTENER]:
   // Members declared in com.saldubatech.dcf.node.structure.components.Source$.API$.Control
   override def unloaded(at: Tick): AppResult[List[Wip.Unloaded[M]]] =
     AppSuccess(readyWipPool.contents(at))
+
+  override def deliver(at: Tick, jobId: Id): UnitResult =
+    fromOption(for {
+      ds <- downstream
+      wip <- readyWipPool.contents(at, jobId)
+      product <- wip.product
+    } yield
+      readyWipPool.remove(at, jobId)
+      ds.acceptMaterialRequest(at, stationId, id, product)).flatten
+
+end OperationMixIn // trait
+
+
+class OperationImpl[M <: Material, LISTENER <: Operation.Environment.Listener : Typeable]
+(
+  val lId: Id,
+  override val stationId: Id,
+  // Members declared in com.saldubatech.dcf.node.components.OperationMixIn
+  override val maxConcurrentJobs: Int,
+  override val produce: (Tick, Wip.InProgress) => AppResult[Option[M]],
+  override val physics: Operation.Environment.Physics[M],
+  override protected val acceptedPool: MaterialPool[Material],
+  override protected val readyWipPool: WipPool[Wip.Unloaded[M]],
+  override val downstream: Option[Sink.API.Upstream[M]]
+)
+extends OperationMixIn[M, LISTENER]:
+
+  // Members declared in com.saldubatech.lang.Identified
+  val id: Id = s"$stationId::Operation[$lId]"
+
+end OperationImpl // class

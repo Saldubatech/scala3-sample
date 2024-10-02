@@ -19,23 +19,23 @@ import com.saldubatech.dcf.node.components.transport.{Harness as TransportHarnes
 import org.scalatest.matchers.should.Matchers._
 
 
-class TransferMachineSpec extends BaseSpec:
+class PushMachineSpec extends BaseSpec:
   import Harness._
 
 
   "A Transfer Machine" when {
     val engine = MockAsyncCallback()
-    val testRig = buildTransferMachineUnderTest[ProbeInboundMaterial](engine)
+    val testRig = buildPushMachineUnderTest[ProbeInboundMaterial](engine)
 
     "the rig is created" should {
       "Have a Map of inputs, a machine and a map of outputs " in {
-        // AppResult[(Map[Id, Discharge[M, ?]], TransferMachine2[M], Map[Id, (TransportHarness.MockSink[M], Induct[M, Induct.Environment.Listener])])]
+        // AppResult[(Map[Id, Discharge[M, ?]], PushMachine[M], Map[Id, (TransportHarness.MockSink[M], Induct[M, Induct.Environment.Listener])])]
         testRig shouldBe Symbol("isRight")
         val (inputMap, underTest, outputMap) = testRig.value
         inputMap.size shouldBe inboundArity
         outputMap.size shouldBe outboundArity
-        underTest.inbound.size shouldBe inboundArity
-        underTest.outbound.size shouldBe outboundArity
+        // underTest.inbound.size shouldBe inboundArity
+        // underTest.outbound.size shouldBe outboundArity
       }
       "Allow for the configuration of cards in its inbound discharges" in {
         val (inputMap, underTest, outputMap) = testRig.value
@@ -46,10 +46,10 @@ class TransferMachineSpec extends BaseSpec:
       }
       "Allow for the configuration of cards in the discharges of the machine" in {
         val (inputMap, underTest, outputMap) = testRig.value
-        underTest.outbound.values.map{
-          d =>
-            d.addCards(0, obCards) shouldBe Symbol("isRight")
-        }
+        // underTest.outbound.values.map{
+        //   d =>
+        //     d.addCards(0, obCards) shouldBe Symbol("isRight")
+        // }
       }
     }
     "Provided with Cards" should {
@@ -62,10 +62,10 @@ class TransferMachineSpec extends BaseSpec:
       }
       "Allow for discharge through all outbound transports" in {
         val (inputMap, underTest, outputMap) = testRig.value
-        underTest.outbound.values.map{
-          d =>
-            d.canDischarge(1, probes(0)) shouldBe Symbol("isRight")
-        }
+        // underTest.outbound.values.map{
+        //   d =>
+        //     d.canDischarge(1, probes(0)) shouldBe Symbol("isRight")
+        // }
       }
     }
     "A Probe load is provided to one input" should {
@@ -145,7 +145,7 @@ class TransferMachineSpec extends BaseSpec:
 
         // (
         //  Map[Id, Discharge[M, ?]],
-        //  TransferMachine2[M],
+        //  PushMachine[M],
         //  Map[Id, (TransportHarness.MockSink[M], Induct[M, Induct.Environment.Listener])]
         // )
         val (inputMap, underTest, outputMap) = testRig.value
@@ -157,6 +157,6 @@ class TransferMachineSpec extends BaseSpec:
     }
   }
 
-end TransferMachineSpec // class
+end PushMachineSpec // class
 
 

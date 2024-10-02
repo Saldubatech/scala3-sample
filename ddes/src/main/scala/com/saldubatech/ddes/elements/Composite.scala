@@ -18,21 +18,21 @@ object Composite:
       case _ => Left(SimulationError("asdf"))
 
   abstract class Component[DM <: DomainMessage, DE <: DomainEvent[DM] : Typeable]:
-    final def maybeAccept(at: Tick)(using env: SimEnvironment)
+    final def maybeAccept(at: Tick)(using env: SimEnvironment[DM])
     : PartialFunction[DomainEvent[DM], UnitResult] = { case dmEv: DE => accept(at, dmEv) }
 
-    def accept(at: Tick, dmEv: DE)(using env: SimEnvironment): UnitResult
+    def accept(at: Tick, dmEv: DE)(using env: SimEnvironment[DM]): UnitResult
 
-  class DP[DOMAIN_TUPLE](components: Seq[Component[DOMAIN_MESSAGE[DOMAIN_TUPLE], ?]], env: SimEnvironment)
+  class DP[DOMAIN_TUPLE](components: Seq[Component[DOMAIN_MESSAGE[DOMAIN_TUPLE], ?]], env: SimEnvironment[DOMAIN_MESSAGE[DOMAIN_TUPLE]])
   (using Typeable[DOMAIN_MESSAGE[DOMAIN_TUPLE]])
   extends DomainProcessor[DOMAIN_MESSAGE[DOMAIN_TUPLE]]:
     type PF = PartialFunction[DomainEvent[DOMAIN_MESSAGE[DOMAIN_TUPLE]], UnitResult]
     private val fallThrough: PF =
       { case other => Left(SimulationError(s"No Component to handle the message $other"))}
 
-    val resolver: (Tick, SimEnvironment) => PF =
-      components.map[(Tick, SimEnvironment) => PF](cmp => (tick, env) => cmp.maybeAccept(tick)(using env))
-        .foldRight[(Tick, SimEnvironment) => PF]((t, env) => fallThrough)( (cmp, rs) => (t, env) => cmp(t, env) orElse rs(t, env))
+    val resolver: (Tick, SimEnvironment[DOMAIN_MESSAGE[DOMAIN_TUPLE]]) => PF =
+      components.map[(Tick, SimEnvironment[DOMAIN_MESSAGE[DOMAIN_TUPLE]]) => PF](cmp => (tick, env) => cmp.maybeAccept(tick)(using env))
+        .foldRight[(Tick, SimEnvironment[DOMAIN_MESSAGE[DOMAIN_TUPLE]]) => PF]((t, env) => fallThrough)( (cmp, rs) => (t, env) => cmp(t, env) orElse rs(t, env))
 
     override def accept(at: Tick, ev: DomainEvent[DOMAIN_MESSAGE[DOMAIN_TUPLE]])
     : UnitResult = resolver(at, env)(ev)

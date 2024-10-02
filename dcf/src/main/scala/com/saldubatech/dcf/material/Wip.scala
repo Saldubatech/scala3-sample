@@ -19,6 +19,8 @@ object Wip:
   ) extends AtRest:
     def load(at: Tick): Loaded =
       Loaded(id, jobSpec, rawMaterials, station, arrived, at)
+    def failed(at: Tick): Failed =
+      Failed(id, jobSpec, rawMaterials, station, arrived, at, at, at)
 
   sealed trait Processing extends Wip
 

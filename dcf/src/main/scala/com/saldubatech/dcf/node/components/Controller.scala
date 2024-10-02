@@ -64,6 +64,7 @@ object Controller:
         stationId: Id,
         router: Controller.Router[M],
         inbound: Map[Id, Induct.API.Control[M] & Induct.API.Management[LISTENING_TO]],
+        sinks: Map[Id, Sink.API.Upstream[M]],
         processor: Processor[M, LISTENING_TO],
         outbound: Map[Id, Discharge.API.Management[LISTENING_TO]],
         jobCleanUp: (js: JobSpec) => UnitResult
@@ -75,10 +76,11 @@ object Controller:
         stationId: Id,
         router: Controller.Router[M],
         inbound: Map[Id, Induct.API.Control[M] & Induct.API.Management[LISTENING_TO]],
+        sinks: Map[Id, Sink.API.Upstream[M]],
         processor: Processor[M, LISTENING_TO],
         outbound: Map[Id, Discharge.API.Management[LISTENING_TO]],
         jobCleanUp: (js: JobSpec) => UnitResult
-        ) : AppResult[Controller] = AppSuccess(PushController[M, LISTENING_TO, LISTENER](cId, stationId, router, inbound, processor, outbound))
+        ) : AppResult[Controller] = AppSuccess(PushController[M, LISTENING_TO, LISTENER](cId, stationId, router, inbound, sinks, processor, outbound))
 end Controller // object
 
 trait Controller
@@ -93,6 +95,7 @@ extends Controller with SubjectMixIn[LISTENER] with LogEnabled:
     val cId: Id
     val router: Controller.Router[M]
     val inbound: Map[Id, Induct.API.Control[M] & Induct.API.Management[LISTENING_TO]]
+    val sinks: Map[Id, Sink.API.Upstream[M]]
     val processor: Processor[M, LISTENING_TO]
     val outbound: Map[Id, Discharge.API.Management[LISTENING_TO]]
     override final val id: Id = s"$stationId::Controller[$cId]"
@@ -100,6 +103,10 @@ extends Controller with SubjectMixIn[LISTENER] with LogEnabled:
     inbound.values.foreach{ib => ib.listen(this)}
     processor.listen(this)
     outbound.values.foreach{d => d.listen(this)}
+
+    private val deliveries: Map[Id, Induct.API.Deliverer] = inbound.map{
+      (id, induct) => id -> induct.delivery(sinks(id))
+    }
 
     private val activeJobs = collection.mutable.Map.empty[Id, JobSpec]
 
@@ -112,10 +119,10 @@ extends Controller with SubjectMixIn[LISTENER] with LogEnabled:
       for {
         toDestination <- router.route(atInduct, load)
         discharge <- lookupOutbound(toDestination)
-        fromInduct <- inbound.get(atInduct)
+        delivery <- deliveries.get(atInduct)
       } yield
         doNotify(_.loadArrival(at, stationId, atInduct, load))
-        fromInduct.deliver(at, load.id)
+        delivery.deliver(at, load.id)
 
     // From Induct
     def loadDelivered(at: Tick, fromStation: Id, atStation: Id, fromInduct: Id, toSink: Id, load: Material): Unit =
@@ -196,6 +203,7 @@ class PushController[M <: Material, LISTENING_TO <: Controller.API.Listener, LIS
   override val stationId: Id,
   override val router: Controller.Router[M],
   override val inbound: Map[Id, Induct.API.Control[M] & Induct.API.Management[LISTENING_TO]],
+  override val sinks: Map[Id, Sink.API.Upstream[M]],
   override val processor: Processor[M, LISTENING_TO],
   override val outbound: Map[Id, Discharge.API.Management[LISTENING_TO]]
 ) extends ControllerMixIn[M, LISTENING_TO, LISTENER]

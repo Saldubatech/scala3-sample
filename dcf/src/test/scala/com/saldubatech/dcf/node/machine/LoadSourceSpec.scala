@@ -43,27 +43,56 @@ object LoadSourceSpec:
 
   def buildLoadSourceUnderTest[M <: Material : Typeable](engine: MockAsyncCallback, loads: Seq[M]):
     AppResult[(TransportHarness.MockSink[M], LoadSource[M, com.saldubatech.dcf.node.machine.LoadSource.Environment.Listener], Induct[M, Induct.Environment.Listener])] =
-    val obDistPhysics = TransportHarness.MockDischargePhysics[M](() => obDiscDelay, engine)
-    val obTranPhysics = TransportHarness.MockLinkPhysics[M](() => obTranDelay, engine)
-    val obIndcPhysics = TransportHarness.MockInductPhysics[M](() => obIndcDelay, engine)
-    val outbound: Transport[M, ?, Discharge.Environment.Listener] =  TransportImpl[M, Induct.Environment.Listener, Discharge.Environment.Listener](
-      s"T_OB",
+    def obDistPhysics(host: Discharge.API.Physics): Discharge.Environment.Physics[M] = TransportHarness.MockDischargePhysics[M](() => obDiscDelay, engine)
+    def obTranPhysics(host: Link.API.Physics): Link.Environment.Physics[M] = TransportHarness.MockLinkPhysics[M](() => obTranDelay, engine)
+    def obIndcPhysics(host: Induct.API.Physics): Induct.Environment.Physics[M] = TransportHarness.MockInductPhysics[M](() => obIndcDelay, engine)
+    val inductUpstreamInjector: Induct[M, ?] => Induct.API.Upstream[M] = i => i
+    val linkAcknowledgeFactory: Link[M] => Link.API.Downstream = l => new Link.API.Downstream {
+      override def acknowledge(at: Tick, loadId: Id): UnitResult = AppSuccess{ engine.add(at){ () => l.acknowledge(at, loadId) } }
+    }
+    val cardRestoreFactory: Discharge[M, Discharge.Environment.Listener] => Discharge.Identity & Discharge.API.Downstream = d =>
+      TransportHarness.MockAckStub(d.id, d.stationId, d, engine)
+
+    val outbound = TransportImpl[M, Induct.Environment.Listener, Discharge.Environment.Listener](
+      s"T_IB",
+      obIndcPhysics,
       Some(obTranCapacity),
-      Induct.Component.FIFOArrivalBuffer[M]()
+      Induct.Component.FIFOArrivalBuffer[M](),
+      obTranPhysics,
+      obDistPhysics,
+      inductUpstreamInjector,
+      linkAcknowledgeFactory,
+      cardRestoreFactory
     )
+    def obDisAPIPhysics(): AppResult[Discharge.API.Physics] = outbound.discharge
+    def obLnkAPIPhysics(): AppResult[Link.API.Physics] = outbound.link
+    def obIndAPIPhysics(): AppResult[Induct.API.Physics] = outbound.induct
+    val obLinkAPIPhysics: Link.API.Physics = new Link.API.Physics {
+      def transportFinalize(at: Tick, linkId: Id, card: Id, loadId: Id): UnitResult =
+        obLnkAPIPhysics().map{ l => engine.add(at){ () => l.transportFinalize(at, linkId, card, loadId) } }
+      def transportFail(at: Tick, linkId: Id, card: Id, loadId: Id, cause: Option[AppError]): UnitResult =
+        obLnkAPIPhysics().map{ l => engine.add(at){ () => l.transportFail(at, linkId, card, loadId, cause) } }
+    }
+    val obDischargeAPIPhysics: Discharge.API.Physics = new Discharge.API.Physics {
+      def dischargeFinalize(at: Tick, card: Id, loadId: Id): UnitResult =
+        obDisAPIPhysics().map{ d => engine.add(at){ () => d.dischargeFinalize(at, card, loadId) } }
+      def dischargeFail(at: Tick, card: Id, loadId: Id, cause: Option[AppError]): UnitResult =
+        obDisAPIPhysics().map{ d => engine.add(at){ () => d.dischargeFail(at, card, loadId, cause) } }
+    }
+    val obInductAPIPhysics: Induct.API.Physics = new Induct.API.Physics {
+      def inductionFail(at: Tick, card: Id, loadId: Id, cause: Option[AppError]): UnitResult =
+        obIndAPIPhysics().map{ i => engine.add(at){ () => i.inductionFail(at, card, loadId, cause) } }
+      def inductionFinalize(at: Tick, card: Id, loadId: Id): UnitResult =
+        obIndAPIPhysics().map{ i => engine.add(at){ () => i.inductionFinalize(at, card, loadId) } }
+    }
     val outBinding = TransportHarness.MockSink[M](outbound.id, "TERM")
     for {
-      outInduct <- outbound.buildInduct("Term", obIndcPhysics, outBinding)
-      outDischarge <- outbound.buildDischarge("InStation", obDistPhysics, obTranPhysics, ackStubFactory[M](engine), i => i)
-      i <- outbound.induct
-      l <- outbound.link
-      d <- outbound.discharge
+      outInduct <- outbound.induct("Term", obInductAPIPhysics)
+      outDischarge <- outbound.discharge("InStation", obLinkAPIPhysics, obDischargeAPIPhysics)
     } yield
-      obDistPhysics.underTest = d
-      obTranPhysics.underTest = l
-      obIndcPhysics.underTest = i
-      d.addCards(0, obCards)
-      val ls = LoadSourceImpl[M, LoadSource.Environment.Listener]("underTest", "InStation", loads.zipWithIndex.map{ (l: M, idx: Int) => (idx*10).toLong -> l }, d)
+      TransportHarness.bindMockPhysics(outbound)
+      outDischarge.addCards(0, obCards)
+      val ls = LoadSourceImpl[M, LoadSource.Environment.Listener]("underTest", "InStation", loads.zipWithIndex.map{ (l: M, idx: Int) => (idx*10).toLong -> l }, outDischarge)
       (outBinding, ls, outInduct)
 
 
@@ -79,7 +108,6 @@ class LoadSourceSpec extends BaseSpec:
     val mockListener = MockLoadSourceListener()
     val (endMockSink, underTest, outInduct) = buildLoadSourceUnderTest[ProbeInboundMaterial](engine, probes.take(obCards.size-1)).value
 
-    // AppResult[(Map[Id, Discharge[M, ?]], TransferMachine2[M], Map[Id, (TransportHarness.MockSink[M], Induct[M, Induct.Environment.Listener])])]
     underTest.listen(mockListener)
 
     "Given the command to run" should {
