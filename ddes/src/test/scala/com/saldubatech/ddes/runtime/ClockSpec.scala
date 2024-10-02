@@ -92,6 +92,7 @@ class ClockSpec extends BaseSpec:
         receiver.expectNoMessage(3000.millis)
         clockRef ! Clock.ActionComplete(commandProbeNow.id, mockReceiverNode)
         receiver.expectMessage(s"Got $commandProbeLater")
+        receiver.expectNoMessage(1000.millis)
         sentCommands.size shouldBe 3
         sentCommands.last shouldBe commandProbeLater
       }
