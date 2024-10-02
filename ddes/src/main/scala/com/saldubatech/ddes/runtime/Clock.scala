@@ -7,8 +7,11 @@ import org.apache.pekko.actor.typed.scaladsl.{ActorContext, Behaviors, TimerSche
 import org.apache.pekko.actor.typed.{ActorRef, Behavior}
 import zio.{RLayer, TaskLayer, ZLayer}
 
+import com.typesafe.scalalogging.Logger
 import scala.concurrent.duration._
 import scala.util.chaining.scalaUtilChainingOps
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 
 object Clock:
 
@@ -26,6 +29,8 @@ object Clock:
 
   def startTimeLayer(maxTime: Option[Tick], at: Tick): TaskLayer[Clock] = ZLayer.succeed { Clock(maxTime, at) }
   val zeroStartLayer: TaskLayer[Clock] = startTimeLayer(None, 0L)
+
+  val sequenceLogName: String = "Clock.SequenceChart"
 end Clock // object
 
 class Clock(
@@ -34,6 +39,9 @@ class Clock(
   monitor: Option[ActorRef[Clock.MonitorSignal]] = None
 ) extends LogEnabled:
   selfClock =>
+
+  private val sLog: Logger = Logger(Clock.sequenceLogName)
+  sLog.info(s"============= ${LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"))} ===========")
 
   log.debug(s"Creating Clock: $selfClock")
 
@@ -113,7 +121,12 @@ class Clock(
           case _ =>
             log.debug(s" > Advanced Clock ==> From: ${now} to: ${tick}")
             now = tick
-            commands.foreach { cmd => openAction(cmd.send) }
+            commands.foreach {
+              cmd =>
+                if cmd.origin == cmd.destination then sLog.debug(cmd.sequenceEntry)
+                else sLog.info(cmd.sequenceEntry)
+                sLog.info(cmd.sequenceEntry)
+                openAction(cmd.send) }
     }
 
   def start(): Behavior[PROTOCOL] =

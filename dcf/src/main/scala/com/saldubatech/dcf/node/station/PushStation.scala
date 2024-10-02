@@ -86,7 +86,7 @@ object PushStation:
       operation <- maybeOp
       induct <- maybeIbInduct
       discharge <- maybeObDischarge
-    } yield PushMachine2Impl[M]("pushMachine", host.stationId, induct, discharge, operation, cards)
+    } yield PushMachine2Impl[M]("pushMachine", host.stationId, induct, discharge, operation)
 
     // Dispatch
     private val maybeDispatch: AppResult[(Tick) => PartialFunction[PROTOCOL, UnitResult]] = for {
@@ -95,6 +95,7 @@ object PushStation:
       outboundLink <- outbound.link
       discharge <- maybeObDischarge
     } yield {
+        discharge.addCards(0, cards) // This should probably go outside of the construction of the station.
         val inductUpstreamAdaptor = InductBinding.API.ServerAdaptors.upstream[M](induct)
         val inductPhysicsAdaptor = InductBinding.API.ServerAdaptors.physics(induct)
         val opPhysicsAdaptor = OperationBinding.API.ServerAdaptors.physics[M](operation)

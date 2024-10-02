@@ -36,6 +36,10 @@ trait SimActor[-DM <: DomainMessage : Typeable] extends SimNode with LogEnabled:
       override val forEpoch: Tick = forTime
       override val id: Id = Id
 
+      override val origin: String = from.name
+      override val destination: String = selfSimActor.name
+      override val signal: DM = message
+
       override def toString: String = s"${selfSimActor.name}@Command(At[$currentTime], For[$forTime], Msg:${message.getClass().getName()})"
 
       override def send: Id =

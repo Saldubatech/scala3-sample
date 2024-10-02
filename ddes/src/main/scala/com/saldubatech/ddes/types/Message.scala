@@ -15,6 +15,8 @@ trait DomainMessage extends Product with Serializable:
 //    @deprecated("`job` may be removed in the future as it is not of general use."")
   val job: Id
 
+case class SimpleMessage(override val id: Id, override val job: Id, val msg: String) extends DomainMessage
+
 object OAMMessage:
 
 end OAMMessage // object

@@ -7,7 +7,7 @@ import com.saldubatech.util.LogEnabled
 import com.saldubatech.lang.Id
 import com.saldubatech.math.randomvariables.Distributions
 import org.apache.pekko.actor.typed.scaladsl.ActorContext
-import com.saldubatech.ddes.types.{Tick, DomainMessage}
+import com.saldubatech.ddes.types.{Tick, DomainMessage, SimpleMessage}
 import com.saldubatech.ddes.runtime.{OAM, Clock}
 import com.saldubatech.ddes.elements.{SimulationComponent, DomainEvent}
 import com.saldubatech.ddes.system.SimulationSupervisor
@@ -38,6 +38,9 @@ object Harness:
   val sentCommands = collection.mutable.ListBuffer.empty[CommandProbe]
   case class CommandProbe(override val issuedAt: Tick, override val forEpoch: Tick, override val id: Id)
   (check: ActorRef[String]) extends Command with LogEnabled:
+    override val destination: String = check.path.name
+    override val origin: String = "MockSender"
+    override val signal: DomainMessage = SimpleMessage(Id, Id, s"Sent Command")
     override def send: Id =
       check ! s"Got $this"
       log.debug(s"Sent Command $this")
