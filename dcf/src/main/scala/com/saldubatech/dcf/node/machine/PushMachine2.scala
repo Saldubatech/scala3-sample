@@ -44,8 +44,8 @@ class PushMachine2Impl[M <: Material : Typeable]
   override val stationId: Id,
   inbound: Induct[M, Induct.Environment.Listener],
   outbound: Discharge[M, Discharge.Environment.Listener],
-  operation: Operation[M, Operation.Environment.Listener],
-  cards: List[Id]
+  // Operation must be linked to "Discharge.asSink"
+  operation: Operation[M, Operation.Environment.Listener]
 ) extends PushMachine2[M]:
   machineSelf =>
   override val id = s"$stationId::PushMachine[$mId]"
@@ -78,6 +78,9 @@ class PushMachine2Impl[M <: Material : Typeable]
       unloaded match
         case w@Wip.Unloaded(_, _, _, _, _, _, _, _, _, Some(_ : M)) => operation.deliver(at, w.jobSpec.id)
         case other => () // Error, should not receive a product different than M.
+    override def jobDelivered(at: Tick, stationId: Id, processorId: Id, delivered: Wip.Unloaded[?]): Unit =
+      // Do nothing, it will be picked up on the Discharge side
+      ()
     override def jobFailed(at: Tick, stationId: Id, processorId: Id, failed: Wip.Failed): Unit = ???
     override def jobScrapped(at: Tick, stationId: Id, processorId: Id, scrapped: Wip.Scrap): Unit = ???
   }.tap{operation.listen}

@@ -44,7 +44,7 @@ class ProcessorNotificationsSpec extends BaseSpec:
         engine.runOne() shouldBe Symbol("isRight")
 
         listener.materialNotifications.size shouldBe 1
-        listener.materialNotifications.head shouldBe (1L, underTest.stationId, underTest.id, None, None, probe, "INBOUND")
+        listener.materialNotifications.head shouldBe ("loadAccepted", 1L, underTest.stationId, underTest.id, None, None, probe, "INBOUND")
       }
       "and have no Job Notifications" in {
         listener.jobNotifications.size shouldBe 0
@@ -81,7 +81,7 @@ class ProcessorNotificationsSpec extends BaseSpec:
             engine.runOne()
         } yield ()) shouldBe Symbol("isRight")
         listener.jobNotifications.size shouldBe 1
-        listener.jobNotifications((opTime+1, underTest.stationId, underTest.id, underTest.loaded(opTime+1).value.head))
+        listener.jobNotifications(("jobLoaded", opTime+1, underTest.stationId, underTest.id, underTest.loaded(opTime+1).value.head)) shouldBe true
       }
     }
     "Requested to Start the Job" should {
@@ -92,21 +92,21 @@ class ProcessorNotificationsSpec extends BaseSpec:
         val started = underTest.started(opTime).value
 
         listener.jobNotifications.size shouldBe 2
-        listener.jobNotifications((opTime, underTest.stationId, underTest.id, started.head))
+        listener.jobNotifications(("jobStarted", opTime, underTest.stationId, underTest.id, started.head))  shouldBe true
       }
       s"Complete the job at time ${opTime+1} when the signal is received from the Physics" in {
         engine.runOne() shouldBe Symbol("isRight")
         val complete = underTest.completeJobs(opTime+1).value
 
         listener.jobNotifications.size shouldBe 3
-        listener.jobNotifications((opTime+1, underTest.stationId, underTest.id, complete.head))
+        listener.jobNotifications(("jobCompleted", opTime+1, underTest.stationId, underTest.id, complete.head)) shouldBe true
       }
       s"Unload the job at time ${opTime+1} when the signal is received from the Physics" in {
         underTest.unloadRequest(opTime, js.id) shouldBe Symbol("isRight")
         engine.runOne() shouldBe Symbol("isRight")
         val unload = underTest.unloaded(opTime+1).value
         listener.jobNotifications.size shouldBe 4
-        listener.jobNotifications((opTime+1, underTest.stationId, underTest.id, unload.head))
+        listener.jobNotifications(("jobUnloaded", opTime+1, underTest.stationId, underTest.id, unload.head)) shouldBe true
       }
       s"Push the job at time ${opTime+1} when the signal is received from the Physics" in {
         mockSink.clear
@@ -114,7 +114,7 @@ class ProcessorNotificationsSpec extends BaseSpec:
         engine.runOne() shouldBe Symbol("isRight")
 
         listener.materialNotifications.size shouldBe (probes.size + 1)
-        listener.materialNotifications((opTime+1, underTest.stationId, underTest.id, Some(mockSink.stationId), Some(mockSink.id), ProbeOutboundMaterial(js.id, probes), "OUTBOUND"))
+        listener.materialNotifications(("loadDeparted", opTime+1, underTest.stationId, underTest.id, Some(mockSink.stationId), Some(mockSink.id), ProbeOutboundMaterial(js.id, probes), "OUTBOUND"))  shouldBe true
       }
     }
   }

@@ -176,6 +176,10 @@ extends Controller with SubjectMixIn[LISTENER] with LogEnabled:
       if processorId == processor.id then
         processor.pushRequest(at, unloaded.jobSpec.id)
 
+    override def jobDelivered(at: Tick, stationId: Id, processorId: Id, delivered: Wip.Unloaded[?]): Unit =
+      // Nothing, it will be picked up on the discharge
+      ()
+
     // From Processor
     override def jobScrapped(at: Tick, stationId: Id, processorId: Id, scrapped: Wip.Scrap): Unit = ???
 

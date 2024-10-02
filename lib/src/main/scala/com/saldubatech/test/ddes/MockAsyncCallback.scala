@@ -11,12 +11,16 @@ object MockAsyncCallback:
 end MockAsyncCallback // object
 
 class MockAsyncCallback:
-  val pending = collection.mutable.SortedMap.empty[Long, collection.mutable.ListBuffer[MockAsyncCallback.CALLBACK]]
+  val pending = collection.mutable.SortedMap.empty[Long, collection.mutable.ListBuffer[(String, MockAsyncCallback.CALLBACK)]]
+  def show =
+    val rs = pending.values.flatMap{ l => l.map{ _._1 } }.mkString("\n>>>\n\t", "\n\t", "\n>>>")
+    rs
 
   def clear = pending.clear
 
   def add(at: Long)(cb: MockAsyncCallback.CALLBACK): Unit =
-    pending.getOrElseUpdate(at, collection.mutable.ListBuffer.empty) += cb
+    val stackTr = Thread.currentThread().getStackTrace().drop(2).take(1).head.toString
+    pending.getOrElseUpdate(at, collection.mutable.ListBuffer.empty) += stackTr -> cb
 
   def runOne(before: Option[Long] = None): UnitResult = _runOne(before)
 
@@ -28,10 +32,10 @@ class MockAsyncCallback:
         lCb.toList match
           case cb :: Nil =>
             pending -= at
-            cb()
+            cb._2()
           case cb :: tail =>
             pending.update(at, lCb -= cb)
-            cb()
+            cb._2()
           case Nil =>
             pending -= at
             _runOne(before)
@@ -41,7 +45,7 @@ class MockAsyncCallback:
     until.fold(pending)(cutOff => pending.filter( (at, _) => at <= cutOff )).map{
       (at, lCb) =>
         pending -= at
-        lCb.foreach( _() )
+        lCb.foreach( _._2() )
     }
 
 end MockAsyncCallback // class

@@ -84,7 +84,7 @@ extends Transport[M, I_LISTENER, D_LISTENER]:
   private def restoreInjector = () => dischargeInjector().map{ d => cardRestoreFactory(d) }
   private def acknowledgeInjector = () => linkInjector().map{ l => linkAcknowledgeFactory(l) }
 
-  private var _induct: AppResult[Induct[M, I_LISTENER]] = AppFail.fail(s"No Induct Bound Yet for Transport[$id]")
+  private var _induct: AppResult[Induct[M, I_LISTENER]] = AppFail.fail(s"Transport[$id]::Induct is not bound yet")
   private[transport] var inductPhysics: Induct.Environment.Physics[M] = null
   override def induct = _induct
   override def induct(stationId: Id, host: Induct.API.Physics): AppResult[Induct[M, I_LISTENER]] = _induct.fold(
@@ -94,11 +94,12 @@ extends Transport[M, I_LISTENER, D_LISTENER]:
     i => if i.stationId == stationId then AppSuccess(i) else AppFail.fail(s"${i.id} already bound to Station different that $stationId")
   )
 
-  private var _link: AppResult[Link[M]] = AppFail.fail(s"Transport is not bound yet")
+  private var _link: AppResult[Link[M]] = AppFail.fail(s"Transport[$id]::Link is not bound yet")
   private[transport] var linkPhysics: Link.Environment.Physics[M] = null
   override def link: AppResult[Link[M]] = _link
 
-  private var _discharge: AppResult[Discharge[M, D_LISTENER]] = AppFail.fail(s"Transport is not bound to Discharge yet")
+  private var _discharge: AppResult[Discharge[M, D_LISTENER]] =
+    AppFail.fail(s"Transport[$id]::Discharge is not bound yet")
   private[transport] var dischargePhysics: Discharge.Environment.Physics[M] = null
   override def discharge: AppResult[Discharge[M, D_LISTENER]] = _discharge
   override def discharge(stationId: Id, lHost: Link.API.Physics, dHost: Discharge.API.Physics): AppResult[Discharge[M, D_LISTENER]] =
