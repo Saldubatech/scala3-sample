@@ -96,6 +96,10 @@ class SimulationSupervisor(val name: String, val clock: Clock, private val simul
         _clkRef = Some(context.spawn[Clock.PROTOCOL](clock.start(), "Clock"))
         _components = simulationConfiguration.map{
           s => s.initialize(context)
+        }.map{ cSeq =>
+          clock.sLog.info(s"actor ROOT")
+          cSeq.reverse.foreach{ c => clock.sLog.info(s"participant \"${c._1}\"")}
+          cSeq
         }
         _rootRef = Some(context.spawn[DomainAction[DomainMessage] | OAMMessage](root.init(), "ROOT"))
         Behaviors.receiveMessage[OAM.InitRequest]{

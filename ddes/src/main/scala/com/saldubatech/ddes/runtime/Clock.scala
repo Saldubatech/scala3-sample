@@ -40,8 +40,7 @@ class Clock(
 ) extends LogEnabled:
   selfClock =>
 
-  private val sLog: Logger = Logger(Clock.sequenceLogName)
-  sLog.info(s"============= ${LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"))} ===========")
+  val sLog: Logger = Logger(Clock.sequenceLogName)
 
   log.debug(s"Creating Clock: $selfClock")
 
@@ -77,8 +76,13 @@ class Clock(
     openActions.remove(a)
 
   private def triggerCommand(cmd: Command): Unit =
-    if cmd.origin == cmd.destination then sLog.debug(cmd.sequenceEntry)
-    else sLog.info(cmd.sequenceEntry)
+    sLog.whenInfoEnabled{
+      val msg = cmd.signal.toString()
+      if cmd.origin == cmd.destination then
+        sLog.debug(s"\"${cmd.origin}\" -> \"${cmd.destination}\": [$now] ${msg.take(20)}...${msg.drop(msg.size-20)}")
+      else
+        sLog.info(s"\"${cmd.origin}\" -> \"${cmd.destination}\": [$now] ${cmd.signal.toString().take(20)}...${cmd.signal.toString().drop(msg.size-20)}")
+    }
     openAction(cmd.send)
 
   private def scheduleCommand(ctx: ActorContext[PROTOCOL], cmd: Command): Unit =
@@ -131,6 +135,7 @@ class Clock(
 
   def start(): Behavior[PROTOCOL] =
     Behaviors.setup { ctx =>
+      sLog.info(s"title = ${LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"))}")
       log.debug(s"> Clock Starting")
       _ctx = Some(ctx)
       Behaviors.withTimers{

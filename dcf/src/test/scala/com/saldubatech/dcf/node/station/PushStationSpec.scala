@@ -30,7 +30,7 @@ object PushStationSpec extends ZIOSpecDefault with LogEnabled with Matchers:
   case class Consumed(at: Tick, fromStation: Id, fromSource: Id, atStation: Id, atSink: Id, load: ProbeInboundMaterial)
 
   val nProbes = 10
-  val probes = (1 to nProbes).map{ idx => (idx*100).toLong -> ProbeInboundMaterial(s"<$idx>", idx)}.toSeq
+  val probes = (1 to nProbes).map{ idx => (idx*40).toLong -> ProbeInboundMaterial(s"<$idx>", idx)}.toSeq
 
   val pushStation = "PUSH_STATION"
   val sinkStation = "SINK_STATION"
@@ -67,7 +67,7 @@ object PushStationSpec extends ZIOSpecDefault with LogEnabled with Matchers:
     def dPhysics(target: Discharge.API.Physics): Discharge.Environment.Physics[ProbeInboundMaterial] =
       Discharge.Physics(target, (at, card, load) => dischargeDelay)
     def inductUpstreamInjector(i: Induct[ProbeInboundMaterial, Induct.Environment.Listener]): Induct.API.Upstream[ProbeInboundMaterial] =
-      InductBinding.API.ClientStubs.Upstream(sink, transportId, underTest)
+      InductBinding.API.ClientStubs.Upstream(source, transportId, underTest)
     def linkAcknowledgeFactory(l : Link[ProbeInboundMaterial]): Link.API.Downstream =
       LinkBinding.API.ClientStubs.Downstream(underTest, source)
     def cardRestoreFactory(d: Discharge[ProbeInboundMaterial, Discharge.Environment.Listener]): Discharge.Identity & Discharge.API.Downstream =
@@ -124,9 +124,9 @@ object PushStationSpec extends ZIOSpecDefault with LogEnabled with Matchers:
         case None => AppSuccess(None)
         case Some(m : ProbeInboundMaterial) => AppSuccess(Some(m))
         case Some(other) => AppFail.fail(s"Unexpected Material type: $other")
-  val loadingDelay: Duration = 222
-  val processDelay: Duration = 333
-  val unloadingDelay: Duration = 444
+  val loadingDelay: Duration = 2
+  val processDelay: Duration = 3
+  val unloadingDelay: Duration = 4
   val readyPool = WipPool.InMemory[Wip.Unloaded[ProbeInboundMaterial]]()
   val acceptedPool = MaterialPool.SimpleInMemory[Material]("UnderTest")
 
