@@ -22,7 +22,7 @@ import com.saldubatech.dcf.node.machine.LoadSink
 object LoadSinkSpec:
   import Harness._
 
-  class MockLoadSinkListener extends com.saldubatech.dcf.node.machine.LoadSink.Environment.Listener {
+  class MockLoadSinkListener extends LoadSink.Environment.Listener {
     val called = collection.mutable.ListBuffer.empty[String]
     def last: String = called.lastOption.getOrElse("NONE")
     def calling(method: String, args: Any*): String =

@@ -49,38 +49,4 @@ object Harness:
       receivedCalls += call("acceptRequest", at, fromStation, fromSource, load)
       AppSuccess.unit
 
-
-  class ProcessorListener(override val id: Id)
-  extends com.saldubatech.dcf.node.components.Sink.Environment.Listener
-  with com.saldubatech.dcf.node.components.Operation.Environment.Listener
-  with com.saldubatech.dcf.node.components.Source.Environment.Listener:
-    val jobNotifications = collection.mutable.Set.empty[(String, Tick, Id, Id, Wip)]
-    val materialNotifications = collection.mutable.Set.empty[(String, Tick, Id, Id, Option[Id], Option[Id], Material, String)]
-
-    // Members declared in com.saldubatech.dcf.node.structure.components.Operation$.Environment$.Listener
-    override def jobCompleted(at: Tick, stationId: Id, processorId: Id, completed: Wip.Complete[?]): Unit =
-      jobNotifications += (("jobCompleted", at, stationId, processorId, completed))
-    override def jobFailed(at: Tick, stationId: Id, processorId: Id, failed: Wip.Failed): Unit =
-      jobNotifications += (("jobFailed", at, stationId, processorId, failed))
-    override def jobLoaded(at: Tick, stationId: Id, processorId: Id, loaded: Wip.Loaded): Unit =
-      jobNotifications += (("jobLoaded", at, stationId, processorId, loaded))
-    override def jobScrapped(at: Tick, stationId: Id, processorId: Id, scrapped: Wip.Scrap): Unit =
-      jobNotifications += (("jobScrapped", at, stationId, processorId, scrapped))
-    override def jobStarted(at: Tick, stationId: Id, processorId: Id, inProgress: Wip.InProgress): Unit =
-      jobNotifications += (("jobStarted", at, stationId, processorId, inProgress))
-    override def jobUnloaded(at: Tick, stationId: Id, processorId: Id, unloaded: Wip.Unloaded[?]): Unit =
-      jobNotifications += (("jobUnloaded", at, stationId, processorId, unloaded))
-    override def jobDelivered(at: Tick, stationId: Id, processorId: Id, delivered: Wip.Unloaded[?]): Unit =
-      jobNotifications += (("jobDelivered", at, stationId, processorId, delivered))
-    // Members declared in com.saldubatech.dcf.node.structure.components.Sink$.Environment$.Listener
-    override def loadAccepted(at: Tick, atStation: Id, atSink: Id, load: Material): Unit =
-      materialNotifications += (("loadAccepted", at, atStation, atSink, None, None, load, "INBOUND"))
-
-    // Members declared in com.saldubatech.dcf.node.structure.components.Source$.Environment$.Listener
-    override def loadDeparted(at: Tick, stationId: Id, sourceId: Id, toStation: Id, toSink: Id, load: Material): Unit =
-      materialNotifications += (("loadDeparted", at, stationId, sourceId, Some(toStation), Some(toSink), load, "OUTBOUND"))
-
-
-  end ProcessorListener // class
-
 end Harness // object

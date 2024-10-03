@@ -6,7 +6,7 @@ import com.saldubatech.util.LogEnabled
 import com.saldubatech.ddes.types.{Tick, DomainMessage}
 import com.saldubatech.dcf.material.Material
 import com.saldubatech.dcf.job.SimpleJobSpec
-import com.saldubatech.dcf.node.components.{Sink, ProxySink, Source}
+import com.saldubatech.dcf.node.components.{Sink, Component}
 
 object Collector:
 
@@ -17,13 +17,13 @@ class Collector[M <: Material, LISTENER <: Sink.Environment.Listener]
   cId: Id,
   override val stationId: Id,
   inputLabels: List[Id],
-  downstream: Sink.API.Upstream[Material] & Sink.API.Management[Sink.Environment.Listener],
-  proxyFactory: (Id, Sink.API.Upstream[Material] & Sink.API.Management[Sink.Environment.Listener]) => Sink.API.Upstream[Material] & Sink.API.Management[Sink.Environment.Listener]
+  downstream: Sink.API.Upstream[Material] & Component.API.Management[Sink.Environment.Listener],
+  proxyFactory: (Id, Sink.API.Upstream[Material] & Component.API.Management[Sink.Environment.Listener]) => Sink.API.Upstream[Material] & Component.API.Management[Sink.Environment.Listener]
 )
-extends Source.Identity:
+extends Component.Identity:
   collector =>
   override val id: Id = s"$stationId::Collector[$cId]"
-  val inlets: Map[Id, Sink.API.Upstream[Material] & Sink.API.Management[Sink.Environment.Listener]] = inputLabels.map{
+  val inlets: Map[Id, Sink.API.Upstream[Material] & Component.API.Management[Sink.Environment.Listener]] = inputLabels.map{
     label =>
-      label -> proxyFactory(label, downstream) // new ProxySink[M, LISTENER](sId, downstream){}
+      label -> proxyFactory(label, downstream)
   }.toMap

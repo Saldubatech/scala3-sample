@@ -72,13 +72,5 @@ extends LoadSink[M, LISTENER]:
 
   // Unrestricted acceptance
   export sink.{canAccept, acceptMaterialRequest}
-  // override def canAccept(at: Tick, from: Id, load: M): UnitResult = AppSuccess.unit
-  // override def acceptMaterialRequest(at: Tick, fromStation: Id, fromSource: Id, load: M): UnitResult =
-  //   consumer match
-  //     case None => AppSuccess.unit
-  //     case Some(f) =>
-  //       f(at, fromStation, fromSource, stationId, id, load).map{
-  //         _ => doNotify{ l => l.loadDeparted(at, stationId, id, load)}
-  //       }
 
 end LoadSinkImpl // class
