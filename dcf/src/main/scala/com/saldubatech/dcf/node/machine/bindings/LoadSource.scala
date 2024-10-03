@@ -20,7 +20,7 @@ object LoadSource:
     end Signals // object
 
     object ClientStubs:
-      class Control(target: SimActor[Signals.Control]) extends LoadSourceMachine.API.Control:
+      class Control(from: => SimActor[?],target: => SimActor[Signals.Control]) extends LoadSourceMachine.API.Control:
         def run(at: Tick): UnitResult =
           AppSuccess(target.env.schedule(target)(at, Signals.Run(Id, Id)))
       end Control

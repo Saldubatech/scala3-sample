@@ -21,7 +21,7 @@
     </encoder>
   </appender>
 
-  <logger name="Clock.SequenceChart" level="warn" additivity="false">
+  <logger name="Clock.SequenceChart" level="info" additivity="false">
     <appender-ref ref="SEQUENCE_CONSOLE"/>
   </logger>
 

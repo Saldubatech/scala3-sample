@@ -26,14 +26,14 @@ object Discharge:
 
 
     object ClientStubs:
-      class Downstream(target: SimActor[Signals.Downstream], override val stationId: Id, override val id: Id)
+      class Downstream(from: => SimActor[?], target: => SimActor[Signals.Downstream], override val stationId: Id, override val id: Id)
       extends DischargeComponent.API.Downstream
       with DischargeComponent.Identity:
         def restore(at: Tick, cards: List[Id]): UnitResult =
-          AppSuccess(target.env.schedule(target)(at, Signals.Restore(Id, Id, cards)))
+          AppSuccess(from.env.schedule(target)(at, Signals.Restore(Id, Id, cards)))
 
         def acknowledge(at: Tick, loadId: Id): UnitResult =
-          AppSuccess(target.env.schedule(target)(at, Signals.Acknowledge(Id, Id, loadId)))
+          AppSuccess(from.env.schedule(target)(at, Signals.Acknowledge(Id, Id, loadId)))
 
       class Physics(target: SimActor[Signals.Physics]) extends DischargeComponent.API.Physics:
         def dischargeFinalize(at: Tick, card: Id, loadId: Id): UnitResult =

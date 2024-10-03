@@ -64,11 +64,13 @@ object SourceSinkStationSpec extends ZIOSpecDefault with LogEnabled with Matcher
   def dPhysics(target: Discharge.API.Physics): Discharge.Environment.Physics[ProbeInboundMaterial] =
     Discharge.Physics(target, (at, card, load) => dischargeDelay)
   val inductUpstreamInjector: Induct[ProbeInboundMaterial, Induct.Environment.Listener] => Induct.API.Upstream[ProbeInboundMaterial] =
-    i => InductBinding.API.ClientStubs.Upstream(sink.stationId, sourceId, sink)
+    i =>
+//      println(s"##### ${source.stationId}")
+      InductBinding.API.ClientStubs.Upstream(source, transportId, sink)
   val linkAcknowledgeFactory: Link[ProbeInboundMaterial] => Link.API.Downstream =
-    l => LinkBinding.API.ClientStubs.Downstream(source)
+    l => LinkBinding.API.ClientStubs.Downstream(sink, source)
   val cardRestoreFactory: Discharge[ProbeInboundMaterial, Discharge.Environment.Listener] => Discharge.Identity & Discharge.API.Downstream =
-    d =>  DischargeBinding.API.ClientStubs.Downstream(source, d.stationId, d.id)
+    d =>  DischargeBinding.API.ClientStubs.Downstream(sink, source, d.stationId, d.id)
 
   val transport = TransportImpl[ProbeInboundMaterial, Induct.Environment.Listener, Discharge.Environment.Listener](
       transportId,
@@ -101,15 +103,16 @@ object SourceSinkStationSpec extends ZIOSpecDefault with LogEnabled with Matcher
       val sourceEntry = source.simulationComponent.initialize(ctx)
       sinkEntry ++ sourceEntry
   }
-  val simSupervisor = SimulationSupervisor("SourceSinkStationSpecSupervisor", clock, Some(config))
-  val actorSystem = ActorSystem(simSupervisor.start, "SourceSinkStationSpec_ActorSystem")
-  val fixture = ActorTestKit(actorSystem)
 
-  val termProbe = fixture.createTestProbe[Consumed]()
-  consumer.target = termProbe.ref
+
   override def spec = {
     suite("A Source and a Sink Stations")(
       test("Accept a Run Command to the Source and send all inputs to the Consumer") {
+        val simSupervisor = SimulationSupervisor("SourceSinkStationSpecSupervisor", clock, Some(config))
+        val actorSystem = ActorSystem(simSupervisor.start, "SourceSinkStationSpec_ActorSystem")
+        val fixture = ActorTestKit(actorSystem)
+        val termProbe = fixture.createTestProbe[Consumed]()
+        consumer.target = termProbe.ref
         for {
           rootRs <- OAM.kickAwake(using 1.second, actorSystem)
         } yield

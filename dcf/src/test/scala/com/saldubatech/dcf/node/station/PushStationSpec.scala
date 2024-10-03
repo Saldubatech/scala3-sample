@@ -34,9 +34,9 @@ object PushStationSpec extends ZIOSpecDefault with LogEnabled with Matchers:
 
   val pushStation = "PUSH_STATION"
   val sinkStation = "SINK_STATION"
+  val sinkId = "sink"
   val sourceStation = "SOURCE_STATION"
   val sourceId = "source"
-  val sinkId = "sink"
   val transportInboundId = "inboundTransport"
   val transportOutboundId = "outboundTransport"
 
@@ -67,11 +67,11 @@ object PushStationSpec extends ZIOSpecDefault with LogEnabled with Matchers:
     def dPhysics(target: Discharge.API.Physics): Discharge.Environment.Physics[ProbeInboundMaterial] =
       Discharge.Physics(target, (at, card, load) => dischargeDelay)
     def inductUpstreamInjector(i: Induct[ProbeInboundMaterial, Induct.Environment.Listener]): Induct.API.Upstream[ProbeInboundMaterial] =
-      InductBinding.API.ClientStubs.Upstream(underTest.stationId, sourceId, underTest)
+      InductBinding.API.ClientStubs.Upstream(sink, transportId, underTest)
     def linkAcknowledgeFactory(l : Link[ProbeInboundMaterial]): Link.API.Downstream =
-      LinkBinding.API.ClientStubs.Downstream(source)
+      LinkBinding.API.ClientStubs.Downstream(underTest, source)
     def cardRestoreFactory(d: Discharge[ProbeInboundMaterial, Discharge.Environment.Listener]): Discharge.Identity & Discharge.API.Downstream =
-      DischargeBinding.API.ClientStubs.Downstream(source, d.stationId, d.id)
+      DischargeBinding.API.ClientStubs.Downstream(underTest, source, d.stationId, d.id)
 
     lazy val transport = TransportImpl[ProbeInboundMaterial, Induct.Environment.Listener, Discharge.Environment.Listener](
         transportId,
@@ -99,11 +99,11 @@ object PushStationSpec extends ZIOSpecDefault with LogEnabled with Matchers:
     def dPhysics(target: Discharge.API.Physics): Discharge.Environment.Physics[ProbeInboundMaterial] =
       Discharge.Physics(target, (at, card, load) => dischargeDelay)
     def inductUpstreamInjector(i: Induct[ProbeInboundMaterial, Induct.Environment.Listener]): Induct.API.Upstream[ProbeInboundMaterial] =
-      InductBinding.API.ClientStubs.Upstream(sink.stationId, sourceId, sink)
+      InductBinding.API.ClientStubs.Upstream(underTest, sourceId, sink)
     def linkAcknowledgeFactory(l : Link[ProbeInboundMaterial]): Link.API.Downstream =
-      LinkBinding.API.ClientStubs.Downstream(underTest)
+      LinkBinding.API.ClientStubs.Downstream(sink, underTest)
     def cardRestoreFactory(d: Discharge[ProbeInboundMaterial, Discharge.Environment.Listener]): Discharge.Identity & Discharge.API.Downstream =
-      DischargeBinding.API.ClientStubs.Downstream(underTest, d.stationId, d.id)
+      DischargeBinding.API.ClientStubs.Downstream(source, underTest, d.stationId, d.id)
 
     lazy val transport = TransportImpl[ProbeInboundMaterial, Induct.Environment.Listener, Discharge.Environment.Listener](
         transportId,

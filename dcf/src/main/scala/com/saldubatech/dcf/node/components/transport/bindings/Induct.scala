@@ -24,14 +24,14 @@ object Induct:
     end Signals
 
     object ClientStubs:
-      class Upstream[M <: Material](fromStation: Id, from: Id, target: SimActor[Signals.Upstream]) extends InductComponent.API.Upstream[M]:
+      class Upstream[M <: Material](from: => SimActor[?], via: Id, target: => SimActor[Signals.Upstream]) extends InductComponent.API.Upstream[M]:
         override def canAccept(at: Tick, card: Id, load: M): AppResult[M] = AppSuccess(load)
 
         override def loadArriving(at: Tick, card: Id, load: M): UnitResult =
           for {
             allowed <- canAccept(at, card, load)
           } yield
-            target.env.schedule(target)(at, Signals.LoadArriving(Id, Id, fromStation, from, card, load))
+            from.env.schedule(target)(at, Signals.LoadArriving(Id, Id, from.name, via, card, load))
       end Upstream // class
 
       class Physics(target: SimActor[Signals.Physics]) extends InductComponent.API.Physics:

@@ -30,9 +30,9 @@ object DLink:
     end Signals
 
     object ClientStubs:
-      class Downstream(host: SimActor[Signals.Downstream]) extends LinkComponent.API.Downstream:
+      class Downstream(from: => SimActor[?], host: => SimActor[Signals.Downstream]) extends LinkComponent.API.Downstream:
         override def acknowledge(at: Tick, loadId: Id): UnitResult = AppSuccess(
-          host.env.selfSchedule(at, Signals.Acknowledge(Id, Id, loadId))
+          from.env.schedule(host)(at, Signals.Acknowledge(Id, Id, loadId))
         )
       end Downstream
       class Physics(host: SimActor[Signals.Physics]) extends LinkComponent.API.Physics:
