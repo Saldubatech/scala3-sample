@@ -61,61 +61,61 @@ with Source.API.Physics:
 end Source // trait
 
 
-trait SourceMixIn[M <: Material, LISTENER <: Source.Environment.Listener]
-extends Source[M, LISTENER]
-with SubjectMixIn[LISTENER]:
+// trait SourceMixIn[M <: Material, LISTENER <: Source.Environment.Listener]
+// extends Source[M, LISTENER]
+// with SubjectMixIn[LISTENER]:
 
-  protected val readyWipPool: WipPool[Wip.Unloaded[M]]
-  val downstream: Option[Sink.API.Upstream[M]]
-  val physics: Source.Environment.Physics
+//   protected val readyWipPool: WipPool[Wip.Unloaded[M]]
+//   val downstream: Option[Sink.API.Upstream[M]]
+//   val physics: Source.Environment.Physics
 
-  override def ready(at: Tick): AppResult[List[Wip.Unloaded[M]]] = AppSuccess(readyWipPool.contents(at))
+//   override def ready(at: Tick): AppResult[List[Wip.Unloaded[M]]] = AppSuccess(readyWipPool.contents(at))
 
-  override def canPush(at: Tick, jobId: Id): AppResult[Wip.Unloaded[M]] =
-    Component.inStation(stationId, "Unloaded Job")(jId => readyWipPool.contents(at, jId))(jobId).flatMap{
-      w =>
-        (downstream, w.product) match
-          case (None, None) => AppSuccess(w)
-          case (Some(d), None) => AppFail.fail(s"No Product available from Job[$jobId] to push to Station[${d.stationId}] from Station[$stationId] at $at")
-          case (None, Some(p)) => AppFail.fail(s"No Downstream target provided to push Product[${p.id}] from Job[$jobId] in Station[$stationId] at $at")
-          case (Some(d), Some(p)) => d.canAccept(at,stationId, p).map(_ => w)
-    }
+//   override def canPush(at: Tick, jobId: Id): AppResult[Wip.Unloaded[M]] =
+//     Component.inStation(stationId, "Unloaded Job")(jId => readyWipPool.contents(at, jId))(jobId).flatMap{
+//       w =>
+//         (downstream, w.product) match
+//           case (None, None) => AppSuccess(w)
+//           case (Some(d), None) => AppFail.fail(s"No Product available from Job[$jobId] to push to Station[${d.stationId}] from Station[$stationId] at $at")
+//           case (None, Some(p)) => AppFail.fail(s"No Downstream target provided to push Product[${p.id}] from Job[$jobId] in Station[$stationId] at $at")
+//           case (Some(d), Some(p)) => d.canAccept(at,stationId, p).map(_ => w)
+//     }
 
-  private val _pushing = collection.mutable.Map.empty[Id, Wip.Unloaded[M]]
-  override def pushRequest(at: Tick, jobId: Id): UnitResult =
-    for {
-      toPush <- canPush(at, jobId)
-      pushed <-
+//   private val _pushing = collection.mutable.Map.empty[Id, Wip.Unloaded[M]]
+//   override def pushRequest(at: Tick, jobId: Id): UnitResult =
+//     for {
+//       toPush <- canPush(at, jobId)
+//       pushed <-
 
-        readyWipPool.remove(at, jobId)
-        _pushing += jobId -> toPush
-        physics.pushCommand(at, jobId).tapError{
-          _ =>
-            readyWipPool.add(at, toPush)
-            _pushing -= jobId
-        }
-    } yield pushed
+//         readyWipPool.remove(at, jobId)
+//         _pushing += jobId -> toPush
+//         physics.pushCommand(at, jobId).tapError{
+//           _ =>
+//             readyWipPool.add(at, toPush)
+//             _pushing -= jobId
+//         }
+//     } yield pushed
 
-  // Members declared in com.saldubatech.dcf.node.structure.components.Source$.API$.Physics
-  override def pushFail(at: Tick, jobId: Id, cause: Option[AppError]): UnitResult =
-    Component.inStation(stationId, "Pushing Job")(_pushing.remove)(jobId).flatMap{
-      w =>
-        // Put it back in the unloaded Map
-        readyWipPool.add(at, w)
-        cause match
-          case None => AppFail.fail(s"Job[$jobId] Unloading for Unknown Failure in Station[$stationId] at $at")
-          case Some(err) => AppFail(err)
-    }
+//   // Members declared in com.saldubatech.dcf.node.structure.components.Source$.API$.Physics
+//   override def pushFail(at: Tick, jobId: Id, cause: Option[AppError]): UnitResult =
+//     Component.inStation(stationId, "Pushing Job")(_pushing.remove)(jobId).flatMap{
+//       w =>
+//         // Put it back in the unloaded Map
+//         readyWipPool.add(at, w)
+//         cause match
+//           case None => AppFail.fail(s"Job[$jobId] Unloading for Unknown Failure in Station[$stationId] at $at")
+//           case Some(err) => AppFail(err)
+//     }
 
 
-  override def pushFinalize(at: Tick, jobId: Id): UnitResult =
-    Component.inStation(stationId, "Pushing Job")(_pushing.remove)(jobId).flatMap { w =>
-      (downstream, w.product) match
-        case (None, None) => AppSuccess.unit
-        case (Some(d), None) => AppFail.fail(s"No Product available from Job[$jobId] to push to Station[${d.stationId}] from Station[$stationId] at $at")
-        case (None, Some(p)) => AppFail.fail(s"No Downstream target provided to push Product[${p.id}] from Job[$jobId] in Station[$stationId] at $at")
-        case (Some(d), Some(p)) =>
-          d.acceptMaterialRequest(at, stationId, id, p).map{
-            _ => doNotify{l => l.loadDeparted(at, stationId, id, d.stationId, d.id, p) }
-          }
-    }
+//   override def pushFinalize(at: Tick, jobId: Id): UnitResult =
+//     Component.inStation(stationId, "Pushing Job")(_pushing.remove)(jobId).flatMap { w =>
+//       (downstream, w.product) match
+//         case (None, None) => AppSuccess.unit
+//         case (Some(d), None) => AppFail.fail(s"No Product available from Job[$jobId] to push to Station[${d.stationId}] from Station[$stationId] at $at")
+//         case (None, Some(p)) => AppFail.fail(s"No Downstream target provided to push Product[${p.id}] from Job[$jobId] in Station[$stationId] at $at")
+//         case (Some(d), Some(p)) =>
+//           d.acceptMaterialRequest(at, stationId, id, p).map{
+//             _ => doNotify{l => l.loadDeparted(at, stationId, id, d.stationId, d.id, p) }
+//           }
+//     }

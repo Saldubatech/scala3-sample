@@ -59,47 +59,47 @@ with Sink.API.Control[M]
 with Sink.API.Downstream
 with Sink.API.Physics
 
-trait SinkMixIn[M <: Material, LISTENER <: Sink.Environment.Listener]
-extends Sink[M, LISTENER]
-with SubjectMixIn[LISTENER]:
-  val physics: Sink.Environment.Physics[M]
+// trait SinkMixIn[M <: Material, LISTENER <: Sink.Environment.Listener]
+// extends Sink[M, LISTENER]
+// with SubjectMixIn[LISTENER]:
+//   val physics: Sink.Environment.Physics[M]
 
-  protected val acceptedPool: MaterialPool[M]
+//   protected val acceptedPool: MaterialPool[M]
 
-  private case class MaterialArrival(at: Tick, fromStation: Id, fromSource: Id, material: M)
-  private given ordering : Ordering[MaterialArrival] with {
-    def compare(l: MaterialArrival, r: MaterialArrival): Int = (l.at - r.at).toInt
-  }
+//   private case class MaterialArrival(at: Tick, fromStation: Id, fromSource: Id, material: M)
+//   private given ordering : Ordering[MaterialArrival] with {
+//     def compare(l: MaterialArrival, r: MaterialArrival): Int = (l.at - r.at).toInt
+//   }
 
-  private val accepting: collection.mutable.Map[Id, MaterialArrival] = collection.mutable.Map.empty
+//   private val accepting: collection.mutable.Map[Id, MaterialArrival] = collection.mutable.Map.empty
 
-  override def acceptMaterialRequest(at: Tick, fromStation: Id, fromSource: Id, load: M): UnitResult =
-    accepting += load.id -> MaterialArrival(at, fromStation, fromSource, load)
-    physics.acceptCommand(at, fromStation, fromSource, load)
+//   override def acceptMaterialRequest(at: Tick, fromStation: Id, fromSource: Id, load: M): UnitResult =
+//     accepting += load.id -> MaterialArrival(at, fromStation, fromSource, load)
+//     physics.acceptCommand(at, fromStation, fromSource, load)
 
-  override def canAccept(at: Tick, from: Id, load: M): UnitResult =
-    AppSuccess.unit
+//   override def canAccept(at: Tick, from: Id, load: M): UnitResult =
+//     AppSuccess.unit
 
-  override def checkForMaterials(at: Tick, job: JobSpec): AppResult[Wip.New] =
-    job.rawMaterials.collect(acceptedPool.collector(at)) match
-      case l if l.size == job.rawMaterials.size => AppSuccess(Wip.New(job.id, job, l, stationId, at))
-      case other => AppFail.fail(s"Material Requirements for Job[${job.id}] not available at Station[$stationId]")
+//   override def checkForMaterials(at: Tick, job: JobSpec): AppResult[Wip.New] =
+//     job.rawMaterials.collect(acceptedPool.collector(at)) match
+//       case l if l.size == job.rawMaterials.size => AppSuccess(Wip.New(job.id, job, l, stationId, at))
+//       case other => AppFail.fail(s"Material Requirements for Job[${job.id}] not available at Station[$stationId]")
 
-  override def accepted(at: Tick, by: Option[Tick]): AppResult[List[M]] =
-    AppSuccess(acceptedPool.content(at, by))
+//   override def accepted(at: Tick, by: Option[Tick]): AppResult[List[M]] =
+//     AppSuccess(acceptedPool.content(at, by))
 
-  override def acceptFail(at: Tick, fromStation: Id, fromSource: Id, loadId: Id, cause: Option[AppError]): UnitResult =
-    accepting -= loadId
-    AppSuccess.unit
+//   override def acceptFail(at: Tick, fromStation: Id, fromSource: Id, loadId: Id, cause: Option[AppError]): UnitResult =
+//     accepting -= loadId
+//     AppSuccess.unit
 
-  override def acceptFinalize(at: Tick, fromStation: Id, fromSource: Id, loadId: Id): UnitResult =
-    Component.inStation(stationId, "Accepting Material")(accepting.remove)(loadId).map{
-      ma =>
-        acceptedPool.add(at, ma.material)
-        doNotify{ _.loadAccepted(at, stationId, id, ma.material) }
-    }
+//   override def acceptFinalize(at: Tick, fromStation: Id, fromSource: Id, loadId: Id): UnitResult =
+//     Component.inStation(stationId, "Accepting Material")(accepting.remove)(loadId).map{
+//       ma =>
+//         acceptedPool.add(at, ma.material)
+//         doNotify{ _.loadAccepted(at, stationId, id, ma.material) }
+//     }
 
-end SinkMixIn // class
+// end SinkMixIn // class
 
 class ProxySink[M <: Material, LISTENER <: Sink.Environment.Listener : Typeable]
 (

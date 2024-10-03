@@ -11,43 +11,6 @@ import scala.reflect.Typeable
 import scala.util.chaining._
 
 object Transport:
-  trait APIDownstream extends DomainMessage
-  case class RestoreMessage(override val id: Id, override val job: Id, cards: List[Id]) extends APIDownstream
-  case class AcknowledgeMessage(override val id: Id, override val job: Id, loadId: Id) extends APIDownstream
-
-  class ActorAckStub
-  (
-    sId: Id,
-    override val stationId: Id,
-    host: SimActor[APIDownstream]
-  )
-  extends Discharge.API.Downstream with Discharge.Identity:
-    override val id: Id = s"$stationId::AckStub[$sId]"
-
-    override def restore(at: Tick, cards: List[Id]): UnitResult =
-      AppSuccess(host.env.schedule(host)(at, RestoreMessage(Id, Id, cards)))
-
-    override def acknowledge(at: Tick, loadId: Id): UnitResult =
-      AppSuccess(host.env.schedule(host)(at, AcknowledgeMessage(Id, Id, loadId)))
-  end ActorAckStub // class
-
-  class DirectAckStub[M <: Material]
-  (
-    sId: Id,
-    override val stationId: Id,
-    host: Discharge[M, ?]
-  )
-  extends Discharge.API.Downstream with Discharge.Identity:
-    override val id: Id = s"$stationId::AckStub[$sId]"
-
-    override def restore(at: Tick, cards: List[Id]): UnitResult =
-      host.restore(at, cards)
-
-    override def acknowledge(at: Tick, loadId: Id): UnitResult =
-      host.acknowledge(at, loadId)
-  end DirectAckStub // class
-
-
 
 end Transport // object
 
