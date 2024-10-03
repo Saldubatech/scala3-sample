@@ -48,7 +48,7 @@ with Subject[PushMachine.Environment.Listener]
 
 end PushMachine // trait
 
-class PushMachine2Impl[M <: Material : Typeable]
+class PushMachineImpl[M <: Material : Typeable]
 (
   mId: Id,
   override val stationId: Id,
@@ -120,4 +120,4 @@ with SubjectMixIn[PushMachine.Environment.Listener]:
   }
   outbound.listen(dischargeWatcher)
 
-end PushMachine2Impl // class
+end PushMachineImpl // class

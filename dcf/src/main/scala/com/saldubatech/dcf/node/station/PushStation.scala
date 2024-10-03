@@ -15,7 +15,7 @@ import com.saldubatech.dcf.node.components.{Operation, OperationImpl}
 import com.saldubatech.dcf.node.components.bindings.{Operation as OperationBinding}
 import com.saldubatech.dcf.node.components.transport.{Induct, Transport, Discharge, Link}
 import com.saldubatech.dcf.node.components.transport.bindings.{Induct as InductBinding, Discharge as DischargeBinding, DLink as LinkBinding}
-import com.saldubatech.dcf.node.machine.{PushMachine, PushMachine2Impl}
+import com.saldubatech.dcf.node.machine.{PushMachine, PushMachineImpl}
 
 import com.saldubatech.dcf.node.station.configurations.{Inbound, Outbound, Process}
 
@@ -86,7 +86,7 @@ object PushStation:
       operation <- maybeOp
       induct <- maybeIbInduct
       discharge <- maybeObDischarge
-    } yield PushMachine2Impl[M]("pushMachine", host.stationId, induct, discharge, operation)
+    } yield PushMachineImpl[M]("pushMachine", host.stationId, induct, discharge, operation)
 
     // Dispatch
     private val maybeDispatch: AppResult[(Tick) => PartialFunction[PROTOCOL, UnitResult]] = for {
