@@ -49,6 +49,7 @@ object Source2Spec extends ZIOSpecDefault with LogEnabled:
         for {
           rootRs <- OAM.kickAwake(using 1.second, actorSystem)
         } yield {
+          Thread.sleep(300L) // Allow the messages to propagate
           assertTrue(rootRs == OAM.AOK)
           val probes = 0 to 1 map {n => ProbeMessage(n, s"Job[$n]") }
           sink.ref ! sink.InstallTarget(termProbe.ref)
