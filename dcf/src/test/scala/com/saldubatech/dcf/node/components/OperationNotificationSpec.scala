@@ -50,7 +50,7 @@ class OperationNotificationSpec extends BaseSpec:
   "An Empty Operation" when {
     val engine = MockAsyncCallback()
     val mockPhysics = Harness.MockOperationPhysics[ProbeInboundMaterial](engine, () => 1, () => 10, () => 100)
-    val mockSink = Harness.MockSink[ProbeInboundMaterial, Processor.Environment.Listener]("sink", "Downstream")
+    val mockSink = Harness.MockSink[ProbeInboundMaterial, Sink.Environment.Listener]("sink", "Downstream")
     val readyPool = com.saldubatech.dcf.material.WipPool.InMemory[Wip.Unloaded[ProbeInboundMaterial]]()
     val acceptedPool = com.saldubatech.dcf.material.MaterialPool.SimpleInMemory[Material]("UnderTest")
     val underTest = OperationImpl[ProbeInboundMaterial, Operation.Environment.Listener]("operation", "UnderTest", 3, producer, mockPhysics, acceptedPool, readyPool, Some(mockSink))
@@ -84,9 +84,8 @@ class OperationNotificationSpec extends BaseSpec:
   }
   "An Operation with some raw materials" when {
     val engine = MockAsyncCallback()
-    val mockPhysicsOld = Harness.MockProcessorPhysics[ProbeOutboundMaterial](() => 1, () => 1, () => 1, () => 1, () => 1, engine)
     val mockPhysics = Harness.MockOperationPhysics[ProbeInboundMaterial](engine, () => 1, () => 10, () => 100)
-    val mockSink = Harness.MockSink[ProbeInboundMaterial, Processor.Environment.Listener]("sink", "Downstream")
+    val mockSink = Harness.MockSink[ProbeInboundMaterial, Sink.Environment.Listener]("sink", "Downstream")
     val readyPool = com.saldubatech.dcf.material.WipPool.InMemory[Wip.Unloaded[ProbeInboundMaterial]]()
     val acceptedPool = com.saldubatech.dcf.material.MaterialPool.SimpleInMemory[Material]("UnderTest")
     val underTest = OperationImpl[ProbeInboundMaterial, Operation.Environment.Listener]("operation", "UnderTest", 3, producer, mockPhysics, acceptedPool, readyPool, Some(mockSink))

@@ -7,8 +7,6 @@ import com.saldubatech.ddes.types.{Tick, Duration}
 import com.saldubatech.lang.types.{AppResult, UnitResult, AppSuccess, AppFail, AppError, collectAll}
 import com.saldubatech.dcf.job.{JobSpec, SimpleJobSpec}
 
-import com.saldubatech.dcf.node.components.{Processor, Harness as ProcHarness, Controller}
-
 import com.saldubatech.dcf.node.{ProbeInboundMaterial, ProbeOutboundMaterial}
 
 import com.saldubatech.dcf.node.components.{Sink, Harness as ComponentsHarness, OperationImpl, Operation}
@@ -84,7 +82,7 @@ class PushMachineSpec extends BaseSpec:
   "A PushMachine Machine" when {
     val underTestId = "UnderTest"
     val engine = MockAsyncCallback()
-    val mockSink = ComponentHarness.MockSink[ProbeInboundMaterial, Processor.Environment.Listener]("sink", "Downstream")
+    val mockSink = ComponentHarness.MockSink[ProbeInboundMaterial, Sink.Environment.Listener]("sink", "Downstream")
     val cards = (0 to 4).map{ _ => Id }.toList
     val inbound = buildTransport("inbound", 100, 10, 1, engine)
     def ibDischargeAPIPhysics(): AppResult[Discharge.API.Physics] = inbound.discharge

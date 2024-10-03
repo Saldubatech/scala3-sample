@@ -31,47 +31,6 @@ object Harness:
       AppSuccess(engine.add(forTime){ () => underTest.unloadFinalize(forTime, wip.jobSpec.id) })
   end MockOperationPhysics // class
 
-  class MockProcessorPhysics[M <: Material]
-  (
-    acceptDelay: () => Long,
-    loadDelay: () => Long,
-    workDelay: () => Long,
-    unloadDelay: () => Long,
-    pushDelay: () => Long,
-    engine: MockAsyncCallback
-  ) extends Processor.Physics[M]:
-    var underTest: Processor.API[M, ?] = _
-
-    // Members declared in com.saldubatech.dcf.node.structure.components.Sink$.Environment$.Physics
-    override def acceptCommand(at: Tick, fromStation: Id, fromSource: Id, load: Material): UnitResult =
-      val forTime = at+acceptDelay()
-      engine.add(forTime){ () => underTest.acceptFinalize(forTime, fromStation, fromSource, load.id) }
-      AppSuccess.unit
-
-    override def loadJobCommand(at: Tick, wip: Wip.New): UnitResult =
-      val forTime = at+loadDelay()
-      engine.add(forTime){ () => underTest.loadFinalize(forTime, wip.jobSpec.id) }
-      AppSuccess.unit
-
-    override def startCommand(at: Tick, wip: Wip.InProgress): UnitResult =
-      val forTime = at+workDelay()
-      engine.add(forTime){ () => underTest.completeFinalize(forTime, wip.jobSpec.id) }
-      AppSuccess.unit
-
-    override def unloadCommand(at: Tick, jobId: Id, wip: Wip.Complete[M]): UnitResult =
-      val forTime = at+unloadDelay()
-      engine.add(forTime){ () => underTest.unloadFinalize(forTime, jobId) }
-      AppSuccess.unit
-
-    override def pushCommand(at: Tick, jobId: Id): UnitResult =
-      val forTime = at+pushDelay()
-      engine.add(forTime){ () => underTest.pushFinalize(forTime, jobId) }
-      AppSuccess.unit
-
-  end MockProcessorPhysics // class
-
-
-
   class MockSink[M <: Material, LISTENER <: Sink.Environment.Listener : Typeable](override val id: Id, override val stationId: Id)
   extends Sink[M, LISTENER]
   with SubjectMixIn[LISTENER]:
