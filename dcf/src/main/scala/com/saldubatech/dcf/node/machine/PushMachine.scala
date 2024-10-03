@@ -5,91 +5,119 @@ import com.saldubatech.lang.types._
 import com.saldubatech.util.LogEnabled
 import com.saldubatech.ddes.types.Tick
 import com.saldubatech.dcf.material.{Material, Wip, MaterialPool, WipPool}
+import com.saldubatech.dcf.job.JobSpec
 import com.saldubatech.dcf.node.components.{SubjectMixIn, Component, Sink}
 import com.saldubatech.dcf.node.components.{Operation, OperationImpl}
 import com.saldubatech.dcf.node.components.transport.{Induct, Discharge}
 
+import scala.reflect.Typeable
 import scala.util.chaining.scalaUtilChainingOps
+import com.saldubatech.dcf.node.components.Subject
 
 object PushMachine:
   type Identity = Component.Identity
 
   object API:
-    type Upstream[M <: Material] = Sink.API.Upstream[M]
-
-    type Physics[M <: Material] = Operation.API.Physics[M]
+    type Management[+LISTENER <: Environment.Listener] = Component.API.Management[LISTENER]
 
   end API // object
 
-end PushMachine
+  object Environment:
+    trait Listener extends Identified:
+      def jobArrival(at: Tick, atStation: Id, atMachine: Id, job: JobSpec): Unit
+      def materialArrival(at: Tick, atStation: Id, atMachine: Id, atInduct: Id, load: Material): Unit
+      def jobLoaded(at: Tick, atStation: Id, atMachine: Id, wip: Wip.Loaded): Unit
+      def jobStarted(at: Tick, atStation: Id, atMachine: Id, wip: Wip.InProgress): Unit
+      def jobComplete(at: Tick, atStation: Id, atMachine: Id, wip: Wip.Complete[?]): Unit
+      def jobFailed(at: Tick, atStation: Id, atMachine: Id, wip: Wip.Failed): Unit
+      def jobScrapped(at: Tick, atStation: Id, atMachine: Id, wip: Wip.Scrap): Unit
+      def jobUnloaded(at: Tick, atStation: Id, atMachine: Id, wip: Wip.Unloaded[?]): Unit
+      def productDischarged(at: Tick, atStation: Id, viaDischarge: Id, p: Material): Unit
+    end Listener // trait
+
+  end Environment // object
+
+  case class PushJobSpec(override val id: Id, loadId: Id) extends JobSpec:
+      override val rawMaterials = List(loadId)
+
+end PushMachine // object
 
 trait PushMachine[M <: Material]
 extends PushMachine.Identity
-with PushMachine.API.Upstream[M]
-with PushMachine.API.Physics[M]:
-  protected val inductListener: Induct.Environment.Listener
-  protected val dischargeListener: Discharge.Environment.Listener
-  protected val operationListener: Operation.Environment.Listener
+with Subject[PushMachine.Environment.Listener]
 
 end PushMachine // trait
 
-
-class PushMachineImpl[M <: Material]
+class PushMachine2Impl[M <: Material : Typeable]
 (
   mId: Id,
   override val stationId: Id,
-  induct: Induct[M, Induct.Environment.Listener],
-  operation: Operation[M, Operation.Environment.Listener],
-  discharge: Discharge[M, Discharge.Environment.Listener],
-)
-extends PushMachine[M]:
+  inbound: Induct[M, Induct.Environment.Listener],
+  outbound: Discharge[M, Discharge.Environment.Listener],
+  // Operation must be linked to "Discharge.asSink"
+  operation: Operation[M, Operation.Environment.Listener]
+) extends PushMachine[M]
+with SubjectMixIn[PushMachine.Environment.Listener]:
   machineSelf =>
   override val id = s"$stationId::PushMachine[$mId]"
 
-  // Members declared in com.saldubatech.dcf.node.machine.PushMachine
-  override protected val inductListener: Induct.Environment.Listener = new Induct.Environment.Listener {
-    override val id: Id = machineSelf.id
-    override def loadArrival(at: Tick, fromStation: Id, atStation: Id, atInduct: Id, load: Material): Unit = ??? // induct.deliver(at, load.id)
-    override def loadDelivered(at: Tick, fromStation: Id, atStation: Id, fromInduct: Id, toSink: Id, load: Material): Unit = () // nothing, it will be picked up by operation.accept...
-  }.tap{ induct.listen(_) }
+  private val deliverer = inbound.delivery(operation.upstreamEndpoint)
 
-  override protected val operationListener: Operation.Environment.Listener = new Operation.Environment.Listener {
-    override val id: Id = machineSelf.id
-    override def loadAccepted(at: Tick, atStation: Id, atSink: Id, load: Material): Unit = ???
-    override def jobLoaded(at: Tick, stationId: Id, processorId: Id, loaded: Wip.Loaded): Unit = ???
-    override def jobStarted(at: Tick, stationId: Id, processorId: Id, inProgress: Wip.InProgress): Unit = ???
-    override def jobCompleted(at: Tick, stationId: Id, processorId: Id, completed: Wip.Complete[?]): Unit = ???
-    override def jobUnloaded(at: Tick, stationId: Id, processorId: Id, unloaded: Wip.Unloaded[?]): Unit = ???
-    override def jobDelivered(at: Tick, stationId: Id, processorId: Id, delivered: Wip.Unloaded[?]): Unit = ???
+  private val inductWatcher = new Induct.Environment.Listener {
+    override val id: Id = s"${id}::InductWatcher"
+
+    def loadArrival(at: Tick, fromStation: Id, atStation: Id, atInduct: Id, load: Material): Unit =
+      doNotify{ l =>
+        l.materialArrival(at, stationId, id, atInduct, load)
+      }
+      deliverer.deliver(at, load.id)
+
+    def loadDelivered(at: Tick, fromStation: Id, atStation: Id, fromInduct: Id, toSink: Id, load: Material): Unit = ()
+    // do nothing, it will be picked up at the loadAccepted of the operation
+  }
+  inbound.listen(inductWatcher)
+
+  private val opWatcher = new Operation.Environment.Listener {
+    override val id: Id = s"${id}::OpWatcher"
+    override def loadAccepted(at: Tick, atStation: Id, atSink: Id, load: Material): Unit =
+      val js = PushMachine.PushJobSpec(load.id, load.id)
+      operation.loadJobRequest(at, js).map{
+        _ => doNotify( l => l.jobArrival(at, stationId, id, js))
+      }
+
+    override def jobLoaded(at: Tick, stationId: Id, processorId: Id, loaded: Wip.Loaded): Unit =
+      operation.startRequest(at, loaded.jobSpec.id)
+
+    override def jobStarted(at: Tick, stationId: Id, processorId: Id, inProgress: Wip.InProgress): Unit =
+      // Just Notify, let it complete
+      doNotify( _.jobStarted(at, stationId, id, inProgress))
+
+    override def jobCompleted(at: Tick, stationId: Id, processorId: Id, completed: Wip.Complete[?]): Unit =
+      doNotify( _.jobComplete(at, stationId, id, completed))
+      operation.unloadRequest(at, completed.jobSpec.id)
+
+    override def jobUnloaded(at: Tick, stationId: Id, processorId: Id, unloaded: Wip.Unloaded[?]): Unit =
+      unloaded match
+        case w@Wip.Unloaded(_, _, _, _, _, _, _, _, _, Some(_ : M)) =>
+          doNotify(_.jobUnloaded(at, stationId, id, w))
+          operation.deliver(at, w.jobSpec.id)
+        case other => () // Error, should not receive a product different than M.
+    override def jobDelivered(at: Tick, stationId: Id, processorId: Id, delivered: Wip.Unloaded[?]): Unit =
+      // Do nothing, it will be picked up on the Discharge side
+      ()
     override def jobFailed(at: Tick, stationId: Id, processorId: Id, failed: Wip.Failed): Unit = ???
     override def jobScrapped(at: Tick, stationId: Id, processorId: Id, scrapped: Wip.Scrap): Unit = ???
-  }.tap{ operation.listen(_) }
+  }
+  operation.listen(opWatcher)
 
-  override protected val dischargeListener: Discharge.Environment.Listener = new Discharge.Environment.Listener {
-    override val id: Id = machineSelf.id
-    override def loadDischarged(at: Tick, stationId: Id, discharge: Id, load: Material): Unit = ???
-    override def busyNotification(at: Tick, stationId: Id, discharge: Id): Unit =  ???
-    override def availableNotification(at: Tick, stationId: Id, discharge: Id): Unit = ???
-  }.tap{ discharge.listen(_) }
+  private val dischargeWatcher = new Discharge.Environment.Listener {
+    override val id: Id = s"${id}::DischargeWatcher"
+    def loadDischarged(at: Tick, stId: Id, discharge: Id, load: Material): Unit =
+      // Nothing to do. The link will take it over the outbound transport
+      doNotify(_.productDischarged(at, stationId, discharge, load))
+    def busyNotification(at: Tick, stId: Id, discharge: Id): Unit = ???  // For future to handle congestion
+    def availableNotification(at: Tick, stationId: Id, discharge: Id): Unit = ??? // For future to handle congestion
+  }
+  outbound.listen(dischargeWatcher)
 
-  // Members declared in com.saldubatech.dcf.node.components.Operation$.API$.Physics
-  // def completeFailed(at: Tick, jobId: Id, request: Option[Wip.Failed], cause: Option[AppError]): UnitResult = ???
-  export operation.completeFailed
-  // def completeFinalize(at: Tick, jobId: Id): UnitResult = ???
-  export operation.completeFinalize
-  // def loadFailed(at: Tick, jobId: Id, request: Option[Wip.New], cause: Option[AppError]): UnitResult = ???
-  export operation.loadFailed
-  // def loadFinalize(at: Tick, jobId: Id): UnitResult = ???
-  export operation.loadFinalize
-  // def unloadFailed(at: Tick, jobId: Id, wip: Option[Wip.Complete[M]], cause: Option[AppError]): UnitResult = ???
-  export operation.unloadFailed
-  // def unloadFinalize(at: Tick, jobId: Id): UnitResult = ???
-  export operation.unloadFinalize
-
-  // Members declared in com.saldubatech.dcf.node.components.Sink$.API$.Upstream
-  // def acceptMaterialRequest(at: Tick, fromStation: Id, fromSource: Id, load: M): UnitResult = ???
-  export operation.upstreamEndpoint.acceptMaterialRequest
-  // def canAccept(at: Tick, from: Id, load: M): UnitResult = ???
-  export operation.upstreamEndpoint.canAccept
-
-end PushMachineImpl
+end PushMachine2Impl // class

@@ -171,10 +171,10 @@ with SubjectMixIn[LISTENER]:
       rs <- downstream.loadArriving(at, card, load)
     } yield
       _inTransit += loadId -> load
-      doNotify{
+      doNotify(
         l =>
           l.loadDischarged(at, stationId, id, load)
-      }
+      )
       rs
 
 end DischargeMixIn // trait
