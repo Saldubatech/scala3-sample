@@ -17,7 +17,14 @@ jobs:
     - name: Build & Run tests
       run: sbt "coverage;test;coverageReport"
     - name: Publish tests
-      uses: ./.github/actions/codecov-publish/
+      uses: codecov/codecov-action@v4
       with:
+        fail_ci_if_error: false
+        #files: <> # optional
+        flags: ci_tests # optional
         token: ${{ secrets.CODECOV_TOKEN }}
-        test-tags: ci_tests
+    # - name: Publish tests2
+    #   uses: ./.github/actions/codecov-publish/
+    #   with:
+    #     token: ${{ secrets.CODECOV_TOKEN }}
+    #     test-tags: ci_tests
