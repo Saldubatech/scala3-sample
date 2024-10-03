@@ -15,9 +15,9 @@ import com.saldubatech.dcf.node.components.{Operation, OperationImpl}
 import com.saldubatech.dcf.node.components.bindings.{Operation as OperationBinding}
 import com.saldubatech.dcf.node.components.transport.{Induct, Transport, Discharge, Link}
 import com.saldubatech.dcf.node.components.transport.bindings.{Induct as InductBinding, Discharge as DischargeBinding, DLink as LinkBinding}
-import com.saldubatech.dcf.node.machine.{PushMachine, PushMachine2Impl}
+import com.saldubatech.dcf.node.machine.{PushMachine, PushMachineImpl}
 
-import com.saldubatech.dcf.node.station.configurations.{Inbound, Outbound, Process}
+import com.saldubatech.dcf.node.station.configurations.{Inbound, Outbound, ProcessConfiguration}
 
 import scala.reflect.Typeable
 import scala.util.chaining.scalaUtilChainingOps
@@ -40,7 +40,7 @@ object PushStation:
     host: PushStation[M],
     inbound: Transport[M, Induct.Environment.Listener, ?],
     outbound: Transport[M, ?, Discharge.Environment.Listener],
-    process: Process[M],
+    process: ProcessConfiguration[M],
     cards: List[Id]
   ) extends DomainProcessor[PROTOCOL]:
     // Inbound
@@ -51,11 +51,7 @@ object PushStation:
     // Outbound
     private val obDischargePhysicsHost: Discharge.API.Physics = DischargeBinding.API.ClientStubs.Physics(host)
     private val obLinkPhysicsHost: Link.API.Physics = LinkBinding.API.ClientStubs.Physics(host)
-    private val maybeObDischarge = outbound.discharge(host.stationId, obLinkPhysicsHost, obDischargePhysicsHost).map{
-      d =>
-        d.addCards(0, cards)
-        d
-    }
+    private val maybeObDischarge = outbound.discharge(host.stationId, obLinkPhysicsHost, obDischargePhysicsHost)
 
     // Operation
     private val opPhysicsHost: Operation.API.Physics[M] = OperationBinding.API.ClientStubs.Physics[M](host)
@@ -86,7 +82,7 @@ object PushStation:
       operation <- maybeOp
       induct <- maybeIbInduct
       discharge <- maybeObDischarge
-    } yield PushMachine2Impl[M]("pushMachine", host.stationId, induct, discharge, operation)
+    } yield PushMachineImpl[M]("pushMachine", host.stationId, induct, discharge, operation)
 
     // Dispatch
     private val maybeDispatch: AppResult[(Tick) => PartialFunction[PROTOCOL, UnitResult]] = for {
@@ -108,7 +104,7 @@ object PushStation:
           case inductUpstreamSignal: InductBinding.API.Signals.Upstream => inductUpstreamAdaptor(at)(inductUpstreamSignal)
           case inductPhysicsSignal: InductBinding.API.Signals.Physics => inductPhysicsAdaptor(at)(inductPhysicsSignal)
 
-          case opPhysics: OperationBinding.API.Signals.Physics => opPhysicsAdaptor(at)(opPhysics)
+          case opPhysicsSignal: OperationBinding.API.Signals.Physics => opPhysicsAdaptor(at)(opPhysicsSignal)
 
           case dischargeDownstreamSignal: DischargeBinding.API.Signals.Downstream => dischargeDownstreamAdaptor(at)(dischargeDownstreamSignal)
           case dischargePhysicsSignal: DischargeBinding.API.Signals.Physics => dPhysicsAdaptor(at)(dischargePhysicsSignal)
@@ -116,11 +112,17 @@ object PushStation:
           case linkUpstreamSignal: LinkBinding.API.Signals.Upstream => linkUpstreamAdaptor(at)(linkUpstreamSignal)
           case linkDownstreamSignal: LinkBinding.API.Signals.Downstream => linkDownstreamAdaptor(at)(linkDownstreamSignal)
           case linkPhysicsSignal: LinkBinding.API.Signals.Physics => linkPhysicsAdaptor(at)(linkPhysicsSignal)
-        }
       }
+    }
 
     override def accept(at: Tick, ev: DomainEvent[PROTOCOL]): UnitResult =
-      maybeDispatch.map{ dispatch => dispatch(at)(ev.payload) }
+      maybeDispatch.fold(
+        err => {
+          log.error(s"Dispatch not initialized in ${host.stationId}", err)
+          throw err
+        },
+        dispatch => dispatch(at)(ev.payload)
+      )
 
   end DP
 
@@ -130,11 +132,10 @@ end PushStation // object
 class PushStation[M <: Material : Typeable]
 (
   val stationId : Id,
-  inbound: Transport[M, Induct.Environment.Listener, ?],
-  outbound: Transport[M, ?, Discharge.Environment.Listener],
-  process: Process[M],
+  inbound: => Transport[M, Induct.Environment.Listener, ?],
+  outbound: => Transport[M, ?, Discharge.Environment.Listener],
+  process: ProcessConfiguration[M],
   cards: List[Id],
-
   clock: Clock
 )
 extends SimActorBehavior[PushStation.PROTOCOL](stationId, clock)

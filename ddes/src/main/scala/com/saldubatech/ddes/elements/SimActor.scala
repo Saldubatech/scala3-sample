@@ -77,8 +77,8 @@ extends SimActor[DM] with SimActorContext[DM]:
 
   final val simulationComponent: SimulationComponent =
     new SimulationComponent {
-      override def initialize(ctx: ActorContext[OAM.InitRequest]): Map[Id, ActorRef[?]] =
-        Map(name -> ctx.spawn[DomainAction[DM] | OAMMessage](selfActorBehavior.init(), name))
+      override def initialize(ctx: ActorContext[OAM.InitRequest]): Seq[(Id, ActorRef[?])] =
+        Seq(name -> ctx.spawn[DomainAction[DM] | OAMMessage](selfActorBehavior.init(), name))
     }
   override val env: SimEnvironment[DM] = new SimEnvironment[DM]() {
     override def currentTime: Tick = selfActorBehavior.currentTime

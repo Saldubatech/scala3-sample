@@ -87,7 +87,6 @@ object SourceSinkStationSpec extends ZIOSpecDefault with LogEnabled with Matcher
     sourceStation,
     Outbound(
       transport,
-      sink,
       (at, card, load) => dischargeDelay,
       (at, card, load) => transportDelay,
       cards
@@ -97,7 +96,7 @@ object SourceSinkStationSpec extends ZIOSpecDefault with LogEnabled with Matcher
     )
 
   val config = new SimulationComponent {
-    override def initialize(ctx: ActorContext[OAM.InitRequest]): Map[Id, ActorRef[?]] =
+    override def initialize(ctx: ActorContext[OAM.InitRequest]): Seq[(Id, ActorRef[?])] =
       val sinkEntry = sink.simulationComponent.initialize(ctx)
       val sourceEntry = source.simulationComponent.initialize(ctx)
       sinkEntry ++ sourceEntry

@@ -30,10 +30,10 @@ trait Observer extends LogEnabled:
 
   final val simulationComponent: SimulationComponent =
     new SimulationComponent {
-      def initialize(ctx: ActorContext[OAM.InitRequest]): Map[Id, ActorRef[?]] =
+      override def initialize(ctx: ActorContext[OAM.InitRequest]): Seq[(Id, ActorRef[?])] =
         observer._ref = Some(ctx.spawn[PROTOCOL](observer.init(), name))
         log.debug(s"Initialize Observer Component for $observer with ${observer.ref}")
-        Map(name -> observer.ref)
+        Seq(name -> observer.ref)
     }
 
   def init(): Behavior[PROTOCOL] =

@@ -76,11 +76,16 @@ class Clock(
     log.debug(s"Removing $a from openActions")
     openActions.remove(a)
 
+  private def triggerCommand(cmd: Command): Unit =
+    if cmd.origin == cmd.destination then sLog.debug(cmd.sequenceEntry)
+    else sLog.info(cmd.sequenceEntry)
+    openAction(cmd.send)
+
   private def scheduleCommand(ctx: ActorContext[PROTOCOL], cmd: Command): Unit =
     cmd.forEpoch match
       case present if present == now =>
         log.debug(s" > Present ${cmd}")
-        openAction(cmd.send)
+        triggerCommand(cmd)
       case future if future > now =>
         log.debug(s" > Future ${cmd}")
         updateCommandQueue(cmd)
@@ -121,12 +126,7 @@ class Clock(
           case _ =>
             log.debug(s" > Advanced Clock ==> From: ${now} to: ${tick}")
             now = tick
-            commands.foreach {
-              cmd =>
-                if cmd.origin == cmd.destination then sLog.debug(cmd.sequenceEntry)
-                else sLog.info(cmd.sequenceEntry)
-                sLog.info(cmd.sequenceEntry)
-                openAction(cmd.send) }
+            commands.foreach { cmd => triggerCommand(cmd) }
     }
 
   def start(): Behavior[PROTOCOL] =

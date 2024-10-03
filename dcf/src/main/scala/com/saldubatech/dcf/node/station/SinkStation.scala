@@ -54,7 +54,7 @@ end SinkStation // object
 class SinkStation[M <: Material : Typeable]
 (
   val stationId: Id,
-  inbound: Inbound[M, LoadSink.API.Listener],
+  inbound: => Inbound[M, LoadSink.API.Listener],
   consumer: Option[(at: Tick, fromStation: Id, fromSource: Id, atStation: Id, atSink: Id, load: M) => UnitResult] = None,
   clock: Clock
 ) extends SimActorBehavior[SinkStation.PROTOCOL](stationId, clock)
@@ -67,7 +67,10 @@ with Subject:
   override protected val domainProcessor: DomainProcessor[SinkStation.PROTOCOL] =
     maybeInduct.fold(
       // TODO something smarter here.
-      err => ???,
+      err => {
+          log.error(s"Domain Processor not initialized in ${stationId}", err)
+          throw err
+        },
       i => SinkStation.DP(this, i, consumer)
     )
 

@@ -28,8 +28,8 @@ class SimulationSupervisor(val name: String, val clock: Clock, private val simul
   private var _ctx: Option[ActorContext[OAM.InitRequest]] = None
   private lazy val context: ActorContext[OAM.InitRequest] = _ctx.get
 
-  private var _components: Option[Map[Id, ActorRef[?]]] = None
-  lazy val components: Map[Id, ActorRef[?]] = _components.get
+  private var _components: Option[Seq[(Id, ActorRef[?])]] = None
+  lazy val components: Seq[(Id, ActorRef[?])] = _components.get
 
   private var _clkRef: Option[ActorRef[Clock.PROTOCOL]] = None
   private lazy val clockRef: ActorRef[Clock.PROTOCOL] = _clkRef.get
@@ -94,7 +94,9 @@ class SimulationSupervisor(val name: String, val clock: Clock, private val simul
       context =>
         _ctx = Some(context)
         _clkRef = Some(context.spawn[Clock.PROTOCOL](clock.start(), "Clock"))
-        _components = simulationConfiguration.map{s => s.initialize(context)}
+        _components = simulationConfiguration.map{
+          s => s.initialize(context)
+        }
         _rootRef = Some(context.spawn[DomainAction[DomainMessage] | OAMMessage](root.init(), "ROOT"))
         Behaviors.receiveMessage[OAM.InitRequest]{
           case OAM.Ping(ref) =>

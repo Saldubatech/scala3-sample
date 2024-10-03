@@ -2,7 +2,7 @@ package com.saldubatech.dcf.node.machine
 
 import com.saldubatech.test.BaseSpec
 import com.saldubatech.lang.Id
-import com.saldubatech.dcf.material.{Material, Wip}
+import com.saldubatech.dcf.material.{Material, Wip, WipPool, MaterialPool}
 import com.saldubatech.ddes.types.{Tick, Duration}
 import com.saldubatech.lang.types.{AppResult, UnitResult, AppSuccess, AppFail, AppError, collectAll}
 import com.saldubatech.dcf.job.{JobSpec, SimpleJobSpec}
@@ -94,7 +94,7 @@ class PushMachineSpec extends BaseSpec:
     def obInductAPIPhysics(): AppResult[Induct.API.Physics] = outbound.induct
     type M = ProbeInboundMaterial
     val rig: AppResult[(
-      Induct[M, ?], Discharge[M, ?], OperationImpl[M, ?], PushMachine2Impl[M], Discharge[M, ?], Induct[M, ?], Induct.API.Deliverer
+      Induct[M, ?], Discharge[M, ?], OperationImpl[M, ?], PushMachineImpl[M], Discharge[M, ?], Induct[M, ?], Induct.API.Deliverer
     )] = for {
       ibInduct <- inbound.induct(underTestId, inductPhysics(ibInductAPIPhysics, engine))
       ibDischarge <- inbound.discharge(underTestId, linkPhysics(ibLinkAPIPhysics, engine), dischargePhysics(ibDischargeAPIPhysics, engine))
@@ -106,11 +106,11 @@ class PushMachineSpec extends BaseSpec:
       TransportHarness.bindMockPhysics(inbound)
       TransportHarness.bindMockPhysics(outbound)
       val mockOpPhysics = ComponentHarness.MockOperationPhysics[ProbeInboundMaterial](engine, () => 1, () => 10, () => 100)
-      val readyPool = com.saldubatech.dcf.material.WipPool.InMemory[Wip.Unloaded[ProbeInboundMaterial]]()
-      val acceptedPool = com.saldubatech.dcf.material.MaterialPool.SimpleInMemory[Material]("UnderTest")
+      val readyPool = WipPool.InMemory[Wip.Unloaded[ProbeInboundMaterial]]()
+      val acceptedPool = MaterialPool.SimpleInMemory[Material]("UnderTest")
       val operation = OperationImpl[ProbeInboundMaterial, Operation.Environment.Listener]("operation", "UnderTest", 3, producer, mockOpPhysics, acceptedPool, readyPool, Some(obDischarge.asSink))
       mockOpPhysics.underTest = operation
-      val underTest = PushMachine2Impl[ProbeInboundMaterial]("machine", "UnderTest", ibInduct, obDischarge, operation)
+      val underTest = PushMachineImpl[ProbeInboundMaterial]("machine", "UnderTest", ibInduct, obDischarge, operation)
       val deliverer = obInduct.delivery(mockSink)
       (ibInduct, ibDischarge, operation, underTest, obDischarge, obInduct, deliverer)
     "the rig is created" should {

@@ -53,7 +53,7 @@ object StreamSourceSpec extends ZIOSpecDefault with LogEnabled with Matchers:
 
       val config = new SimulationComponent {
 
-        def initialize(ctx: ActorContext[OAM.InitRequest]): Map[Id, ActorRef[?]] = {
+        override def initialize(ctx: ActorContext[OAM.InitRequest]): Seq[(Id, ActorRef[?])] = {
           val sinkEntry = sink.simulationComponent.initialize(ctx)
           val sourceEntry = streamSource.simulationComponent.initialize(ctx)
           sinkEntry ++ sourceEntry

@@ -61,7 +61,7 @@ end SourceStation
 class SourceStation[M <: Material : Typeable]
 (
   val stationId: Id,
-  outbound: Outbound[M, LoadSource.API.Listener],
+  outbound: => Outbound[M, LoadSource.API.Listener],
   gen: Seq[(Tick, M)],
   clock: Clock
 ) extends SimActorBehavior[SourceStation.PROTOCOL](stationId, clock)
@@ -81,7 +81,9 @@ with Subject:
   override protected val domainProcessor: DomainProcessor[SourceStation.PROTOCOL] =
     maybeDP.fold(
       // TODO something smarter here.
-      err => ???,
+      err =>
+        log.error(s"Domain Processor for $stationId is not Initialized: $err")
+        throw err,
       dp => dp
     )
 

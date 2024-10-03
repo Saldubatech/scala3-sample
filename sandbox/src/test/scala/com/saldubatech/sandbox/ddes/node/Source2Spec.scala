@@ -35,7 +35,7 @@ object Source2Spec extends ZIOSpecDefault with LogEnabled:
         }
 
         val config = new SimulationComponent {
-          def initialize(ctx: ActorContext[OAM.InitRequest]): Map[Id, ActorRef[?]] = {
+          override def initialize(ctx: ActorContext[OAM.InitRequest]): Seq[(Id, ActorRef[?])] = {
             val sinkEntry = sink.simulationComponent.initialize(ctx)
             val sourceEntry = source.simulationComponent.initialize(ctx)
             sinkEntry ++ sourceEntry

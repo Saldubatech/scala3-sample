@@ -54,7 +54,7 @@ object GgmSpec extends ZIOSpecDefault with LogEnabled with Matchers:
           ((t: Tick, s: Trigger[ProbeMessage]) => s.supply)
 
         val config = new SimulationComponent {
-          override def initialize(ctx: ActorContext[OAM.InitRequest]): Map[Id, ActorRef[?]] = {
+          override def initialize(ctx: ActorContext[OAM.InitRequest]): Seq[(Id, ActorRef[?])] = {
             val sinkEntry = sink.simulationComponent.initialize(ctx)
             val mm1Entry = mm1.simulationComponent.initialize(ctx)
             val sourceEntry = source.simulationComponent.initialize(ctx)
