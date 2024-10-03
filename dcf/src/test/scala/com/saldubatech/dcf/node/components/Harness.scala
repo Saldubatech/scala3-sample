@@ -49,11 +49,6 @@ object Harness:
       receivedCalls += call("acceptRequest", at, fromStation, fromSource, load)
       AppSuccess.unit
 
-    override def checkForMaterials(at: Tick, job: JobSpec): AppResult[Wip.New] = ???
-    override def accepted(at: Tick, by: Option[Tick]): AppResult[List[M]] = ???
-    override def acceptFinalize(at: Tick, fromStation: Id, fromSource: Id, loadId: Id): UnitResult = ???
-    override def acceptFail(at: Tick, fromStation: Id, fromSource: Id, loadId: Id, cause: Option[AppError]): UnitResult = ???
-
 
   class ProcessorListener(override val id: Id)
   extends com.saldubatech.dcf.node.components.Sink.Environment.Listener

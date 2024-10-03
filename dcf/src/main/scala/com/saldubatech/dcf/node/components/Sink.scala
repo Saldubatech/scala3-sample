@@ -18,46 +18,20 @@ object Sink:
       def acceptMaterialRequest(at: Tick, fromStation: Id, fromSource: Id, load: M): UnitResult
     end Upstream // trait
 
-    trait Control[M <: Material]:
-      def checkForMaterials(at: Tick, job: JobSpec): AppResult[Wip.New]
-      def accepted(at: Tick, by: Option[Tick]): AppResult[List[M]]
-    end Control // trait
-
-    type Management[+LISTENER <: Environment.Listener] = Component.API.Management[LISTENER]
-
-    trait Downstream:
-    end Downstream // trait
-
-    trait Physics:
-      def acceptFinalize(at: Tick, fromStation: Id, fromSource: Id, loadId: Id): UnitResult
-      def acceptFail(at: Tick, fromStation: Id, fromSource: Id, loadId: Id, cause: Option[AppError]): UnitResult
-    end Physics // trait
   end API // object
 
   object Environment:
-    trait Physics[-M <: Material]:
-      def acceptCommand(at: Tick, fromStation: Id, fromSource: Id, load: M): UnitResult
-    end Physics
 
     trait Listener extends Identified:
       def loadAccepted(at: Tick, atStation: Id, atSink: Id, load: Material): Unit
     end Listener // trait
 
-    trait Upstream:
-    end Upstream
-
-    trait Downstream:
-    end Downstream
   end Environment // object
 end Sink // object
 
 trait Sink[M <: Material, LISTENER <: Sink.Environment.Listener]
 extends Sink.Identity
 with Sink.API.Upstream[M]
-with Sink.API.Management[LISTENER]
-with Sink.API.Control[M]
-with Sink.API.Downstream
-with Sink.API.Physics
 
 // trait SinkMixIn[M <: Material, LISTENER <: Sink.Environment.Listener]
 // extends Sink[M, LISTENER]
