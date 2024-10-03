@@ -15,7 +15,7 @@ import com.saldubatech.dcf.node.components.{Operation, OperationImpl}
 import com.saldubatech.dcf.node.components.bindings.{Operation as OperationBinding}
 import com.saldubatech.dcf.node.components.transport.{Induct, Transport, Discharge, Link}
 import com.saldubatech.dcf.node.components.transport.bindings.{Induct as InductBinding, Discharge as DischargeBinding, DLink as LinkBinding}
-import com.saldubatech.dcf.node.machine.{PushMachine2, PushMachine2Impl}
+import com.saldubatech.dcf.node.machine.{PushMachine, PushMachine2Impl}
 
 import com.saldubatech.dcf.node.station.configurations.{Inbound, Outbound, Process}
 
@@ -86,7 +86,7 @@ object PushStation:
       operation <- maybeOp
       induct <- maybeIbInduct
       discharge <- maybeObDischarge
-    } yield PushMachine2Impl[M]("pushMachine", host.stationId, induct, discharge, operation, cards)
+    } yield PushMachine2Impl[M]("pushMachine", host.stationId, induct, discharge, operation)
 
     // Dispatch
     private val maybeDispatch: AppResult[(Tick) => PartialFunction[PROTOCOL, UnitResult]] = for {
@@ -95,6 +95,7 @@ object PushStation:
       outboundLink <- outbound.link
       discharge <- maybeObDischarge
     } yield {
+        discharge.addCards(0, cards) // This should probably go outside of the construction of the station.
         val inductUpstreamAdaptor = InductBinding.API.ServerAdaptors.upstream[M](induct)
         val inductPhysicsAdaptor = InductBinding.API.ServerAdaptors.physics(induct)
         val opPhysicsAdaptor = OperationBinding.API.ServerAdaptors.physics[M](operation)

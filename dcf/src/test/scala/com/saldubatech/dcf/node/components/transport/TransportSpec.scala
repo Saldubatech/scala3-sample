@@ -218,9 +218,7 @@ class TransportSpec extends BaseSpec:
       val induct = underTest.induct("TestDownstreamStation", inductAPIPhysics)
       val discharge = underTest.discharge("TestUpstreamStation", linkAPIPhysics, dischargeAPIPhysics)
       "configure the physics callbacks" in {
-        underTest.dischargePhysics.asInstanceOf[Harness.MockDischargePhysics[ProbeInboundMaterial]].underTest = discharge.value
-        underTest.inductPhysics.asInstanceOf[Harness.MockInductPhysics[ProbeInboundMaterial]].underTest = induct.value
-        underTest.linkPhysics.asInstanceOf[Harness.MockLinkPhysics[ProbeInboundMaterial]].underTest = underTest.link.value
+        Harness.bindMockPhysics(underTest)
         discharge.value.addCards(0, cards)
       }
       "successfully complete the discharge" in {
@@ -271,9 +269,7 @@ class TransportSpec extends BaseSpec:
       val deliverer = induct.value.delivery(mockDownstream)
       val discharge = underTest.discharge("TestUpstreamStation", linkAPIPhysics, dischargeAPIPhysics)
       "configure the physics callbacks" in {
-        underTest.dischargePhysics.asInstanceOf[Harness.MockDischargePhysics[ProbeInboundMaterial]].underTest = discharge.value
-        underTest.inductPhysics.asInstanceOf[Harness.MockInductPhysics[ProbeInboundMaterial]].underTest = induct.value
-        underTest.linkPhysics.asInstanceOf[Harness.MockLinkPhysics[ProbeInboundMaterial]].underTest = underTest.link.value
+        Harness.bindMockPhysics(underTest)
         discharge.value.addCards(0, cards)
       }
       "Trigger the Transport and Induct Logic in Order" in {

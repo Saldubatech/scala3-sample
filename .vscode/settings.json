@@ -120,7 +120,7 @@
     "-s",
     "./analysis",
     "-p",
-    "*test.py"
+    "*_test.py"
   ],
   "testExplorer.showOnRun": true,
   "testExplorer.addToEditorContextMenu": true,

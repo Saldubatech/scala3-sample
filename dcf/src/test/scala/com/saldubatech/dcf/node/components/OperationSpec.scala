@@ -19,9 +19,6 @@ object OperationSpec:
         case None => AppSuccess(None)
         case Some(m : ProbeInboundMaterial) => AppSuccess(Some(m))
         case Some(other) => AppFail.fail(s"Unexpected Material type: $other")
-
-  val producerOld: (Tick, Wip.InProgress) => AppResult[Option[Material]] =
-    (at, wip) => AppSuccess(Some(wip.rawMaterials.head))
 end OperationSpec // object
 
 class OperationSpec extends BaseSpec:
@@ -29,7 +26,6 @@ class OperationSpec extends BaseSpec:
 
   "An Empty Operation" when {
     val engine = MockAsyncCallback()
-    val mockPhysicsOld = Harness.MockProcessorPhysics[ProbeOutboundMaterial](() => 1, () => 1, () => 1, () => 1, () => 1, engine)
     val mockPhysics = Harness.MockOperationPhysics[ProbeInboundMaterial](engine, () => 1, () => 10, () => 100)
     val mockSink = Harness.MockSink[ProbeInboundMaterial, Processor.Environment.Listener]("sink", "Downstream")
     val readyPool = com.saldubatech.dcf.material.WipPool.InMemory[Wip.Unloaded[ProbeInboundMaterial]]()

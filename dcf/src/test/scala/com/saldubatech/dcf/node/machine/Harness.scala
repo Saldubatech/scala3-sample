@@ -13,7 +13,6 @@ import com.saldubatech.dcf.node.{ProbeInboundMaterial, ProbeOutboundMaterial}
 
 import com.saldubatech.dcf.node.components.{Sink, Harness as ComponentsHarness}
 import com.saldubatech.dcf.node.components.transport.{Transport, TransportImpl, Discharge, Induct, Link}
-import com.saldubatech.dcf.node.machine.PushMachine
 
 import com.saldubatech.test.ddes.MockAsyncCallback
 import com.saldubatech.dcf.node.components.transport.{Harness as TransportHarness}
@@ -56,119 +55,5 @@ object Harness:
 
   val resolver: (Id, Material) => Option[Id] = (fromInbound: Id, load: Material) => Some(s"T[${math.abs(load.hashCode()) % inboundArity}]")
 
-
-  def buildPushMachineUnderTest[M <: Material](engine: MockAsyncCallback):
-    AppResult[(Map[Id, Discharge[M, ?]], PushMachine[M], Map[Id, (TransportHarness.MockSink[M], Induct[M, Induct.Environment.Listener])])] = ???
-    // def ibDistPhysics = TransportHarness.MockDischargePhysics[M](() => ibDiscDelay, engine)
-    // def ibTranPhysics = TransportHarness.MockLinkPhysics[M](() => ibTranDelay, engine)
-    // def ibIndcPhysics = TransportHarness.MockInductPhysics[M](() => ibIndcDelay, engine)
-
-    // val inTransports: List[
-    //   (
-    //     TransportHarness.MockDischargePhysics[M],
-    //     TransportHarness.MockLinkPhysics[M],
-    //     TransportHarness.MockInductPhysics[M],
-    //     Transport[M, Controller.API.Listener, ?])] = (0 to inboundArity - 1).map {
-    //   idx =>
-    //     val dPhysics = ibDistPhysics
-    //     val tPhysics = ibTranPhysics
-    //     val iPhysics = ibIndcPhysics
-
-    //     val transport = TransportImpl[M, Controller.API.Listener, Controller.API.Listener](
-    //       s"T[$idx]",
-    //       iPhysics,
-    //       Some(ibTranCapacity),
-    //       Induct.Component.FIFOArrivalBuffer[M](),
-    //       tPhysics,
-    //       dPhysics,
-    //       inductStreamInjector,
-    //       linkAcknowledgeFactory,
-    //       cardRestoreFactory
-    //     )
-    //     (dPhysics, tPhysics, iPhysics, transport)
-    // }.toList
-
-    // def obDistPhysics = TransportHarness.MockDischargePhysics[M](() => obDiscDelay, engine)
-    // def obTranPhysics = TransportHarness.MockLinkPhysics[M](() => obTranDelay, engine)
-    // def obIndcPhysics = TransportHarness.MockInductPhysics[M](() => obIndcDelay, engine)
-
-    // val outTransports: List[
-    //   (
-    //     TransportHarness.MockDischargePhysics[M],
-    //     TransportHarness.MockLinkPhysics[M],
-    //     TransportHarness.MockInductPhysics[M],
-    //     Transport[M, ?, Controller.API.Listener])] = (0 to outboundArity - 1).map {
-    //   idx =>
-    //     val dPhysics = obDistPhysics
-    //     val tPhysics = obTranPhysics
-    //     val iPhysics = obIndcPhysics
-    //     val transport = TransportImpl[M, Controller.API.Listener, Controller.API.Listener](
-    //       s"T[$idx]",
-    //       iPhysics,
-    //       Some(obTranCapacity),
-    //       Induct.Component.FIFOArrivalBuffer[M](),
-    //       tPhysics,
-    //       dPhysics,
-    //       inductUpstreamInjector,
-    //       linkAcknowledgeFactory,
-    //       cardRestoreFactory
-    //     )
-    //     (dPhysics, tPhysics, iPhysics, transport)
-    // }.toList
-    // for {
-    //   destinationInducts <- outTransports.map{
-    //     tr =>
-    //       val binding = TransportHarness.MockSink[M](tr._4.id, "TERM")
-    //       tr._4.induct("TERM").map{ induct => tr._4.id -> (binding, induct)}
-    //   }.collectAll
-    //   m <-
-    //     val produce: (Tick, Wip.InProgress) => AppResult[Option[M]] =
-    //       (at, wip) => AppSuccess(wip.rawMaterials.headOption.asInstanceOf[Option[M]])
-    //     val pPhysics: ProcHarness.MockProcessorPhysics[M] = ProcHarness.MockProcessorPhysics[M](
-    //       () => pAcceptDelay,
-    //       () => pLoadDelay,
-    //       () => pWorkDelay,
-    //       () => pUnloadDelay,
-    //       () => pPushDelay,
-    //       engine)
-    //     val procFactory: PushMachine.ProcessorFactory[M] = PushMachine.ProcessorFactory[M](pPhysics, produce)
-    //     val machineFactory: PushMachine.Factory[M, Controller.Environment.Listener] = PushMachine.Factory(procFactory, Controller.PushFactory, resolver, i => i)
-    //     machineFactory.build("underTest", "InStation", inTransports.map{ r => (r._3, r._4) }, outTransports.map{r => (r._4, r._1, r._2, ackStubFactory(engine))}, maxConcurrentJobs).map{
-    //       m0 => m0.tap{ m => pPhysics.underTest = m.processor}
-    //      }
-    //   originDischarges <-
-    //     inTransports.map{ tr => tr._4.buildDischarge(
-    //       "ORIGIN",
-    //       tr._1,
-    //       tr._2,
-    //       ackStubFactory(engine),
-    //       i => i
-    //       ).map{ d => tr._4.id -> d} }.collectAll
-    //   inTransportBinding <-
-    //     inTransports.map{
-    //       tr =>
-    //         for {
-    //           i <- tr._4.induct
-    //           l <- tr._4.link
-    //           d <- tr._4.discharge
-    //         } yield
-    //           tr._1.underTest = d
-    //           tr._2.underTest = l
-    //           tr._3.underTest = i
-    //     }.collectAll
-    //   outTransportBinding <-
-    //     outTransports.map{
-    //       tr =>
-    //         for {
-    //           i <- tr._4.induct
-    //           l <- tr._4.link
-    //           d <- tr._4.discharge
-    //         } yield
-    //           tr._1.underTest = d
-    //           tr._2.underTest = l
-    //           tr._3.underTest = i
-    //     }.collectAll
-    // } yield
-    //   (originDischarges.toMap, m, destinationInducts.toMap)
 
 end Harness // object

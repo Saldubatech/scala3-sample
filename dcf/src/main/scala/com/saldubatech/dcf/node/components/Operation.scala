@@ -79,6 +79,7 @@ object Operation:
       def jobCompleted(at: Tick, stationId: Id, processorId: Id, completed: Wip.Complete[?]): Unit
       def jobUnloaded(at: Tick, stationId: Id, processorId: Id, unloaded: Wip.Unloaded[?]): Unit
       def jobFailed(at: Tick, stationId: Id, processorId: Id, failed: Wip.Failed): Unit
+      def jobDelivered(at: Tick, stationId: Id, processorId: Id, delivered: Wip.Unloaded[?]): Unit
       def jobScrapped(at: Tick, stationId: Id, processorId: Id, scrapped: Wip.Scrap): Unit
     end Listener // trait
 
@@ -341,7 +342,8 @@ with SubjectMixIn[LISTENER]:
       product <- wip.product
     } yield
       readyWipPool.remove(at, jobId)
-      ds.acceptMaterialRequest(at, stationId, id, product)).flatten
+      ds.acceptMaterialRequest(at, stationId, id, product)
+      doNotify{ _.jobDelivered(at, stationId, id, wip) })
 
 end OperationMixIn // trait
 

@@ -45,7 +45,7 @@ end Subject // trait
 trait SubjectMixIn[LISTENER <: Identified : Typeable] extends Subject[LISTENER]:
   val stationId: Id
 
-  private val listeners = collection.mutable.Map.empty[Id, Identified]
+  protected val listeners = collection.mutable.Map.empty[Id, Identified]
 
   override def listen[L >: LISTENER <: Identified](l: L): UnitResult =
     listeners += l.id -> l
