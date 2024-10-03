@@ -115,8 +115,8 @@ with SubjectMixIn[PushMachine.Environment.Listener]:
     def loadDischarged(at: Tick, stId: Id, discharge: Id, load: Material): Unit =
       // Nothing to do. The link will take it over the outbound transport
       doNotify(_.productDischarged(at, stationId, discharge, load))
-    def busyNotification(at: Tick, stId: Id, discharge: Id): Unit = ???  // For future to handle congestion
-    def availableNotification(at: Tick, stationId: Id, discharge: Id): Unit = ??? // For future to handle congestion
+    def busyNotification(at: Tick, stId: Id, discharge: Id): Unit = ()  // For future to handle congestion
+    def availableNotification(at: Tick, stationId: Id, discharge: Id): Unit = () // For future to handle congestion
   }
   outbound.listen(dischargeWatcher)
 

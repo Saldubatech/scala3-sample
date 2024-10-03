@@ -18,7 +18,7 @@
     <appender-ref ref="console" />
   </root>
 
-  <logger name="Clock.SequenceChart" level="info" additivity="false">
+  <logger name="Clock.SequenceChart" level="debug" additivity="false">
     <appender-ref ref="SEQUENCE"/>
   </logger>
 

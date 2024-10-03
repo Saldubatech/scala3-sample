@@ -7,5 +7,5 @@ import com.saldubatech.lang.Id
 import com.saldubatech.ddes.runtime.OAM
 
 trait SimulationComponent:
-    def initialize(ctx: ActorContext[OAM.InitRequest]): Map[Id, ActorRef[?]]
+    def initialize(ctx: ActorContext[OAM.InitRequest]): Seq[(Id, ActorRef[?])]
 end SimulationComponent // trait

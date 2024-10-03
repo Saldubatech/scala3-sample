@@ -2,7 +2,7 @@ package com.saldubatech.dcf.node.machine
 
 import com.saldubatech.test.BaseSpec
 import com.saldubatech.lang.Id
-import com.saldubatech.dcf.material.{Material, Wip}
+import com.saldubatech.dcf.material.{Material, Wip, WipPool, MaterialPool}
 import com.saldubatech.ddes.types.{Tick, Duration}
 import com.saldubatech.lang.types.{AppResult, UnitResult, AppSuccess, AppFail, AppError, collectAll}
 import com.saldubatech.dcf.job.{JobSpec, SimpleJobSpec}
@@ -106,8 +106,8 @@ class PushMachineSpec extends BaseSpec:
       TransportHarness.bindMockPhysics(inbound)
       TransportHarness.bindMockPhysics(outbound)
       val mockOpPhysics = ComponentHarness.MockOperationPhysics[ProbeInboundMaterial](engine, () => 1, () => 10, () => 100)
-      val readyPool = com.saldubatech.dcf.material.WipPool.InMemory[Wip.Unloaded[ProbeInboundMaterial]]()
-      val acceptedPool = com.saldubatech.dcf.material.MaterialPool.SimpleInMemory[Material]("UnderTest")
+      val readyPool = WipPool.InMemory[Wip.Unloaded[ProbeInboundMaterial]]()
+      val acceptedPool = MaterialPool.SimpleInMemory[Material]("UnderTest")
       val operation = OperationImpl[ProbeInboundMaterial, Operation.Environment.Listener]("operation", "UnderTest", 3, producer, mockOpPhysics, acceptedPool, readyPool, Some(obDischarge.asSink))
       mockOpPhysics.underTest = operation
       val underTest = PushMachineImpl[ProbeInboundMaterial]("machine", "UnderTest", ibInduct, obDischarge, operation)

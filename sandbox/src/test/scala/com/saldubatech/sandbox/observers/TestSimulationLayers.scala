@@ -74,7 +74,7 @@ object TestSimulationLayers:
           observer <- ZIO.service[RecordingObserver]
         } yield {
           new SimulationComponent {
-            def initialize(ctx: ActorContext[OAM.InitRequest]): Map[Id, ActorRef[?]] =
+            override def initialize(ctx: ActorContext[OAM.InitRequest]): Seq[(Id, ActorRef[?])] =
               val sinkEntry = sink.simulationComponent.initialize(ctx)
               val sourceEntry = source.simulationComponent.initialize(ctx)
               val observerEntry = observer.simulationComponent.initialize(ctx)
@@ -82,7 +82,6 @@ object TestSimulationLayers:
               observer.ref ! Observer.Initialize
 
               // Initialization needs to be done with the "tap" ref, so it is done in the "KickOff" stage.
-
               sinkEntry ++ sourceEntry ++ observerEntry
             }
           }
@@ -131,7 +130,7 @@ object TestSimulationLayers:
           // observerProbeRef <- ZIO.service[ActorRef[Observer.PROTOCOL]]
         } yield {
           new SimulationComponent {
-            def initialize(ctx: ActorContext[OAM.InitRequest]): Map[Id, ActorRef[?]] =
+            override def initialize(ctx: ActorContext[OAM.InitRequest]): Seq[(Id, ActorRef[?])] =
               val sinkEntry = sink.simulationComponent.initialize(ctx)
               val mm1Entry = mm1.simulationComponent.initialize(ctx)
               val sourceEntry = source.simulationComponent.initialize(ctx)

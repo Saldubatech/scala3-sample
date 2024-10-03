@@ -6,11 +6,32 @@
     </encoder>
   </appender>
 
+  <appender name="SEQUENCE" class="ch.qos.logback.core.FileAppender">
+    <file>target/test/sequence.log</file>
+    <encoder>
+      <!-- https://logback.qos.ch/manual/layouts.html -->
+      <pattern>\t %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <appender name="SEQUENCE_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <!-- https://logback.qos.ch/manual/layouts.html -->
+      <pattern>\t %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <logger name="Clock.SequenceChart" level="warn" additivity="false">
+    <appender-ref ref="SEQUENCE_CONSOLE"/>
+  </logger>
+
   <root level="error">
     <appender-ref ref="console" />
   </root>
   <logger name="slick.interop.zio" level="warn"/>
   <logger name="com.saldubatech" level="warn"/>
+  <logger name="com.saldubatech.ddes.runtime" level="info"/>
   <logger name="com.saldubatech.dcf" level="info"/>
+
 </configuration>
 

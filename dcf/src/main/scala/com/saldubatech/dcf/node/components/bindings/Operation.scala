@@ -9,6 +9,8 @@ import com.saldubatech.dcf.material.{Material, Wip}
 
 import com.saldubatech.dcf.node.components.{Operation as OperationComponent}
 
+import scala.reflect.Typeable
+
 object Operation:
   object API:
     object Signals:
@@ -42,16 +44,28 @@ object Operation:
     end ClientStubs // object
 
     object ServerAdaptors:
-      def physics[PRODUCT <: Material](target: OperationComponent.API.Physics[PRODUCT]): Tick => PartialFunction[Signals.Physics, UnitResult] = (at: Tick) =>
-        {
-          case Signals.LoadingFinalize(id, job) => ???
-          case Signals.LoadingFailed(id, job, request, cause) => ???
-          case Signals.CompleteFinalize(id, job) => ???
-          case Signals.CompleteFailed(id, job, request, cause) => ???
-          case Signals.UnloadingFinalize(id, job) => ???
-          case Signals.UnloadingFailed(id, job, wip, cause) => ???
-        }
 
+      private def wipInjector[PRODUCT <: Material : Typeable](w: Wip.Complete[?]): Option[Wip.Complete[PRODUCT]] =
+        w.product match
+          case None => Some(w.asInstanceOf[Wip.Complete[PRODUCT]])
+          case Some(p : PRODUCT) => Some(w.asInstanceOf[Wip.Complete[PRODUCT]])
+          case other => None
+
+      def physics[PRODUCT <: Material : Typeable](target: OperationComponent.API.Physics[PRODUCT]): Tick => PartialFunction[Signals.Physics, UnitResult] = (at: Tick) =>
+        {
+          case Signals.LoadingFinalize(id, job) => target.loadFinalize(at, job)
+          case Signals.LoadingFailed(id, job, request, cause) => target.loadFailed(at, job, request, cause)
+          case Signals.CompleteFinalize(id, job) => target.completeFinalize(at, job)
+          case Signals.CompleteFailed(id, job, request, cause) => target.completeFailed(at, job, request, cause)
+          case Signals.UnloadingFinalize(id, job) => target.unloadFinalize(at, job)
+          case Signals.UnloadingFailed(id, job, wip, cause) =>
+            wip match
+              case None => target.unloadFailed(at, job, None, cause)
+              case Some(w) =>
+                wipInjector[PRODUCT](w) match
+                  case None => AppFail.fail(s"Unrecognized Wip: $w")
+                  case wP => target.unloadFailed(at, job, wP, cause)
+        }
     end ServerAdaptors
   end API // object
 

@@ -97,7 +97,7 @@ object MM1Run extends ZIOAppDefault with LogEnabled:
           observer <- ZIO.service[Observer]
         } yield {
           new SimulationComponent {
-            def initialize(ctx: ActorContext[OAM.InitRequest]): Map[Id, ActorRef[?]] =
+            override def initialize(ctx: ActorContext[OAM.InitRequest]): Seq[(Id, ActorRef[?])] =
                 val sinkEntry = sink.simulationComponent.initialize(ctx)
                 val stationEntry = station.simulationComponent.initialize(ctx)
                 val sourceEntry = source.simulationComponent.initialize(ctx)
