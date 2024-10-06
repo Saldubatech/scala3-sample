@@ -9,6 +9,7 @@
     "DBRS",
     "Ddes",
     "deleter",
+    "Eaches",
     "figsize",
     "gridspec",
     "Hmmss",
@@ -187,5 +188,5 @@
     "-Xmx2G"
   ],
   "metals.suggestLatestUpgrade": true,
-  "metals.serverVersion": "1.3.5+143-e6110753-SNAPSHOT"
+  "metals.serverVersion": "1.3.5+144-f362c1c2-SNAPSHOT"
 }

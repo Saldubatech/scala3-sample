@@ -51,7 +51,7 @@ object Link:
         if (probability() > failureRate(at, card, load)) then
           // Ensures FIFO delivery
           latestDischargeTime = math.max(latestDischargeTime+minSlotDuration, at + successDuration(at, card, load))
-          host.transportFinalize(at, id, card, load.id)
+          host.transportFinalize(latestDischargeTime, id, card, load.id)
         else host.transportFail(at + failDuration(at, card, load), id, card, load.id, None)
     end Physics // class
 
@@ -78,19 +78,6 @@ extends Link[M]:
   private lazy val _origin = origin()
 
   private val _inTransit = collection.mutable.Map.empty[Id, M]
-
-  def backSignalProxy(upstream: Discharge.API.Downstream & Discharge.Identity): Discharge.API.Downstream & Discharge.Identity =
-    new Discharge.API.Downstream() with Discharge.Identity {
-      override val id: Id = upstream.id
-      override val stationId: Id = upstream.stationId
-      override def acknowledge(at: Tick, loadId: Id): UnitResult =
-        for {
-          _ <- link.acknowledge(at, loadId)
-          _ <- upstream.acknowledge(at, loadId)
-        } yield ()
-
-      override def restore(at: Tick, cards: List[Id]): UnitResult = upstream.restore(at, cards)
-    }
 
   def acknowledge(at: Tick, loadId: Id): UnitResult =
     for {
@@ -124,7 +111,6 @@ extends Link[M]:
     for {
       load <- Component.inStation(id, "InTransit Material")(_inTransit.get)(loadId)
       _ <- downstream.loadArriving(at, card, load)
-            .tapError{ _ => _inTransit += load.id -> load }
       acknowledgement <- acknowledge(at, loadId)
     } yield acknowledgement
 

@@ -103,6 +103,8 @@ with SubjectMixIn[LISTENER]:
   private val _cards = collection.mutable.Queue.empty[Id]
   private val _inTransit = collection.mutable.Map.empty[Id, M]
 
+  override def availableCards: List[Id] = _cards.toList
+
   override def addCards(at: Tick, cards: List[Id]): UnitResult =
     provisionedCards.addAll(cards)
     if _cards.isEmpty then
@@ -117,7 +119,9 @@ with SubjectMixIn[LISTENER]:
       doNotify{ _.busyNotification(at, stationId, id) }
     AppSuccess.unit
 
-  override def availableCards: List[Id] = _cards.toList
+  private val _lastAttemptFailed: Boolean = false
+  def  busy: Boolean =
+    _cards.isEmpty || _lastAttemptFailed
 
   // Members declared in com.saldubatech.dcf.node.components.transport.Discharge$.API$.Downstream
   override def restore(at: Tick, cards: List[Id]): UnitResult =
@@ -131,7 +135,10 @@ with SubjectMixIn[LISTENER]:
     AppSuccess.unit
 
   override def acknowledge(at: Tick, loadId: Id): UnitResult =
-    Component.inStation(id, s"InTransit Load")(_inTransit.remove)(loadId).unit
+    for {
+      load <- Component.inStation(id, s"InTransit Load")(_inTransit.remove)(loadId)
+    } yield _attemptDischarges(at)
+
 
   private val _discharging = collection.mutable.Map.empty[Id, M]
 
@@ -165,17 +172,31 @@ with SubjectMixIn[LISTENER]:
           case Some(c) => AppFail(c)
     }
 
+  private val readyQueue = collection.mutable.Queue.empty[(Id, M)]
+
+  private def _attemptDischarges(at: Tick): Unit =
+    while
+      readyQueue.nonEmpty &&
+      readyQueue.headOption.forall{
+        (card, load) =>
+          downstream.loadArriving(at, card, load).fold(
+            { err => false },
+            { _ =>
+              readyQueue.dequeue()
+              _inTransit += load.id -> load // to wait for an acknowledgement
+              doNotify(l => l.loadDischarged(at, stationId, id, load))
+              true
+            }
+          )
+      }
+    do ()
+
   override def dischargeFinalize(at: Tick, card: Id, loadId: Id): UnitResult =
     for {
       load <- Component.inStation(stationId, "Discharging")(_discharging.remove)(card)
-      rs <- downstream.loadArriving(at, card, load)
     } yield
-      _inTransit += loadId -> load
-      doNotify(
-        l =>
-          l.loadDischarged(at, stationId, id, load)
-      )
-      rs
+      readyQueue.enqueue(card -> load)
+      _attemptDischarges(at)
 
 end DischargeMixIn // trait
 

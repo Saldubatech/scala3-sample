@@ -24,12 +24,12 @@ import zio.test.{ZIOSpecDefault, assertTrue, assertCompletes}
 import org.apache.pekko.actor.testkit.typed.scaladsl.{ActorTestKit, FishingOutcomes}
 import com.saldubatech.dcf.node.ProbeInboundMaterial
 
-object SourceSinkStationSpec extends ZIOSpecDefault with LogEnabled with Matchers:
+object SourceSinkLinkCongestionSpec extends ZIOSpecDefault with LogEnabled with Matchers:
 
   case class Consumed(at: Tick, fromStation: Id, fromSource: Id, atStation: Id, atSink: Id, load: ProbeInboundMaterial)
 
   val nProbes = 10
-  val probes = (1 to nProbes).map{ idx => (idx*100).toLong -> ProbeInboundMaterial(s"<$idx>", idx)}.toSeq
+  val probes = (1 to nProbes).map{ idx => (idx*2).toLong -> ProbeInboundMaterial(s"<$idx>", idx)}.toSeq
 
   val sinkStation = "SINK_STATION"
   val sourceStation = "SOURCE_STATION"
@@ -41,8 +41,8 @@ object SourceSinkStationSpec extends ZIOSpecDefault with LogEnabled with Matcher
 
   val inductDelay: Duration = 10
   val dischargeDelay: Duration = 20
-  val transportDelay: Duration = 30
-  val tCapacity: Int = 1000
+  val transportDelay: Duration = 3000
+  val tCapacity: Int = 2
 
   class Consumer {
     val consumed = collection.mutable.ListBuffer.empty[Consumed]
@@ -133,4 +133,4 @@ object SourceSinkStationSpec extends ZIOSpecDefault with LogEnabled with Matcher
     )
   }
 
-end SourceSinkStationSpec // class
+end SourceSinkLinkCongestionSpec // object
