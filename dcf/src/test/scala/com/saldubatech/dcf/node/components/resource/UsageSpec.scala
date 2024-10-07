@@ -23,6 +23,14 @@ class UsageSpec extends AnyWordSpec {
         Usage.Busy should not be (Usage.FromBusy(1))
       }
     }
+    "Adding a Neutral Element" should {
+      "remain unchanged" in {
+        Usage.Idle + Usage.Increment.Defined(0) shouldBe Usage.Idle
+        Usage.Busy + Usage.Increment.Defined(0) shouldBe Usage.Busy
+        Usage.FromIdle(5) + Usage.Increment.Defined(0) shouldBe Usage.FromIdle(5)
+        Usage.FromBusy(5) + Usage.Increment.Defined(0) shouldBe Usage.FromBusy(5)
+      }
+    }
     "Unbounded" should {
       "add Defined Usage.Increment to Idle" in {
         // Usage.Idle + Usage.Increment.Defined(-5) shouldBe Usage.Idle

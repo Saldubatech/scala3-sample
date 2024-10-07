@@ -89,7 +89,7 @@ sealed trait Usage:
         if q == 0 then Busy
         else if q < cap then FromIdle(cap - q)
         else Idle
-      case Busy => FromIdle(cap)
+      case Busy => Busy
 
   def available(cap: Eaches): Eaches =
     normalize(cap) match
