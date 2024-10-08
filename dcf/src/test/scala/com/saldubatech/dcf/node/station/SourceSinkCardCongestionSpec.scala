@@ -24,11 +24,13 @@ import zio.test.{ZIOSpecDefault, assertTrue, assertCompletes}
 import org.apache.pekko.actor.testkit.typed.scaladsl.{ActorTestKit, FishingOutcomes}
 import com.saldubatech.dcf.node.ProbeInboundMaterial
 
-object SourceSinkStationSpec extends ZIOSpecDefault with LogEnabled with Matchers:
+object SourceSinkCardCongestionSpec extends ZIOSpecDefault with LogEnabled with Matchers:
 
   case class Consumed(at: Tick, fromStation: Id, fromSource: Id, atStation: Id, atSink: Id, load: ProbeInboundMaterial)
 
-  val nProbes = 10
+  val cards = (1 to 2).map{ _ => Id}.toList
+
+  val nProbes = 2*cards.size // just two batches
   val probeSeq = (1 to nProbes).map{ idx => (idx*40).toLong -> ProbeInboundMaterial(s"<$idx>", idx)}.toSeq
   val probeIt = probeSeq.iterator
   val probes = (at: Tick) => probeIt.nextOption()
@@ -39,11 +41,9 @@ object SourceSinkStationSpec extends ZIOSpecDefault with LogEnabled with Matcher
   val sinkId = "sink"
   val transportId = "transport"
 
-  val cards = (1 to nProbes+1).map{ _ => Id}.toList
-
   val inductDelay: Duration = 10
   val dischargeDelay: Duration = 20
-  val transportDelay: Duration = 30
+  val transportDelay: Duration = 3000
   val tCapacity: Int = 1000
 
   class Consumer {
@@ -124,10 +124,25 @@ object SourceSinkStationSpec extends ZIOSpecDefault with LogEnabled with Matcher
               found += 1
               c match
                 case Consumed(_, "SOURCE_STATION", "SOURCE_STATION::Discharge[transport]", "SINK_STATION", "SINK_STATION::LoadSink[sink]", _) =>
-                  if found == probeSeq.size then FishingOutcomes.complete else FishingOutcomes.continue
+                  if found == cards.size then FishingOutcomes.complete else FishingOutcomes.continue
                 case other => FishingOutcomes.fail(s"Found $other")
           }
-          assert(r.size == probeSeq.size)
+          assert(r.size == cards.size)
+          termProbe.expectNoMessage(300.millis)
+
+          simSupervisor.directRootSend(sink)(r.last.at+1, InductBinding.API.Signals.Restore(Id, Id, s"${sink.stationId}::Induct[$transportId]", Some(2)))(using 1.second)
+
+          found = 0
+          val r2 = termProbe.fishForMessage(10.second){
+            c =>
+              found += 1
+              c match
+                case Consumed(_, "SOURCE_STATION", "SOURCE_STATION::Discharge[transport]", "SINK_STATION", "SINK_STATION::LoadSink[sink]", _) =>
+                  if found == cards.size then FishingOutcomes.complete else FishingOutcomes.continue
+                case other => FishingOutcomes.fail(s"Found $other")
+          }
+          assert(r2.size == cards.size)
+          assert(r2.size + r.size == nProbes)
           termProbe.expectNoMessage(300.millis)
           fixture.shutdownTestKit()
           assertCompletes
@@ -135,4 +150,4 @@ object SourceSinkStationSpec extends ZIOSpecDefault with LogEnabled with Matcher
     )
   }
 
-end SourceSinkStationSpec // class
+end SourceSinkCardCongestionSpec // object

@@ -21,6 +21,9 @@ object Induct:
       sealed trait Physics extends DomainMessage
       case class InductionFail(override val id: Id, override val job: Id, card: Id, loadId: Id, cause: Option[AppError]) extends Physics
       case class InductionFinalize(override val id: Id, override val job: Id, card: Id, load: Id) extends Physics
+
+      sealed trait CongestionControl extends DomainMessage
+      case class Restore(override val id: Id, override val job: Id, forInductId: Id, nCards: Option[Int]) extends CongestionControl
     end Signals
 
     object ClientStubs:
@@ -33,6 +36,13 @@ object Induct:
           } yield
             from.env.schedule(target)(at, Signals.LoadArriving(Id, Id, from.name, via, card, load))
       end Upstream // class
+
+      class CongestionControl(from: => SimActor[?], target: SimActor[Signals.CongestionControl], forInductId: Id) extends InductComponent.API.CongestionControl:
+        override val id: Id = forInductId
+        def restoreOne(at: Tick): UnitResult = AppSuccess(from.env.schedule(target)(at, Signals.Restore(Id, Id, forInductId, Some(1))))
+        def restoreAll(at: Tick): UnitResult = AppSuccess(from.env.schedule(target)(at, Signals.Restore(Id, Id, forInductId, None)))
+        def restoreSome(at: Tick, nCards: Int): UnitResult = AppSuccess(from.env.schedule(target)(at, Signals.Restore(Id, Id, forInductId, Some(nCards))))
+      end CongestionControl // class
 
       class Physics(target: SimActor[Signals.Physics]) extends InductComponent.API.Physics:
         def inductionFail(at: Tick, card: Id, loadId: Id, cause: Option[AppError]): UnitResult =
@@ -49,6 +59,12 @@ object Induct:
         target: InductComponent.API.Upstream[M],
       ): Tick => PartialFunction[Signals.Upstream, UnitResult] = (at: Tick) => {
         case Signals.LoadArriving(id, job, fromStation, fromDischarge, card, load: M) => target.loadArriving(at, card, load)
+      }
+
+      def congestionControl(target: InductComponent.API.CongestionControl): Tick => PartialFunction[Signals.CongestionControl, UnitResult] = (at: Tick) => {
+        case Signals.Restore(_, _, inductId, None) if target.id == inductId => target.restoreAll(at)
+        case Signals.Restore(_, _, inductId, Some(1)) if target.id == inductId => target.restoreOne(at)
+        case Signals.Restore(_, _, inductId, Some(n)) if target.id == inductId => target.restoreSome(at, n)
       }
 
       def physics(target: InductComponent.API.Physics): Tick => PartialFunction[Signals.Physics, UnitResult] = (at: Tick) => {

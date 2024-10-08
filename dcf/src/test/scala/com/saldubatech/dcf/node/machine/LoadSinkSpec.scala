@@ -94,7 +94,7 @@ object LoadSinkSpec:
     }
     for {
       inductAndSink <-
-        val rs = LoadSinkImpl[M, LoadSink.Environment.Listener]("underTest", "InStation", Some(consumer.consume))
+        val rs = LoadSinkImpl[M, LoadSink.Environment.Listener]("underTest", "InStation", Some(consumer.consume), None)
         ibTransport.induct("TestHarness", ibInductAPIPhysics).map{ i =>
           rs.listening(i)
           i -> rs

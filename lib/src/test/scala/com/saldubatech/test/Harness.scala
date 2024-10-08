@@ -14,4 +14,4 @@ private def inspect[T](term: Expr[T])(using t: Type[T])(using Quotes): Expr[T] =
 
 inline def renderCode[T](inline term: T): String = ${ render('term) }
 private def render[T : Type](term: Expr[T])(using Quotes): Expr[String] =
-  Expr(s"##### Rendering <${term.show}>")
+  Expr(s"Rendering <${term.show}>")

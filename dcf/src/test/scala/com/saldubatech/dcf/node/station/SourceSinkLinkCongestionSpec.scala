@@ -84,7 +84,7 @@ object SourceSinkLinkCongestionSpec extends ZIOSpecDefault with LogEnabled with 
       cardRestoreFactory
     )
 
-  lazy val sink = SinkStation[ProbeInboundMaterial](sinkStation, Inbound(transport, (at, card, load) => inductDelay), Some(consumer.consume), clock)
+  lazy val sink = SinkStation[ProbeInboundMaterial](sinkStation, Inbound(transport, (at, card, load) => inductDelay), Some(consumer.consume), clock=clock)
   lazy val source = SourceStation[ProbeInboundMaterial](
     sourceStation,
     Outbound(
@@ -119,11 +119,6 @@ object SourceSinkLinkCongestionSpec extends ZIOSpecDefault with LogEnabled with 
           rootRs shouldBe OAM.AOK
           simSupervisor.directRootSend(source)(0, SourceBinding.API.Signals.Go(Id, Id, s"${source.stationId}::Source[source]"))(using 1.second)
           var found = 0
-          /*
-          List(
-          Consumed(3071,SOURCE_STATION,SOURCE_STATION::Discharge[transport],SINK_STATION,SINK_STATION::LoadSink[sink],ProbeInboundMaterial(<1>,1)),
-          Consumed(3151,SOURCE_STATION,SOURCE_STATION::Discharge[transport],SINK_STATION,SINK_STATION::LoadSink[sink],ProbeInboundMaterial(<2>,2)))
-           */
           val r = termProbe.fishForMessage(10.second){
             c =>
               found += 1

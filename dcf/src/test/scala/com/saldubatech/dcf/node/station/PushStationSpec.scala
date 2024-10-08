@@ -141,7 +141,7 @@ object PushStationSpec extends ZIOSpecDefault with LogEnabled with Matchers:
       (at, card, load) => OutboundTransport.inductDelay
       ),
     Some(consumer.consume),
-    clock
+    clock=clock
     )
   val process = ProcessConfiguration[ProbeInboundMaterial](
     maxConcurrentJobs=100,
@@ -186,16 +186,16 @@ object PushStationSpec extends ZIOSpecDefault with LogEnabled with Matchers:
         val simSupervisor = SimulationSupervisor("PushStationSpecSupervisor", clock, Some(config))
         val actorSystem = ActorSystem(simSupervisor.start, "PushStationSpec_ActorSystem")
         val fixture = ActorTestKit(actorSystem)
-
         val termProbe = fixture.createTestProbe[Consumed]()
         consumer.target = termProbe.ref
+
         for {
-          rootRs <-
-              OAM.kickAwake(using 1.second, actorSystem)
+          rootRs <- OAM.kickAwake(using 1.second, actorSystem)
         } yield
           rootRs shouldBe OAM.AOK
           simSupervisor.directRootSend(source)(0, SourceBinding.API.Signals.Go(Id, Id, s"${source.stationId}::Source[source]"))(using 1.second)
           var found = 0
+
           val r = termProbe.fishForMessage(5.second){
             c =>
               found += 1

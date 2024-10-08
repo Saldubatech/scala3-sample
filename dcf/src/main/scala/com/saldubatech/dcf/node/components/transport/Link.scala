@@ -20,6 +20,7 @@ object Link:
 
     trait Control[M <: Material]:
       def currentInTransit: List[M]
+      def currentInTransport: List[M]
     end Control // trait
 
     trait Physics:
@@ -86,7 +87,8 @@ extends Link[M]:
       _attemptDeliveries(at)
 
   // From API.Control
-  def currentInTransit: List[M] = inLink.toList.map{ _._2 } ++ _inTransit.values.toList
+  override def currentInTransport: List[M] = inLink.toList.map{ _._2 }
+  override def currentInTransit: List[M] = currentInTransport ++ _inTransit.values.toList
 
   private val inLink = collection.mutable.Map.empty[Id, M]
   // From API.Upstream

@@ -289,7 +289,8 @@ class TransportSpec extends BaseSpec:
       "The load is 'In Arrival' in the Induct" in {
         induct.value.cards.size shouldBe 0
         induct.value.contents.size shouldBe 0
-        underTest.link.value.currentInTransit.size shouldBe 0
+        underTest.link.value.currentInTransport.size shouldBe 0
+        underTest.link.value.currentInTransit.size shouldBe 1
       }
       "Have the load and card in the Induct" in {
         // Execute the induction

@@ -23,15 +23,20 @@ object Induct:
       def loadArriving(at: Tick, card: Id, load: M): UnitResult
     end Upstream
 
-    trait Control[M <: Material]:
+    /**
+      * These methods have "best effort" semantics in that they will restore as many cards as available in the induct
+      * up to the maximum defined by the method.
+      */
+    trait CongestionControl extends Identified:
+      def restoreOne(at: Tick): UnitResult
+      def restoreAll(at: Tick): UnitResult
+      def restoreSome(at: Tick, nCards: Int): UnitResult
+    end CongestionControl // trait
+    trait Control[M <: Material] extends CongestionControl:
 
       def contents: List[M]
       def available: List[M]
       def cards: List[Id]
-
-      def restoreOne(at: Tick): UnitResult
-      def restoreAll(at: Tick): UnitResult
-      def restoreSome(at: Tick, nCards: Int): UnitResult
 
       def delivery(binding: Sink.API.Upstream[M]): Deliverer
     end Control
@@ -155,13 +160,18 @@ with SubjectMixIn[LISTENER]:
   private val _cards = collection.mutable.Queue.empty[Id]
   override def cards: List[Id] = _cards.toList
   override def restoreAll(at: Tick): UnitResult =
-    origin.flatMap{ o => o.restore(at, _cards.dequeueAll( _ => true).toList) }
+    if _cards.nonEmpty then
+      origin.flatMap{ o => o.restore(at, _cards.dequeueAll( _ => true).toList) }
+    else AppSuccess.unit
 
   override def restoreOne(at: Tick): UnitResult =
-    origin.flatMap{ o => o.restore(at, List(_cards.dequeue())) }
+    if _cards.nonEmpty then
+      origin.flatMap{ o => o.restore(at, List(_cards.dequeue())) }
+    else AppSuccess.unit
 
   override def restoreSome(at: Tick, nCards: Int): UnitResult =
-    origin.flatMap{ o => o.restore(at, (0 to nCards).map(_ => _cards.dequeue()).toList) }
+    val toRestore: Int = math.min(nCards, _cards.size)
+    origin.flatMap{ o => o.restore(at, (1 to toRestore).map(_ => _cards.dequeue()).toList) }
 
   /*
     Management of available Loads, to be implemented by subclasses with different behaviors (e.g. FIFO, multiplicity, ...)

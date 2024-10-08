@@ -73,7 +73,7 @@ with SubjectMixIn[SourceMachine.Environment.Listener]:
       // Nothing to do. The link will take it over the outbound transport
       doNotify(_.loadInjected(at, stationId, id, discharge, load))
     def busyNotification(at: Tick, stId: Id, discharge: Id): Unit = source.pause(at) // this will happen when we run out of cards.
-    def availableNotification(at: Tick, stationId: Id, discharge: Id): Unit = source.resume(at) // For future to handle congestion
+    def availableNotification(at: Tick, stationId: Id, discharge: Id): Unit = source.resume(at)
   }.tap(outbound.listen)
 
 end SourceMachineImpl // class
