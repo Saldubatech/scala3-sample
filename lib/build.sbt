@@ -113,6 +113,7 @@ libraryDependencies ++= Seq(
   Dependencies.Pekko.test // Could be Needed to provide library support for testing for other projects.
 
 )
+excludeDependencies += ExclusionRule("org.apache.logging.log4j", "log4j-slf4j2-impl")
 publish / skip := false
 testFrameworks ++= Seq(new TestFramework("zio.test.sbt.ZTestFramework"))
 
