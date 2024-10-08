@@ -81,7 +81,7 @@ class SourceNotificationSpec extends BaseSpec {
       "upon retry still result in congestion" in {
         val rs = engine.runOne()
         rs shouldBe Symbol("isLeft")
-        rs.left.value.msg shouldBe "station::Source[source] is congested"
+        rs.left.value.msg shouldBe "Sink Congested"
         underTest.congested shouldBe true
         underTest.waiting.size shouldBe 1
         underTest.waiting.headOption shouldBe Some(plannedArrivals(2)._2)

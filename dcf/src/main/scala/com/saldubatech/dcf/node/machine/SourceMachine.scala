@@ -47,13 +47,15 @@ class SourceMachineImpl[M <: Material]
 (
   mId: Id,
   override val stationId: Id,
-  source: Source[M],
+  sourcePhysics: Source.Physics[M],
   outbound: Discharge.API.Upstream[M] & Discharge.API.Management[Discharge.Environment.Listener]
 )
 extends SourceMachine[M]
 with SubjectMixIn[SourceMachine.Environment.Listener]:
   selfMachine =>
   override val id: Id = s"$stationId::Source[$mId]"
+
+  val source: Source[M] = SourceImpl[M]("source", stationId, sourcePhysics, outbound.asSink)
 
   override def go(at: Tick): UnitResult = source.go(at)
 

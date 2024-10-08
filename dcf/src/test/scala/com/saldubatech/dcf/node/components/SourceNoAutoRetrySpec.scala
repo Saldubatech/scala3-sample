@@ -103,7 +103,7 @@ class SourceNoAutoRetrySpec extends BaseSpec {
         engine.pending.size shouldBe 1
         underTest.resume(1000)
         engine.pending.size shouldBe 1
-        engine.pending.head.size shouldBe 1
+        engine.pending.head.size shouldBe 2 // Last delivery & complete.
       }
     }
     "Congestion is cleared" should {

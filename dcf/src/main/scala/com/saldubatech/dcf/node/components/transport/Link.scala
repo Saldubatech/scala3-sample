@@ -82,41 +82,71 @@ extends Link[M]:
   def acknowledge(at: Tick, loadId: Id): UnitResult =
     for {
       load <- Component.inStation(id, "InTransitLoad")(_inTransit.remove)(loadId)
-    } yield ()
+    } yield
+      _attemptDeliveries(at)
 
   // From API.Control
-  def currentInTransit: List[M] = _inTransit.values.toList
+  def currentInTransit: List[M] = inLink.toList.map{ _._2 } ++ _inTransit.values.toList
+
+  private val inLink = collection.mutable.Map.empty[Id, M]
   // From API.Upstream
   override def canAccept(at: Tick, card: Id, load: M): AppResult[M] =
     maxCapacity match
       case None => AppSuccess(load)
       case Some(max) =>
-        if max > _inTransit.size then AppSuccess(load) else AppFail.fail(s"Transit Link[$id] is full")
+        if max > (inLink.size + _inTransit.size) then AppSuccess(load) else AppFail.fail(s"Transit Link[$id] is full")
 
   override def loadArriving(at: Tick, card: Id, load: M): UnitResult =
     for {
       allow <- canAccept(at, card, load)
-      o <- _origin
+//      o <- _origin
       rs <-
-        o.acknowledge(at, load.id)
-        _inTransit += load.id -> load
+//        o.acknowledge(at, load.id)
+        inLink += load.id -> load
         physics.transportCommand(at, id, card, load)
     } yield rs
 
   // From API.Physics
   override def transportFinalize(at: Tick, link: Id, card: Id, loadId: Id): UnitResult =
     for {
-      load <- Component.inStation(id, "InTransit Material")(_inTransit.get)(loadId)
-      _ <- downstream.loadArriving(at, card, load)
-    } yield ()
+      load <- Component.inStation(id, "InTransit Material")(inLink.remove)(loadId)
+    } yield
+      readyQueue.enqueue(card -> load)
+      _attemptDeliveries(at)
 
   override def transportFail(at: Tick, linkId: Id, card: Id, loadId: Id, cause: Option[AppError]): UnitResult =
     // This removes the load upon failure (e.g. it gets physically removed via an exit chute or something like that)
-    Component.inStation(id, "InTransit Material")(_inTransit.remove)(loadId).flatMap{
+    Component.inStation(id, "Delivering Material")(inLink.remove)(loadId).flatMap{
       arr =>
         cause match
           case None => AppFail.fail(s"Unknown Error Transporting in Link[$id] for Load[${loadId}] at $at")
           case Some(c) => AppFail(c)
     }
+
+  private val readyQueue = collection.mutable.Queue.empty[(Id, M)]
+
+  /* See Discharge._attemptDischarges. Opportunity to consolidate */
+  private def _attemptDeliveries(at: Tick): Unit =
+    while
+      readyQueue.nonEmpty &&
+      readyQueue.headOption.forall{
+        (card, load) =>
+          (for {
+            o <- _origin
+            ack <- o.acknowledge(at, load.id)
+            arrival <-
+              downstream.loadArriving(at, card, load)
+          } yield arrival).fold(
+              err => false,
+              {
+                _ =>
+                  readyQueue.dequeue()
+                  _inTransit += load.id -> load // to wait for an acknowledgement
+  //                doNotify(l => l.loadDischarged(at, stationId, id, load))
+                  true
+              }
+            )
+      }
+    do ()
 
 end LinkMixIn // trait

@@ -11,7 +11,6 @@ import com.saldubatech.dcf.node.{ProbeInboundMaterial, ProbeOutboundMaterial}
 
 import com.saldubatech.dcf.node.components.{Sink, Source, SourceImpl, Harness as ComponentsHarness}
 import com.saldubatech.dcf.node.components.transport.{Transport, TransportImpl, Discharge, Induct, Link}
-import com.saldubatech.dcf.node.machine.LoadSource
 
 import com.saldubatech.test.ddes.MockAsyncCallback
 import com.saldubatech.dcf.node.components.transport.{Harness as TransportHarness}
@@ -117,11 +116,9 @@ object SourceMachineSpec:
 
       val sourcePhysicsStub = ComponentsHarness.MockSourcePhysicsStub[M](engine)
       val sourcePhysics = Source.Physics(sourcePhysicsStub, arrivalGenerator)
-      val source: Source[M] = SourceImpl("source", "InStation", sourcePhysics, outDischarge.asSink)
-      sourcePhysicsStub.underTest = source
+      val sMachine = SourceMachineImpl[M]("sourceMachine", "InStation", sourcePhysics, outDischarge)
+      sourcePhysicsStub.underTest = sMachine.source
 
-      val sMachine = SourceMachineImpl[M]("sourceMachine", "InStation", source, outDischarge)
-      val ls = LoadSourceImpl[M, LoadSource.Environment.Listener]("underTest", "InStation", arrivalGenerator, outDischarge)
       (outBinding, sMachine, outInduct)
 
 

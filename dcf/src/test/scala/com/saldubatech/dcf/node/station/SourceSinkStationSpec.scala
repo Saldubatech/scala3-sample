@@ -9,7 +9,7 @@ import com.saldubatech.ddes.elements.{SimulationComponent, SimActor}
 import com.saldubatech.ddes.system.SimulationSupervisor
 import com.saldubatech.dcf.node.components.transport.{Transport, TransportImpl, Induct, Discharge, Link}
 import com.saldubatech.dcf.node.components.transport.bindings.{Induct as InductBinding, Discharge as DischargeBinding, DLink as LinkBinding}
-import com.saldubatech.dcf.node.machine.bindings.{LoadSource as LoadSourceBinding}
+import com.saldubatech.dcf.node.machine.bindings.{Source as SourceBinding}
 
 import com.saldubatech.dcf.node.station.configurations.{Inbound, Outbound}
 
@@ -117,7 +117,7 @@ object SourceSinkStationSpec extends ZIOSpecDefault with LogEnabled with Matcher
           rootRs <- OAM.kickAwake(using 1.second, actorSystem)
         } yield
           rootRs shouldBe OAM.AOK
-          simSupervisor.directRootSend(source)(0, LoadSourceBinding.API.Signals.Run(Id, Id))(using 1.second)
+          simSupervisor.directRootSend(source)(0, SourceBinding.API.Signals.Go(Id, Id, s"${source.stationId}::Source[source]"))(using 1.second)
           var found = 0
           val r = termProbe.fishForMessage(10.second){
             c =>

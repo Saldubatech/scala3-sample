@@ -224,7 +224,6 @@ with SubjectMixIn[LISTENER]:
         else
           AppFail.fail(s"Card[$card] is not in transit at Induct[$id]")
       _ <- arrivalStore.store(at, arrival)
-      _ <- o.acknowledge(at, loadId)
     } yield
       doNotify( l =>
         l.loadArrival(at, o.stationId, stationId, id, arrival.material)

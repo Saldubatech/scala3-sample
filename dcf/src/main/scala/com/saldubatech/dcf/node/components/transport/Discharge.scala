@@ -119,9 +119,7 @@ with SubjectMixIn[LISTENER]:
       doNotify{ _.busyNotification(at, stationId, id) }
     AppSuccess.unit
 
-  private val _lastAttemptFailed: Boolean = false
-  def  busy: Boolean =
-    _cards.isEmpty || _lastAttemptFailed
+  def  busy: Boolean = _cards.isEmpty
 
   // Members declared in com.saldubatech.dcf.node.components.transport.Discharge$.API$.Downstream
   override def restore(at: Tick, cards: List[Id]): UnitResult =
@@ -137,7 +135,8 @@ with SubjectMixIn[LISTENER]:
   override def acknowledge(at: Tick, loadId: Id): UnitResult =
     for {
       load <- Component.inStation(id, s"InTransit Load")(_inTransit.remove)(loadId)
-    } yield _attemptDischarges(at)
+    } yield
+      _attemptDischarges(at)
 
 
   private val _discharging = collection.mutable.Map.empty[Id, M]
@@ -172,6 +171,13 @@ with SubjectMixIn[LISTENER]:
           case Some(c) => AppFail(c)
     }
 
+  override def dischargeFinalize(at: Tick, card: Id, loadId: Id): UnitResult =
+    for {
+      load <- Component.inStation(stationId, "Discharging")(_discharging.remove)(card)
+    } yield
+      readyQueue.enqueue(card -> load)
+      _attemptDischarges(at)
+
   private val readyQueue = collection.mutable.Queue.empty[(Id, M)]
 
   private def _attemptDischarges(at: Tick): Unit =
@@ -190,14 +196,6 @@ with SubjectMixIn[LISTENER]:
           )
       }
     do ()
-
-  override def dischargeFinalize(at: Tick, card: Id, loadId: Id): UnitResult =
-    for {
-      load <- Component.inStation(stationId, "Discharging")(_discharging.remove)(card)
-    } yield
-      readyQueue.enqueue(card -> load)
-      _attemptDischarges(at)
-
 end DischargeMixIn // trait
 
 
