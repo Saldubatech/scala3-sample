@@ -189,5 +189,5 @@
     "-Xmx2G"
   ],
   "metals.suggestLatestUpgrade": true,
-  "metals.serverVersion": "1.3.5+144-f362c1c2-SNAPSHOT"
+  "metals.serverVersion": "1.3.5+145-48dcf967-SNAPSHOT"
 }

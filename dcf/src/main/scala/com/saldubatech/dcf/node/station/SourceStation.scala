@@ -31,11 +31,11 @@ object SourceStation:
     host: SourceStation[M],
     discharge: Discharge[M, LoadSource.API.Listener],
     link: Link[M],
-    gen: Seq[(Tick, M)]
+    arrivalGenerator: (currentTime: Tick) => Option[(Tick, M)]
   ) extends DomainProcessor[PROTOCOL]:
 
     private val implementation: LoadSource[M, ?] =
-      LoadSourceImpl[M, LoadSource.Environment.Listener]("source", host.stationId, gen, discharge)
+      LoadSourceImpl[M, LoadSource.Environment.Listener]("source", host.stationId, arrivalGenerator, discharge)
 
     private val listener = LoadSourceBinding.Environment.ClientStubs.Listener(host.name, host).tap{ l => implementation.listen(l) }
 
@@ -62,7 +62,7 @@ class SourceStation[M <: Material : Typeable]
 (
   val stationId: Id,
   outbound: => Outbound[M, LoadSource.API.Listener],
-  gen: Seq[(Tick, M)],
+  arrivalGenerator: (currentTime: Tick) => Option[(Tick, M)],
   clock: Clock
 ) extends SimActorBehavior[SourceStation.PROTOCOL](stationId, clock)
 with Subject:
@@ -76,7 +76,7 @@ with Subject:
     link <- outbound.transport.link
   } yield
     discharge.addCards(0, outbound.cards)
-    SourceStation.DP(this, discharge, link, gen)
+    SourceStation.DP(this, discharge, link, arrivalGenerator)
 
   override protected val domainProcessor: DomainProcessor[SourceStation.PROTOCOL] =
     maybeDP.fold(

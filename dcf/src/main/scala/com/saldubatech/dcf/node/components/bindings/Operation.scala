@@ -2,7 +2,6 @@ package com.saldubatech.dcf.node.components.bindings
 
 import com.saldubatech.lang.{Id, Identified}
 import com.saldubatech.lang.types._
-import com.saldubatech.math.randomvariables.Distributions.probability
 import com.saldubatech.ddes.types.{Tick, DomainMessage, Duration}
 import com.saldubatech.ddes.elements.SimActor
 import com.saldubatech.dcf.material.{Material, Wip}
@@ -72,9 +71,7 @@ object Operation:
   object Environment:
     object Signals:
       sealed trait Physics extends DomainMessage
-      case class LoadJobCommand(override val id: Id, override val job: Id, wip: Wip.New) extends Physics
-      case class startJobCommand(override val id: Id, override val job: Id, wip: Wip.InProgress) extends Physics
-      case class UnloadJobCommand(override val id: Id, override val job: Id) extends Physics
+
     end Signals // object
   end Environment // object
 

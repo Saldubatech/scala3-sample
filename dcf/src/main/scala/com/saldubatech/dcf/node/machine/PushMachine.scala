@@ -117,7 +117,6 @@ with SubjectMixIn[PushMachine.Environment.Listener]:
       doNotify(_.productDischarged(at, stationId, discharge, load))
     def busyNotification(at: Tick, stId: Id, discharge: Id): Unit = ()  // For future to handle congestion
     def availableNotification(at: Tick, stationId: Id, discharge: Id): Unit = () // For future to handle congestion
-  }
-  outbound.listen(dischargeWatcher)
+  }.tap(outbound.listen)
 
 end PushMachineImpl // class

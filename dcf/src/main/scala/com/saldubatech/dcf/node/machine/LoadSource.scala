@@ -42,31 +42,45 @@ trait LoadSource[M <: Material : Typeable, LISTENER <: LoadSource.Environment.Li
 extends LoadSource.Identity
 with LoadSource.API.Management[LISTENER]
 with LoadSource.API.Control
-with LoadSource.API.Listener
 with SubjectMixIn[LISTENER]:
-  val generator: Seq[(Tick, M)]
+  selfSource =>
+  val arrivalGenerator: (currentTime: Tick) => Option[(Tick, M)]
+  private var _complete: Boolean = false
+  private def markComplete: Unit = _complete = true
+  def complete: Boolean = _complete
+
   val outbound: Discharge.API.Upstream[M] & Discharge.API.Management[LoadSource.API.Listener]
 
-  private val it = generator.iterator
-  private var _busy = false
+  private class DischargeListener extends LoadSource.API.Listener() {
+    override val id = selfSource.id
+
+    private var _available = true
+
+    def markDischargeUnavailable = _available = false
+    def markDischargeAvailable = _available = true
+    def dischargeAvailable: Boolean = _available
+
+    override def loadDischarged(at: Tick, stationId: Id, discharge: Id, load: Material): Unit =
+      selfSource.doNotify{ l => l.loadArrival(at, stationId, id, load) }
+    override def busyNotification(at: Tick, stationId: Id, discharge: Id): Unit = markDischargeUnavailable
+    override def availableNotification(at: Tick, stationId: Id, discharge: Id): Unit =
+      markDischargeAvailable
+      runWhileAvailable(at)
+  }
+
+  private val dischargeMonitor = new DischargeListener().tap(outbound.listen)
 
   override def run(at: Tick): UnitResult =
-    if _busy then AppFail.fail(s"LoadSource Discharge is Busy")
-    if !it.hasNext then AppFail.fail(s"LoadSource: $id already processed all input")
-    else AppSuccess(while (it.hasNext && runOne(it.next()).isSuccess) do ())
+    if complete then AppFail.fail(s"Run already complete")
+    else AppSuccess(runWhileAvailable(at))
 
-
-  private def runOne(item: (Tick, M)): UnitResult =
-    outbound.discharge(item._1, item._2).tapError( _ => _busy = true )
-
-
-  override def loadDischarged(at: Tick, stationId: Id, discharge: Id, load: Material): Unit =
-    doNotify{ l => l.loadArrival(at, stationId, id, load) }
-
-  override def busyNotification(at: Tick, stationId: Id, discharge: Id): Unit = _busy = true
-  override def availableNotification(at: Tick, stationId: Id, discharge: Id): Unit =
-    _busy = false
-    run(at)
+  private def runWhileAvailable(at: Tick): Unit =
+    while !complete && dischargeMonitor.dischargeAvailable do
+      arrivalGenerator(at).fold(
+        markComplete
+      )(
+        (forTime, load) => outbound.discharge(forTime, load).tapError( _ => dischargeMonitor.markDischargeUnavailable )
+      )
 
 end LoadSource // trait
 
@@ -75,9 +89,8 @@ class LoadSourceImpl[M <: Material : Typeable, LISTENER <: LoadSource.Environmen
 (
   mId: Id,
   override val stationId: Id,
-  override val generator: Seq[(Tick, M)],
+  override val arrivalGenerator: (currentTime: Tick) => Option[(Tick, M)],
   override val outbound: Discharge.API.Upstream[M] & Discharge.API.Management[LoadSource.API.Listener]
 )
 extends LoadSource[M, LISTENER]:
   override val id = s"$stationId::LoadSource[$mId]"
-  outbound.listen(this)

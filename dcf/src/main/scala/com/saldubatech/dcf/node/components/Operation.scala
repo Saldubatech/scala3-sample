@@ -13,9 +13,8 @@ import scala.reflect.Typeable
 
 
 object Operation:
+  type Identity = Component.Identity
   object API:
-    trait Identity extends Identified:
-      val stationId: Id
 
     trait Upstream:
     end Upstream // trait
@@ -97,11 +96,11 @@ object Operation:
     processSuccessDuration: (at: Tick, wip: Wip.InProgress) => Duration,
     unloadingSuccessDuration: (at: Tick, wip: Wip.Complete[M]) => Duration,
     loadingFailureRate: (at: Tick, wip: Wip.New) => Double = (_, _) => 0.0,
-    loadingFailDuration: (at: Tick, wip: Wip.New) => Duration = (_, _) => 0,
-    processFailureRate: (at: Tick, wip: Wip.InProgress) => Double = (_, _) => 0,
-    processFailDuration: (at: Tick, wip: Wip.InProgress) => Duration = (_, _) => 0,
+    loadingFailDuration: (at: Tick, wip: Wip.New) => Duration = (_, _) => 0L,
+    processFailureRate: (at: Tick, wip: Wip.InProgress) => Double = (_, _) => 0.0,
+    processFailDuration: (at: Tick, wip: Wip.InProgress) => Duration = (_, _) => 0L,
     unloadingFailureRate: (at: Tick, wip: Wip.Complete[M]) => Double = (_, _ : Wip.Complete[M]) => 0.0,
-    unloadingFailDuration: (at: Tick, wip: Wip.Complete[M]) => Duration = (_, _ : Wip.Complete[M]) => 0
+    unloadingFailDuration: (at: Tick, wip: Wip.Complete[M]) => Duration = (_, _ : Wip.Complete[M]) => 0L
   )
   extends Environment.Physics[M]:
     override def loadJobCommand(at: Tick, wip: Wip.New): UnitResult =
@@ -126,7 +125,7 @@ end Operation // object
 
 trait Operation[M <: Material, LISTENER <: Operation.Environment.Listener]
 extends
-Operation.API.Identity
+Operation.Identity
 with Operation.API.Upstream
 with Operation.API.Control[M]
 with Operation.API.Management[LISTENER]

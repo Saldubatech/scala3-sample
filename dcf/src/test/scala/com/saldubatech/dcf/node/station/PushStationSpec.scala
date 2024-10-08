@@ -30,7 +30,10 @@ object PushStationSpec extends ZIOSpecDefault with LogEnabled with Matchers:
   case class Consumed(at: Tick, fromStation: Id, fromSource: Id, atStation: Id, atSink: Id, load: ProbeInboundMaterial)
 
   val nProbes = 10
-  val probes = (1 to nProbes).map{ idx => (idx*40).toLong -> ProbeInboundMaterial(s"<$idx>", idx)}.toSeq
+  val probeSeq = (1 to nProbes).map{ idx => (idx*40).toLong -> ProbeInboundMaterial(s"<$idx>", idx)}.toSeq
+  val probeIt = probeSeq.iterator
+  val probes = (at: Tick) => probeIt.nextOption()
+
 
   val pushStation = "PUSH_STATION"
   val sinkStation = "SINK_STATION"
@@ -196,13 +199,13 @@ object PushStationSpec extends ZIOSpecDefault with LogEnabled with Matchers:
           val r = termProbe.fishForMessage(5.second){
             c =>
               found += 1
-              log.info(s"Found $found out of ${probes.size}")
+              log.info(s"Found $found out of ${probeSeq.size}")
               c match
                 case Consumed(_, "PUSH_STATION", "PUSH_STATION::Discharge[outboundTransport]", "SINK_STATION", "SINK_STATION::LoadSink[sink]", _) =>
-                  if found == probes.size then FishingOutcomes.complete else FishingOutcomes.continue
+                  if found == probeSeq.size then FishingOutcomes.complete else FishingOutcomes.continue
                 case other => FishingOutcomes.fail(s"Found $other")
           }
-          assert(r.size == probes.size)
+          assert(r.size == probeSeq.size)
           termProbe.expectNoMessage(300.millis)
           fixture.shutdownTestKit()
           assertCompletes

@@ -82,9 +82,6 @@ extends Link[M]:
   def acknowledge(at: Tick, loadId: Id): UnitResult =
     for {
       load <- Component.inStation(id, "InTransitLoad")(_inTransit.remove)(loadId)
-      // acknowledgement <- upstream.acknowledge(at, loadId).tapError{
-      //   err => _inTransit += loadId -> load
-      // }
     } yield ()
 
   // From API.Control
@@ -111,8 +108,7 @@ extends Link[M]:
     for {
       load <- Component.inStation(id, "InTransit Material")(_inTransit.get)(loadId)
       _ <- downstream.loadArriving(at, card, load)
-      acknowledgement <- acknowledge(at, loadId)
-    } yield acknowledgement
+    } yield ()
 
   override def transportFail(at: Tick, linkId: Id, card: Id, loadId: Id, cause: Option[AppError]): UnitResult =
     // This removes the load upon failure (e.g. it gets physically removed via an exit chute or something like that)

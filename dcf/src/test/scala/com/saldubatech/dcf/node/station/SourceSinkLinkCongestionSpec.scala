@@ -29,7 +29,9 @@ object SourceSinkLinkCongestionSpec extends ZIOSpecDefault with LogEnabled with 
   case class Consumed(at: Tick, fromStation: Id, fromSource: Id, atStation: Id, atSink: Id, load: ProbeInboundMaterial)
 
   val nProbes = 10
-  val probes = (1 to nProbes).map{ idx => (idx*2).toLong -> ProbeInboundMaterial(s"<$idx>", idx)}.toSeq
+  val probeSeq = (1 to nProbes).map{ idx => (idx*40).toLong -> ProbeInboundMaterial(s"<$idx>", idx)}.toSeq
+  val probeIt = probeSeq.iterator
+  val probes = (at: Tick) => probeIt.nextOption()
 
   val sinkStation = "SINK_STATION"
   val sourceStation = "SOURCE_STATION"
@@ -122,10 +124,10 @@ object SourceSinkLinkCongestionSpec extends ZIOSpecDefault with LogEnabled with 
               found += 1
               c match
                 case Consumed(_, "SOURCE_STATION", "SOURCE_STATION::Discharge[transport]", "SINK_STATION", "SINK_STATION::LoadSink[sink]", _) =>
-                  if found == probes.size then FishingOutcomes.complete else FishingOutcomes.continue
+                  if found == probeSeq.size then FishingOutcomes.complete else FishingOutcomes.continue
                 case other => FishingOutcomes.fail(s"Found $other")
           }
-          assert(r.size == probes.size)
+          assert(r.size == probeSeq.size)
           termProbe.expectNoMessage(300.millis)
           fixture.shutdownTestKit()
           assertCompletes

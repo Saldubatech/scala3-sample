@@ -9,7 +9,7 @@ import com.saldubatech.dcf.job.{JobSpec, SimpleJobSpec}
 
 import com.saldubatech.dcf.node.{ProbeInboundMaterial, ProbeOutboundMaterial}
 
-import com.saldubatech.dcf.node.components.{Sink, Harness as ComponentsHarness}
+import com.saldubatech.dcf.node.components.{Sink, Source, SourceImpl, Harness as ComponentsHarness}
 import com.saldubatech.dcf.node.components.transport.{Transport, TransportImpl, Discharge, Induct, Link}
 import com.saldubatech.dcf.node.machine.LoadSource
 
@@ -20,10 +20,19 @@ import org.scalatest.matchers.should.Matchers._
 import scala.reflect.Typeable
 import scala.util.chaining.scalaUtilChainingOps
 
-object LoadSourceSpec:
-  import Harness._
+object SourceMachineSpec:
+//  import Harness._
+  val obDiscDelay = 2L
+  val obTranDelay = 20L
+  val obTranCapacity = 10
+  val obIndcDelay = 40L
+  val obCards = (0 to 4).map { _ => Id }.toList
 
-  class MockLoadSourceListener extends com.saldubatech.dcf.node.machine.LoadSource.Environment.Listener {
+  val probes = (0 to 9).map { idx =>
+    ProbeInboundMaterial(s"<$idx>", idx)
+  }
+
+  class MockSourceMachineListener extends SourceMachine.Environment.Listener {
     val called = collection.mutable.ListBuffer.empty[String]
     def last: String = called.lastOption.getOrElse("NONE")
     def calling(method: String, args: Any*): String =
@@ -37,16 +46,25 @@ object LoadSourceSpec:
     override val id: Id = "MockListener"
     override def loadArrival(at: Tick, atStation: Id, atInduct: Id, load: Material): Unit =
       call("loadArrival", at, atStation, atInduct, load)
+    override def loadInjected(at: Tick, stationId: Id, machine: Id, viaDischargeId: Id, load: Material): Unit =
+      call("loadInjected", at, stationId, machine, viaDischargeId, load)
+    override def completeNotification(at: Tick, stationId: Id, machine: Id): Unit =
+      call("completeNotification", at, stationId, machine)
   }
 
-  def buildLoadSourceUnderTest[M <: Material : Typeable](engine: MockAsyncCallback, loads: Seq[M]):
-    AppResult[(TransportHarness.MockSink[M], LoadSource[M, com.saldubatech.dcf.node.machine.LoadSource.Environment.Listener], Induct[M, Induct.Environment.Listener])] =
+  def buildSourceMachineUnderTest[M <: Material : Typeable](engine: MockAsyncCallback, loads: Seq[M]):
+    AppResult[(TransportHarness.MockSink[M], SourceMachine[M], Induct[M, Induct.Environment.Listener])] =
+
     def obDistPhysics(host: Discharge.API.Physics): Discharge.Environment.Physics[M] = TransportHarness.MockDischargePhysics[M](() => obDiscDelay, engine)
     def obTranPhysics(host: Link.API.Physics): Link.Environment.Physics[M] = TransportHarness.MockLinkPhysics[M](() => obTranDelay, engine)
     def obIndcPhysics(host: Induct.API.Physics): Induct.Environment.Physics[M] = TransportHarness.MockInductPhysics[M](() => obIndcDelay, engine)
     val inductUpstreamInjector: Induct[M, ?] => Induct.API.Upstream[M] = i => i
     val linkAcknowledgeFactory: Link[M] => Link.API.Downstream = l => new Link.API.Downstream {
-      override def acknowledge(at: Tick, loadId: Id): UnitResult = AppSuccess{ engine.add(at){ () => l.acknowledge(at, loadId) } }
+      override def acknowledge(at: Tick, loadId: Id): UnitResult =
+        AppSuccess( engine.add(at){ () =>
+          l.acknowledge(at, loadId)
+        }
+        )
     }
     val cardRestoreFactory: Discharge[M, Discharge.Environment.Listener] => Discharge.Identity & Discharge.API.Downstream = d =>
       TransportHarness.MockAckStub(d.id, d.stationId, d, engine)
@@ -62,6 +80,7 @@ object LoadSourceSpec:
       linkAcknowledgeFactory,
       cardRestoreFactory
     )
+
     def obDisAPIPhysics(): AppResult[Discharge.API.Physics] = outbound.discharge
     def obLnkAPIPhysics(): AppResult[Link.API.Physics] = outbound.link
     def obIndAPIPhysics(): AppResult[Induct.API.Physics] = outbound.induct
@@ -83,57 +102,74 @@ object LoadSourceSpec:
       def inductionFinalize(at: Tick, card: Id, loadId: Id): UnitResult =
         obIndAPIPhysics().map{ i => engine.add(at){ () => i.inductionFinalize(at, card, loadId) } }
     }
+
     val outBinding = TransportHarness.MockSink[M](outbound.id, "TERM")
     for {
       outInduct <- outbound.induct("Term", obInductAPIPhysics)
       outDischarge <- outbound.discharge("InStation", obLinkAPIPhysics, obDischargeAPIPhysics)
     } yield
+
       TransportHarness.bindMockPhysics(outbound)
       outDischarge.addCards(0, obCards)
-      val arrivalTimes = (1 to loads.size).map{ idx => (idx*10).toLong }
-      val loadIt = loads.zip(arrivalTimes).iterator
-      val arrivalGenerator: (currentTime: Tick) => Option[(Tick, M)] = (currentTime: Tick) => loadIt.nextOption().map{ (load, at) => at+currentTime -> load}
+      val interArrivalTimes = (1 to loads.size).map{ idx => (idx*100).toLong }
+      val loadIt = loads.zip(interArrivalTimes).iterator
+      val arrivalGenerator: (currentTime: Tick) => Option[(Tick, M)] = (currentTime: Tick) => loadIt.nextOption().map{ (l, t) => t -> l }
+
+      val sourcePhysicsStub = ComponentsHarness.MockSourcePhysicsStub[M](engine)
+      val sourcePhysics = Source.Physics(sourcePhysicsStub, arrivalGenerator)
+      val source: Source[M] = SourceImpl("source", "InStation", sourcePhysics, outDischarge.asSink)
+      sourcePhysicsStub.underTest = source
+
+      val sMachine = SourceMachineImpl[M]("sourceMachine", "InStation", source, outDischarge)
       val ls = LoadSourceImpl[M, LoadSource.Environment.Listener]("underTest", "InStation", arrivalGenerator, outDischarge)
-      (outBinding, ls, outInduct)
+      (outBinding, sMachine, outInduct)
 
 
-end LoadSourceSpec // object
+end SourceMachineSpec // object
 
-class LoadSourceSpec extends BaseSpec:
-  import Harness._
-  import LoadSourceSpec._
+class SourceMachineSpec extends BaseSpec:
+//  import Harness._
+  import SourceMachineSpec._
 
 
   "A Load Source" when {
     val engine = MockAsyncCallback()
-    val mockListener = MockLoadSourceListener()
-    val (endMockSink, underTest, outInduct) = buildLoadSourceUnderTest[ProbeInboundMaterial](engine, probes.take(obCards.size-1)).value
+    val mockListener = MockSourceMachineListener()
+    val loads = probes.take(obCards.size-1)
+    val (endMockSink, underTest, outInduct) = buildSourceMachineUnderTest[ProbeInboundMaterial](engine, loads).value
 
     underTest.listen(mockListener)
 
     "Given the command to run" should {
       "Generate as many as cards available in one run" in {
-        val rs = underTest.run(0)
+        val rs = underTest.go(0)
         rs shouldBe Symbol("isRight")
+        engine.pending.size shouldBe loads.size+1 // arrivals plus complete
       }
       "Send all to the provided induct once all the physics run" in {
         // Discharge Finalize
-        engine.run(None)
-        outInduct.contents shouldBe probes.take(obCards.size-1)
+        for {
+          idx <- (0 to loads.size-1)
+        } yield
+          engine.runOne() shouldBe Symbol("isRight") // arrival
+          engine.runOne() shouldBe Symbol("isRight") // injection
+          engine.runOne() shouldBe Symbol("isRight") // discharge
+          engine.runOne() shouldBe Symbol("isRight") // transport
+          engine.runOne() shouldBe Symbol("isRight") // acknowledge
+          engine.runOne() shouldBe Symbol("isRight") // Induct
+          if idx == 3 then engine.runOne() shouldBe Symbol("isRight") // generation complete
+          outInduct.contents.size shouldBe idx+1
       }
-      "Have notified all the arrivals" in {
-        mockListener.called.size shouldBe obCards.size-1
 
-        mockListener.called shouldBe probes.take(obCards.size-1).zipWithIndex.map{ (l, idx) =>
-          mockListener.calling("loadArrival", (idx*10+obDiscDelay).toLong, underTest.stationId, underTest.id, l)
-        }
+      "Have notified all the arrivals" in {
+        mockListener.called.size shouldBe (obCards.size-1)*2+1 // (1 arrival, 1 delivery)*n + 1 complete
       }
-      "Not allow a second run" in {
-        underTest.run(1) shouldBe Symbol("isLeft")
+      "Not allow a second run after completing" in {
+        underTest.go(1) shouldBe Symbol("isLeft")
       }
     }
   }
 
-end LoadSourceSpec // class
+end SourceMachineSpec // class
 
 
