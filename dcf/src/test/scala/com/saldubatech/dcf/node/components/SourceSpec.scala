@@ -35,7 +35,7 @@ class SourceNotificationSpec extends BaseSpec {
     mockPhysicsStub.underTest = underTest
     "just created with a defined arrival sequence" should {
       "report not complete" in {
-        underTest.complete shouldBe false
+        underTest.complete(0) shouldBe false
       }
       "not be congested" in {
         underTest.congested shouldBe false
@@ -73,8 +73,8 @@ class SourceNotificationSpec extends BaseSpec {
         rs.left.value.msg shouldBe "Sink Congested"
 
         underTest.congested shouldBe true
-        underTest.waiting.size shouldBe 1
-        underTest.waiting.headOption shouldBe Some(plannedArrivals(2)._2)
+        underTest.waiting(0).size shouldBe 1
+        underTest.waiting(0).headOption shouldBe Some(plannedArrivals(2)._2)
         engine.pending.size shouldBe 3 // retry scheduled
         engine.pending.head._1 shouldBe 612L
       }
@@ -83,8 +83,8 @@ class SourceNotificationSpec extends BaseSpec {
         rs shouldBe Symbol("isLeft")
         rs.left.value.msg shouldBe "Sink Congested"
         underTest.congested shouldBe true
-        underTest.waiting.size shouldBe 1
-        underTest.waiting.headOption shouldBe Some(plannedArrivals(2)._2)
+        underTest.waiting(0).size shouldBe 1
+        underTest.waiting(0).headOption shouldBe Some(plannedArrivals(2)._2)
         engine.pending.size shouldBe 3
         engine.pending.head._1 shouldBe 623L
       }
@@ -94,7 +94,7 @@ class SourceNotificationSpec extends BaseSpec {
         mockSink.clear
         engine.runOne() shouldBe Symbol("isRight")
         underTest.congested shouldBe false
-        underTest.waiting.size shouldBe 0
+        underTest.waiting(0).size shouldBe 0
         mockSink.acceptedMaterialRequests.size shouldBe 1
         mockSink.acceptedMaterialRequests.head shouldBe "acceptRequest(623, station, station::Source[source], ProbeInboundMaterial(<3>,3))"
       }

@@ -93,7 +93,7 @@ class SourceNoAutoRetrySpec extends BaseSpec {
       }
       "Receive the next one when there are no retries" in {
         engine.runOne() shouldBe Symbol("isRight")
-        underTest.waiting.size shouldBe 2
+        underTest.waiting(0).size shouldBe 2
         listener.arrivals.size shouldBe 4
         listener.deliveries.size shouldBe 2
         listener.congestions.size shouldBe 1

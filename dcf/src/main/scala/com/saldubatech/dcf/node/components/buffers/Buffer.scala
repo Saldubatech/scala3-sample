@@ -21,7 +21,7 @@ object Buffer:
 
   trait Bound[M] extends Unbound[M]:
     val capacity: Int
-    def canAccept(at: Tick, m: M): AppResult[M]
+    def canProvide(at: Tick, m: M): AppResult[M]
 
     final def remaining(at: Tick): Int = capacity - contents(at).size
     final def isBusy(at: Tick): Boolean = remaining(at) == 0
@@ -37,7 +37,7 @@ end Buffer // object
 
 trait Buffer[M] extends Identified:
   val id: Id = "Buffer"
-  def accept(at: Tick, m: M): UnitResult
+  def provide(at: Tick, m: M): UnitResult
 
   final def isIdle(at: Tick): Boolean = contents(at).isEmpty
   def isInUse(at: Tick): Boolean = !isIdle(at)

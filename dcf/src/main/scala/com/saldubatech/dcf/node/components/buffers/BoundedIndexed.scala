@@ -13,10 +13,10 @@ class BoundedIndexed[M <: Identified](
 extends Buffer.Bound[M] with Buffer.Indexed[M]:
   export base.{contents, available, consume, consumeWhileSuccess}
 
-  override def canAccept(at: Tick, m: M): AppResult[M] =
+  override def canProvide(at: Tick, m: M): AppResult[M] =
     if contents(at).size < capacity then AppSuccess(m)
     else AppFail.fail(s"$id is Full")
 
-  override def accept(at: Tick, m: M): UnitResult = canAccept(at, m).flatMap{ _m => base.accept(at, _m) }
+  override def provide(at: Tick, m: M): UnitResult = canProvide(at, m).flatMap{ _m => base.provide(at, _m) }
 
 end BoundedIndexed // class

@@ -4,9 +4,9 @@ import com.saldubatech.dcf.node.components.transport.bindings.Induct.API.ClientS
 
 import com.saldubatech.lang.{Id, Identified}
 import com.saldubatech.lang.types._
-import com.saldubatech.math.randomvariables.Distributions.probability
 import com.saldubatech.ddes.types.{Tick, Duration}
 import com.saldubatech.dcf.material.Material
+import com.saldubatech.dcf.node.components.buffers.FIFOBuffer
 
 object Source:
   type Identity = Component.Identity
@@ -19,7 +19,7 @@ object Source:
       def go(at: Tick): UnitResult
       def pause(at: Tick): UnitResult
       def resume(at: Tick): UnitResult
-      def complete: Boolean
+      def complete(at: Tick): Boolean
     end Control // trait
 
     type Management = Component.API.Management[Environment.Listener]
@@ -97,13 +97,15 @@ with SubjectMixIn[Source.Environment.Listener]:
   // From Source.API.Control
   private var _complete: Boolean = false
   private def markComplete: Unit = _complete = true
-  override def complete: Boolean = _complete && arrivalQueue.isEmpty
+  private val arrivalQueue2 = FIFOBuffer[M](s"ArrivalQueue[$id]")
+  private val arrivalQueue = collection.mutable.Queue.empty[M]
+
+  override def complete(at: Tick): Boolean = _complete && arrivalQueue2.isIdle(at)
 
   private var _congested: Boolean = false
   def congested: Boolean = _congested
-  private val arrivalQueue = collection.mutable.Queue.empty[M]
 
-  def waiting: List[M] = arrivalQueue.toList
+  def waiting(at: Tick): Iterable[M] = arrivalQueue2.contents(at)
 
   private var _paused: Boolean = false
   def paused = _paused
@@ -113,17 +115,15 @@ with SubjectMixIn[Source.Environment.Listener]:
 
   override def resume(at: Tick): UnitResult =
     _paused = false
-    tryDeliver(at)
+    triggerDelivery(at)
 
   override def go(at: Tick): UnitResult =
-    if complete then AppFail.fail(s"$id has already completed its run")
+    if complete(at) then AppFail.fail(s"$id has already completed its run")
     else physics.goCommand(at)
 
-  private def tryDeliver(at: Tick): UnitResult =
-    if arrivalQueue.isEmpty then
-      AppSuccess.unit // nothing to do.
-    else
-      physics.deliveryCommand(at, arrivalQueue.head)
+  private def triggerDelivery(forTime: Tick): UnitResult =
+    if arrivalQueue2.isIdle(forTime) then AppSuccess.unit // nothing to do.
+    else physics.deliveryCommand(forTime, arrivalQueue2.available(forTime).head)
 
   // From Source.API.Physics
   /**
@@ -135,25 +135,26 @@ with SubjectMixIn[Source.Environment.Listener]:
     */
   override def arrivalFinalize(atTime: Tick, load: M): UnitResult =
     doNotify(_.loadArrival(atTime, stationId, id, load))
-    arrivalQueue.enqueue(load)
-    tryDeliver(atTime)
+    arrivalQueue2.provide(atTime, load)
+    triggerDelivery(atTime) // try delivery as soon as there is an arrival
 
   override def deliveryFinalize(at: Tick, load: M): UnitResult =
     if paused then AppFail.fail(s"$id has been paused")
     else
       for {
         accepted <- outbound.acceptMaterialRequest(at, stationId, id, load).tapError{
-          err =>
+          err => // outbound does not accept delivery
             if !congested then
               _congested = true
-              doNotify(_.congestion(at, stationId, id, arrivalQueue.toList))
-            if autoRetry then tryDeliver(at+retryDelay())
+              doNotify(_.congestion(at, stationId, id, arrivalQueue2.contents(at).toList))
+            // if automated, it creates a retry for every failure
+            if autoRetry then triggerDelivery(at+retryDelay())
         }
         n <-
-          doNotify(_.loadDelivered(at, stationId, id, arrivalQueue.head))
+          doNotify(_.loadDelivered(at, stationId, id, arrivalQueue2.available(at).head))
           if congested then _congested = false
-          arrivalQueue.dequeue()
-          tryDeliver(at)
+          arrivalQueue2.consume(at)
+          triggerDelivery(at)
       } yield n
 
   override def completeFinalize(at: Tick): UnitResult =
