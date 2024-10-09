@@ -108,7 +108,7 @@ class PushMachineSpec extends BaseSpec:
       val mockOpPhysics = ComponentHarness.MockOperationPhysics[ProbeInboundMaterial](engine, () => 1, () => 10, () => 100)
       val readyPool = WipPool.InMemory[Wip.Unloaded[ProbeInboundMaterial]]()
       val acceptedPool = MaterialPool.SimpleInMemory[Material]("UnderTest")
-      val operation = OperationImpl[ProbeInboundMaterial, Operation.Environment.Listener]("operation", "UnderTest", 3, producer, mockOpPhysics, acceptedPool, readyPool, Some(obDischarge.asSink))
+      val operation = OperationImpl[ProbeInboundMaterial, Operation.Environment.Listener]("operation", "UnderTest", 3, 100, producer, mockOpPhysics, acceptedPool, readyPool, Some(obDischarge.asSink))
       mockOpPhysics.underTest = operation
       val underTest = PushMachineImpl[ProbeInboundMaterial]("machine", "UnderTest", ibInduct, obDischarge, operation)
       val deliverer = obInduct.delivery(mockSink)

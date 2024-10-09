@@ -20,6 +20,9 @@ object Operation:
     end Upstream // trait
 
     trait Control[PRODUCT <: Material]:
+      def pause(at: Tick): UnitResult
+      def resume(at: Tick): UnitResult
+
       def nJobsInProgress(at: Tick): Int
 
       def accepted(at: Tick, by: Option[Tick]): AppResult[List[Material]]
@@ -141,6 +144,7 @@ with SubjectMixIn[LISTENER]:
   operationSelf =>
 
   val maxConcurrentJobs: Int
+  val maxStagingSize: Int
   val physics: Operation.Environment.Physics[M]
   val produce: (Tick, Wip.InProgress) => AppResult[Option[M]]
 
@@ -334,15 +338,42 @@ with SubjectMixIn[LISTENER]:
   override def unloaded(at: Tick): AppResult[List[Wip.Unloaded[M]]] =
     AppSuccess(readyWipPool.contents(at))
 
-  override def deliver(at: Tick, jobId: Id): UnitResult =
-    fromOption(for {
+  private var _paused: Boolean = false
+  def paused = _paused
+  override def pause(at: Tick): UnitResult =
+    _paused = true
+    AppSuccess.unit
+
+  override def resume(at: Tick): UnitResult =
+    _paused = false
+    tryDeliver(at)
+
+  private val stagedQueue = collection.mutable.Queue.empty[Wip.Unloaded[M]]
+
+  private def tryDeliver(at: Tick): UnitResult =
+    if paused then AppFail.fail(s"Delivery is Paused")
+    if stagedQueue.isEmpty then AppSuccess.unit
+    else
+      val currentDelivery = (for {
       ds <- downstream
+      product <- stagedQueue.head.product
+    } yield
+        ds.acceptMaterialRequest(at, stationId, id, product).map{
+          _ =>
+            doNotify(_.jobDelivered(at, stationId, id, stagedQueue.dequeue()))
+        }).getOrElse(AppSuccess.unit) // the possible failures are if downstream is not defined or there is no product to deliver.
+      currentDelivery.flatMap{ _ => tryDeliver(at) }.fold(// return current if nested fails.
+        err => currentDelivery,
+        _ => AppSuccess.unit
+      )
+
+  override def deliver(at: Tick, jobId: Id): UnitResult =
+    (for {
       wip <- readyWipPool.contents(at, jobId)
-      product <- wip.product
     } yield
       readyWipPool.remove(at, jobId)
-      ds.acceptMaterialRequest(at, stationId, id, product)
-      doNotify{ _.jobDelivered(at, stationId, id, wip) })
+      stagedQueue.enqueue(wip)
+      tryDeliver(at)).getOrElse(AppFail.fail(s"No Unloaded Wip available at $at for $jobId in $id"))
 
 end OperationMixIn // trait
 
@@ -353,6 +384,7 @@ class OperationImpl[M <: Material, LISTENER <: Operation.Environment.Listener : 
   override val stationId: Id,
   // Members declared in com.saldubatech.dcf.node.components.OperationMixIn
   override val maxConcurrentJobs: Int,
+  override val maxStagingSize: Int,
   override val produce: (Tick, Wip.InProgress) => AppResult[Option[M]],
   override val physics: Operation.Environment.Physics[M],
   override protected val acceptedPool: MaterialPool[Material],

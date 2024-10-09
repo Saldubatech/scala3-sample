@@ -25,11 +25,14 @@ import zio.test.{ZIOSpecDefault, assertTrue, assertCompletes}
 import org.apache.pekko.actor.testkit.typed.scaladsl.{ActorTestKit, FishingOutcomes}
 import com.saldubatech.dcf.node.ProbeInboundMaterial
 
-object PushStationSpec extends ZIOSpecDefault with LogEnabled with Matchers:
+object PushStationCardCongestionSpec extends ZIOSpecDefault with LogEnabled with Matchers:
 
   case class Consumed(at: Tick, fromStation: Id, fromSource: Id, atStation: Id, atSink: Id, load: ProbeInboundMaterial)
 
-  val nProbes = 10
+  val pushStationCards = (1 to 2).map{ _ => Id}.toList
+  val nProbes: Int = pushStationCards.size*2
+  val sourceCards = (1 to nProbes+100).map{ _ => Id}.toList // No Constraint, simplify debugging
+
   val probeSeq = (1 to nProbes).map{ idx => (idx*40).toLong -> ProbeInboundMaterial(s"<$idx>", idx)}.toSeq
   val probeIt = probeSeq.iterator
   val probes = (at: Tick) => probeIt.nextOption()
@@ -43,7 +46,6 @@ object PushStationSpec extends ZIOSpecDefault with LogEnabled with Matchers:
   val transportInboundId = "inboundTransport"
   val transportOutboundId = "outboundTransport"
 
-  val cards = (1 to nProbes+100).map{ _ => Id}.toList
 
   class Consumer {
     val consumed = collection.mutable.ListBuffer.empty[Consumed]
@@ -158,7 +160,7 @@ object PushStationSpec extends ZIOSpecDefault with LogEnabled with Matchers:
     InboundTransport.transport,
     OutboundTransport.transport,
     process,
-    cards,
+    pushStationCards,
     clock
     )
   lazy val source = SourceStation[ProbeInboundMaterial](
@@ -167,7 +169,7 @@ object PushStationSpec extends ZIOSpecDefault with LogEnabled with Matchers:
       InboundTransport.transport,
       (at, card, load) => InboundTransport.dischargeDelay,
       (at, card, load) => InboundTransport.transportDelay,
-      cards
+      sourceCards
     ),
     probes,
     clock
@@ -195,18 +197,35 @@ object PushStationSpec extends ZIOSpecDefault with LogEnabled with Matchers:
         } yield
           rootRs shouldBe OAM.AOK
           simSupervisor.directRootSend(source)(0, SourceBinding.API.Signals.Go(Id, Id, s"${source.stationId}::Source[source]"))(using 1.second)
-          var found = 0
 
+          var found = 0
           val r = termProbe.fishForMessage(5.second){
             c =>
               found += 1
               log.info(s"Found $found out of ${probeSeq.size}")
               c match
                 case Consumed(_, "PUSH_STATION", "PUSH_STATION::Discharge[outboundTransport]", "SINK_STATION", "SINK_STATION::LoadSink[sink]", _) =>
-                  if found == probeSeq.size then FishingOutcomes.complete else FishingOutcomes.continue
+                  if found == pushStationCards.size then FishingOutcomes.complete else FishingOutcomes.continue
                 case other => FishingOutcomes.fail(s"Found $other")
           }
-          assert(r.size == probeSeq.size)
+          assert(r.size == pushStationCards.size)
+
+          termProbe.expectNoMessage(1000.millis)
+          simSupervisor.directRootSendNow(sink)(
+            InductBinding.API.Signals.Restore(Id, Id, s"${sink.stationId}::Induct[${OutboundTransport.transportId}]", Some(2))
+          )(using 1.second)
+
+          found = 0
+          val r2 = termProbe.fishForMessage(10.second){
+            c =>
+              found += 1
+              c match
+                case Consumed(_, "PUSH_STATION", "PUSH_STATION::Discharge[outboundTransport]", "SINK_STATION", "SINK_STATION::LoadSink[sink]", _) =>
+                  if found == pushStationCards.size then FishingOutcomes.complete else FishingOutcomes.continue
+                case other => FishingOutcomes.fail(s"Found $other")
+          }
+          assert(r2.size == pushStationCards.size)
+          assert(r2.size + r.size == nProbes)
           termProbe.expectNoMessage(300.millis)
           fixture.shutdownTestKit()
           assertCompletes
@@ -214,4 +233,4 @@ object PushStationSpec extends ZIOSpecDefault with LogEnabled with Matchers:
     )
   }
 
-end PushStationSpec // class
+end PushStationCardCongestionSpec // class

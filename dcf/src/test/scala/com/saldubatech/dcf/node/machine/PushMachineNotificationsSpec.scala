@@ -133,7 +133,7 @@ class PushMachineNotificationsSpec extends BaseSpec:
       val mockOpPhysics = ComponentHarness.MockOperationPhysics[ProbeInboundMaterial](engine, () => 1, () => 10, () => 100)
       val readyPool = com.saldubatech.dcf.material.WipPool.InMemory[Wip.Unloaded[ProbeInboundMaterial]]()
       val acceptedPool = com.saldubatech.dcf.material.MaterialPool.SimpleInMemory[Material]("UnderTest")
-      val operation = OperationImpl[ProbeInboundMaterial, Operation.Environment.Listener]("operation", "UnderTest", 3, producer, mockOpPhysics, acceptedPool, readyPool, Some(obDischarge.asSink))
+      val operation = OperationImpl[ProbeInboundMaterial, Operation.Environment.Listener]("operation", "UnderTest", 3, 100, producer, mockOpPhysics, acceptedPool, readyPool, Some(obDischarge.asSink))
       mockOpPhysics.underTest = operation
       val underTest = PushMachineImpl[ProbeInboundMaterial]("machine", "UnderTest", ibInduct, obDischarge, operation)
       underTest.listen(harnessListener)

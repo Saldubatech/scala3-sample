@@ -74,8 +74,7 @@ with SubjectMixIn[PushMachine.Environment.Listener]:
 
     def loadDelivered(at: Tick, fromStation: Id, atStation: Id, fromInduct: Id, toSink: Id, load: Material): Unit = ()
     // do nothing, it will be picked up at the loadAccepted of the operation
-  }
-  inbound.listen(inductWatcher)
+  }.tap{inbound.listen}
 
   private val opWatcher = new Operation.Environment.Listener {
     override val id: Id = s"${id}::OpWatcher"
@@ -107,16 +106,15 @@ with SubjectMixIn[PushMachine.Environment.Listener]:
       ()
     override def jobFailed(at: Tick, stationId: Id, processorId: Id, failed: Wip.Failed): Unit = ???
     override def jobScrapped(at: Tick, stationId: Id, processorId: Id, scrapped: Wip.Scrap): Unit = ???
-  }
-  operation.listen(opWatcher)
+  }.tap{operation.listen}
 
   private val dischargeWatcher = new Discharge.Environment.Listener {
     override val id: Id = s"${id}::DischargeWatcher"
     def loadDischarged(at: Tick, stId: Id, discharge: Id, load: Material): Unit =
       // Nothing to do. The link will take it over the outbound transport
       doNotify(_.productDischarged(at, stationId, discharge, load))
-    def busyNotification(at: Tick, stId: Id, discharge: Id): Unit = ()  // For future to handle congestion
-    def availableNotification(at: Tick, stationId: Id, discharge: Id): Unit = () // For future to handle congestion
+    def busyNotification(at: Tick, stId: Id, discharge: Id): Unit = operation.pause(at)  // For future to handle congestion
+    def availableNotification(at: Tick, stationId: Id, discharge: Id): Unit = operation.resume(at) // For future to handle congestion
   }.tap(outbound.listen)
 
 end PushMachineImpl // class

@@ -53,7 +53,7 @@ class OperationNotificationSpec extends BaseSpec:
     val mockSink = Harness.MockSink[ProbeInboundMaterial, Sink.Environment.Listener]("sink", "Downstream")
     val readyPool = com.saldubatech.dcf.material.WipPool.InMemory[Wip.Unloaded[ProbeInboundMaterial]]()
     val acceptedPool = com.saldubatech.dcf.material.MaterialPool.SimpleInMemory[Material]("UnderTest")
-    val underTest = OperationImpl[ProbeInboundMaterial, Operation.Environment.Listener]("operation", "UnderTest", 3, producer, mockPhysics, acceptedPool, readyPool, Some(mockSink))
+    val underTest = OperationImpl[ProbeInboundMaterial, Operation.Environment.Listener]("operation", "UnderTest", 3, 100, producer, mockPhysics, acceptedPool, readyPool, Some(mockSink))
     mockPhysics.underTest = underTest
     val harnessListener = Listener()
     underTest.listen(harnessListener)
@@ -88,7 +88,7 @@ class OperationNotificationSpec extends BaseSpec:
     val mockSink = Harness.MockSink[ProbeInboundMaterial, Sink.Environment.Listener]("sink", "Downstream")
     val readyPool = com.saldubatech.dcf.material.WipPool.InMemory[Wip.Unloaded[ProbeInboundMaterial]]()
     val acceptedPool = com.saldubatech.dcf.material.MaterialPool.SimpleInMemory[Material]("UnderTest")
-    val underTest = OperationImpl[ProbeInboundMaterial, Operation.Environment.Listener]("operation", "UnderTest", 3, producer, mockPhysics, acceptedPool, readyPool, Some(mockSink))
+    val underTest = OperationImpl[ProbeInboundMaterial, Operation.Environment.Listener]("operation", "UnderTest", 3, 100, producer, mockPhysics, acceptedPool, readyPool, Some(mockSink))
     val harnessListener = Listener()
     underTest.listen(harnessListener)
     mockPhysics.underTest = underTest

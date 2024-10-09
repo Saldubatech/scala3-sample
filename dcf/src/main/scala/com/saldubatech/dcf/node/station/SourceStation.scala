@@ -46,7 +46,7 @@ object SourceStation:
 
     private val controlAdaptor = SourceMachineBinding.API.ServerAdaptors.control(implementation)
     private val sourceAdaptor = SourceBindings.API.ServerAdaptors.physics(implementation.source, implementation.source.id)
-    private val dischargeDAdaptor = DischargeBinding.API.ServerAdaptors.downstream(discharge)
+    private val dischargeDAdaptor = DischargeBinding.API.ServerAdaptors.downstream(discharge, discharge.id)
     private val dPhysicsAdaptor = DischargeBinding.API.ServerAdaptors.physics(discharge)
     private val lPhysicsAdaptor = LinkBinding.API.ServerAdaptors.physics(link)
     private val linkArrivalAdaptor = LinkBinding.API.ServerAdaptors.upstream[M](link)
