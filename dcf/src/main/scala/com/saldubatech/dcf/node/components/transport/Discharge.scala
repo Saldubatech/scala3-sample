@@ -7,6 +7,7 @@ import com.saldubatech.util.stack
 import com.saldubatech.ddes.types.{Tick, Duration}
 import com.saldubatech.dcf.material.Material
 import com.saldubatech.dcf.node.components.{Subject, SubjectMixIn, Component, Sink}
+import com.saldubatech.dcf.node.components.buffers.RandomIndexed
 
 import scala.reflect.Typeable
 
@@ -101,7 +102,7 @@ with SubjectMixIn[LISTENER]:
 
   private val provisionedCards = collection.mutable.Set.empty[Id]
   private val _cards = collection.mutable.Queue.empty[Id]
-  private val _inTransit = collection.mutable.Map.empty[Id, M]
+  private val _delivered = RandomIndexed[M]("DeliveredBuffer")
 
   override def availableCards: List[Id] = _cards.toList
 
@@ -133,11 +134,7 @@ with SubjectMixIn[LISTENER]:
     AppSuccess.unit
 
   override def acknowledge(at: Tick, loadId: Id): UnitResult =
-    for {
-      load <- Component.inStation(id, s"InTransit Load")(_inTransit.remove)(loadId)
-    } yield
-      _attemptDischarges(at)
-
+    _delivered.consume(at, loadId).map{ _ => _attemptDischarges(at) }
 
   private val _discharging = collection.mutable.Map.empty[Id, M]
 
@@ -189,7 +186,7 @@ with SubjectMixIn[LISTENER]:
             { err => false },
             { _ =>
               readyQueue.dequeue()
-              _inTransit += load.id -> load // to wait for an acknowledgement
+              _delivered.provide(at, load) // to wait for an acknowledgement
               doNotify(l => l.loadDischarged(at, stationId, id, load))
               true
             }

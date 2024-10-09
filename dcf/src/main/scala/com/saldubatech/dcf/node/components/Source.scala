@@ -98,7 +98,6 @@ with SubjectMixIn[Source.Environment.Listener]:
   private var _complete: Boolean = false
   private def markComplete: Unit = _complete = true
   private val arrivalQueue2 = FIFOBuffer[M](s"ArrivalQueue[$id]")
-  private val arrivalQueue = collection.mutable.Queue.empty[M]
 
   override def complete(at: Tick): Boolean = _complete && arrivalQueue2.isIdle(at)
 

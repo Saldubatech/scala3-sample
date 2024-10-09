@@ -1,13 +1,13 @@
 package com.saldubatech.dcf.material
 
-import com.saldubatech.lang.Id
+import com.saldubatech.lang.{Id, Identified}
 
-trait Material:
-  val id: Id
+trait Material extends Identified:
+end Material // trait
 
 case class SimpleEach(override val id: Id) extends Material
 
-trait Composite extends Material: 
+trait Composite extends Material:
   val contents: List[Material]
 
 
