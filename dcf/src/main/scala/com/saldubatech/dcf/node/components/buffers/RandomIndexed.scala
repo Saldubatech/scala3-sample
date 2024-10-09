@@ -33,7 +33,11 @@ extends Buffer.Unbound[M] with Buffer.Indexed[M]:
     check( _contents.headOption.flatMap{ (id, m) => _remove(m) })
   override def consume(at: Tick, m: M): AppResult[M] = check(_remove(m))
 
-  override def consumeWhileSuccess(at: Tick, f: (at: Tick, e: M) => UnitResult): AppResult[Iterable[M]] =
+  override def consumeWhileSuccess(
+    at: Tick,
+    f: (at: Tick, e: M) => UnitResult,
+    onSuccess: (at: Tick, e: M) => Unit
+    ): AppResult[Iterable[M]] =
     val rs = for {
       (id, e) <- _contents
     } yield
@@ -41,6 +45,7 @@ extends Buffer.Unbound[M] with Buffer.Indexed[M]:
         rs <- f(at, e)
       } yield
         _remove(e)
+        onSuccess(at, e)
         e
     rs.collectAny
 

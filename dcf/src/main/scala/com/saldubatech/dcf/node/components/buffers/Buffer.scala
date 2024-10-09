@@ -52,7 +52,10 @@ trait Buffer[M] extends Identified:
   def consume(at: Tick): AppResult[M]
   def consume(at: Tick, m: M): AppResult[M]
 
-  def consumeWhileSuccess(at: Tick, f: (at: Tick, e: M) => UnitResult): AppResult[Iterable[M]]
+  def consumeWhileSuccess(
+    at: Tick,
+    f: (at: Tick, e: M) => UnitResult,
+    onSuccess: (at: Tick, e: M) => Unit): AppResult[Iterable[M]]
 
   final protected def check(o: Option[M]): AppResult[M] =
     o match

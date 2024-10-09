@@ -25,14 +25,18 @@ class LIFOBuffer[M](override val id: Id = "LIFOBuffer") extends Buffer.Unbound[M
   override def consume(at: Tick, m: M): AppResult[M] =
     check(_contents.headOption.filter{ h => h == m }.map{ _ => _contents.pop })
 
-  override def consumeWhileSuccess(at: Tick, f: (at: Tick, e: M) => UnitResult):
-    AppResult[Iterable[M]] =
+  override def consumeWhileSuccess(
+    at: Tick,
+    f: (at: Tick, e: M) => UnitResult,
+    onSuccess: (at: Tick, e: M) => Unit
+    ): AppResult[Iterable[M]] =
     _contents.headOption.map{ h =>
       for {
         rs <- f(at, h)
       } yield
         _contents.pop
-        consumeWhileSuccess(at, f).fold(
+        onSuccess(at, h)
+        consumeWhileSuccess(at, f, onSuccess).fold(
           err => Seq(h),
           sr => Seq(h) ++ sr
         )

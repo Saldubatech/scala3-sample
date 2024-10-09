@@ -20,7 +20,11 @@ extends Buffer.Unbound[M]:
       case -1 => AppFail.fail(s"Element not Found in $id")
       case idx => AppSuccess(_contents.remove(idx))
 
-  override def consumeWhileSuccess(at: Tick, f: (at: Tick, e: M) => UnitResult): AppResult[Iterable[M]] =
+  override def consumeWhileSuccess(
+    at: Tick,
+    f: (at: Tick, e: M) => UnitResult,
+    onSuccess: (at: Tick, e: M) => Unit
+    ): AppResult[Iterable[M]] =
     (for {
       e <- _contents
     } yield
@@ -28,6 +32,7 @@ extends Buffer.Unbound[M]:
         rs <- f(at, e)
       } yield
         _contents -= e
+        onSuccess(at, e)
         e).collectAny
 
 end RandomAccess // class
