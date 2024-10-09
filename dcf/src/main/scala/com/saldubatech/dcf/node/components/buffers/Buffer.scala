@@ -3,7 +3,7 @@ package com.saldubatech.dcf.node.components.buffers
 import com.saldubatech.lang.{Id, Identified}
 import com.saldubatech.ddes.types.Tick
 import com.saldubatech.lang.types.*
-import org.scalafmt.config.Indents.RelativeToLhs.`match`
+import com.saldubatech.dcf.resource.UsageState
 
 object Buffer:
   trait Unbound[M] extends Buffer[M]:
@@ -20,7 +20,17 @@ object Buffer:
   end Indexed // trait
 
   trait Bound[M] extends Unbound[M]:
+    val capacity: Int
     def canAccept(at: Tick, m: M): AppResult[M]
+
+    final def remaining(at: Tick): Int = capacity - contents(at).size
+    final def isBusy(at: Tick): Boolean = remaining(at) == 0
+    final override def isInUse(at: Tick): Boolean = !isIdle(at) && !isBusy(at)
+    final override def status(at: Tick): UsageState =
+      if isIdle(at) then UsageState.IDLE
+      else if isInUse(at) then UsageState.IN_USE
+      else UsageState.BUSY
+
   end Bound // trait
 
 end Buffer // object
@@ -28,6 +38,12 @@ end Buffer // object
 trait Buffer[M] extends Identified:
   val id: Id = "Buffer"
   def accept(at: Tick, m: M): UnitResult
+
+  final def isIdle(at: Tick): Boolean = contents(at).isEmpty
+  def isInUse(at: Tick): Boolean = !isIdle(at)
+  def status(at: Tick): UsageState =
+    if isIdle(at) then UsageState.IDLE
+    else UsageState.IDLE
 
   def contents(at: Tick): Iterable[M]
   def contents(at: Tick, m: M): Iterable[M]

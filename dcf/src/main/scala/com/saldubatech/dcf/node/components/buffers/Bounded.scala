@@ -6,14 +6,14 @@ import com.saldubatech.lang.types.*
 
 class Bounded[M](
   base: Buffer.Unbound[M],
-  capacity: Int
+  override val capacity: Int
 )(
   override val id: Id = s"Bounded[${base.id}]"
 )
-extends Buffer.Unbound[M]:
+extends Buffer.Bound[M]:
   export base.{contents, available, consume, consumeWhileSuccess}
 
-  def canAccept(at: Tick, m: M): AppResult[M] =
+  override def canAccept(at: Tick, m: M): AppResult[M] =
     if contents(at).size < capacity then AppSuccess(m)
     else AppFail.fail(s"$id is Full")
 
