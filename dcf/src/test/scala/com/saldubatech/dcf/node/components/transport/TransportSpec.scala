@@ -280,7 +280,7 @@ class TransportSpec extends BaseSpec:
         engine.runOne()
         engine.pending.size shouldBe 1
         engine.pending(dischargeDelay+transportDelay).size shouldBe 1
-        underTest.link.value.currentInTransit.size shouldBe 1
+        underTest.link.value.inTransit(0).size shouldBe 1
         // Execute the transport
         engine.runOne()
         engine.pending.size shouldBe 2
@@ -289,8 +289,8 @@ class TransportSpec extends BaseSpec:
       "The load is 'In Arrival' in the Induct" in {
         induct.value.cards.size shouldBe 0
         induct.value.contents.size shouldBe 0
-        underTest.link.value.currentInTransport.size shouldBe 0
-        underTest.link.value.currentInTransit.size shouldBe 1
+        underTest.link.value.inTransport(0).size shouldBe 0
+        underTest.link.value.inTransit(0).size shouldBe 1
       }
       "Have the load and card in the Induct" in {
         // Execute the induction
@@ -298,7 +298,7 @@ class TransportSpec extends BaseSpec:
         induct.value.cards.size shouldBe 1
         induct.value.cards.head shouldBe cards.head
         induct.value.contents.size shouldBe 1
-        underTest.link.value.currentInTransit.size shouldBe 0
+        underTest.link.value.inTransit(0).size shouldBe 0
       }
       "Be able to deliver the received load to a provided sink" in {
         val currentTime = dischargeDelay+transportDelay+inductDelay

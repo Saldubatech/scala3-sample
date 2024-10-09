@@ -6,6 +6,7 @@ import com.saldubatech.math.randomvariables.Distributions.probability
 import com.saldubatech.ddes.types.{Tick, Duration}
 import com.saldubatech.dcf.material.Material
 import com.saldubatech.dcf.node.components.{Sink, Component}
+import com.saldubatech.dcf.node.components.buffers.RandomIndexed
 
 
 object Link:
@@ -19,8 +20,8 @@ object Link:
     end Downstream
 
     trait Control[M <: Material]:
-      def currentInTransit: List[M]
-      def currentInTransport: List[M]
+      def inTransit(at: Tick): List[M]
+      def inTransport(at: Tick): List[M]
     end Control // trait
 
     trait Physics:
@@ -78,17 +79,14 @@ extends Link[M]:
 
   private lazy val _origin = origin()
 
-  private val _inTransit = collection.mutable.Map.empty[Id, M]
+  private val _delivered = RandomIndexed[M]("DeliveredLoads")
 
   def acknowledge(at: Tick, loadId: Id): UnitResult =
-    for {
-      load <- Component.inStation(id, "InTransitLoad")(_inTransit.remove)(loadId)
-    } yield
-      _attemptDeliveries(at)
+    _delivered.consume(at, loadId).map{ _ => _attemptDeliveries(at) }
 
   // From API.Control
-  override def currentInTransport: List[M] = inLink.toList.map{ _._2 }
-  override def currentInTransit: List[M] = currentInTransport ++ _inTransit.values.toList
+  override def inTransport(at: Tick): List[M] = inLink.toList.map{ _._2 }
+  override def inTransit(at: Tick): List[M] = inTransport(at) ++ _delivered.contents(at)
 
   private val inLink = collection.mutable.Map.empty[Id, M]
   // From API.Upstream
@@ -96,7 +94,7 @@ extends Link[M]:
     maxCapacity match
       case None => AppSuccess(load)
       case Some(max) =>
-        if max > (inLink.size + _inTransit.size) then AppSuccess(load) else AppFail.fail(s"Transit Link[$id] is full")
+        if max > (inLink.size + _delivered.contents(at).size) then AppSuccess(load) else AppFail.fail(s"Transit Link[$id] is full")
 
   override def loadArriving(at: Tick, card: Id, load: M): UnitResult =
     for {
@@ -143,7 +141,7 @@ extends Link[M]:
               {
                 _ =>
                   readyQueue.dequeue()
-                  _inTransit += load.id -> load // to wait for an acknowledgement
+                  _delivered.provide(at, load) // to wait for an acknowledgement
   //                doNotify(l => l.loadDischarged(at, stationId, id, load))
                   true
               }
