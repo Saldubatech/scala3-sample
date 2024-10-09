@@ -44,9 +44,7 @@ object Discharge:
     end ClientStubs
 
     object ServerAdaptors:
-      def downstream(target: DischargeComponent.API.Downstream, forDischargeId: Id): Tick => PartialFunction[Signals.Downstream, UnitResult] = (at: Tick) =>
-        println(s"##### Discharge.Downstream Adaptor for $forDischargeId")
-        {
+      def downstream(target: DischargeComponent.API.Downstream, forDischargeId: Id): Tick => PartialFunction[Signals.Downstream, UnitResult] = (at: Tick) => {
         case Signals.Restore(id, job, dischargeId, cards) if dischargeId == forDischargeId => target.restore(at, cards)
         case Signals.Acknowledge(id, job, loadId) => target.acknowledge(at, loadId)
       }

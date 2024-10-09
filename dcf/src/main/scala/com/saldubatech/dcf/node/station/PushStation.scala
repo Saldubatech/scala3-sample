@@ -106,9 +106,7 @@ object PushStation:
 
           case opPhysicsSignal: OperationBinding.API.Signals.Physics => opPhysicsAdaptor(at)(opPhysicsSignal)
 
-          case dischargeDownstreamSignal: DischargeBinding.API.Signals.Downstream =>
-            println(s"##### PROCESSING $dischargeDownstreamSignal")
-            dischargeDownstreamAdaptor(at)(dischargeDownstreamSignal)
+          case dischargeDownstreamSignal: DischargeBinding.API.Signals.Downstream => dischargeDownstreamAdaptor(at)(dischargeDownstreamSignal)
           case dischargePhysicsSignal: DischargeBinding.API.Signals.Physics => dPhysicsAdaptor(at)(dischargePhysicsSignal)
 
           case linkUpstreamSignal: LinkBinding.API.Signals.Upstream => linkUpstreamAdaptor(at)(linkUpstreamSignal)
