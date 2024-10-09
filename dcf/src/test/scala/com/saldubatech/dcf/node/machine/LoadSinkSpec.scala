@@ -6,6 +6,7 @@ import com.saldubatech.dcf.material.{Material, Wip}
 import com.saldubatech.ddes.types.Tick
 import com.saldubatech.lang.types.{AppResult, UnitResult, AppSuccess, AppFail, AppError, collectAll}
 import com.saldubatech.dcf.job.{JobSpec, SimpleJobSpec}
+import com.saldubatech.dcf.node.components.buffers.RandomIndexed
 
 import com.saldubatech.dcf.node.{ProbeInboundMaterial, ProbeOutboundMaterial}
 
@@ -64,7 +65,7 @@ object LoadSinkSpec:
       s"T_IB",
       ibIndcPhysics,
       Some(obTranCapacity),
-      Induct.Component.FIFOArrivalBuffer[M](),
+      RandomIndexed[Induct.Arrival[M]]("ArrivalBuffer"),
       ibTranPhysics,
       ibDistPhysics,
       inductUpstreamInjector,

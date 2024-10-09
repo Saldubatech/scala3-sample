@@ -6,7 +6,7 @@ import com.saldubatech.math.randomvariables.Distributions.probability
 import com.saldubatech.ddes.types.{Tick, Duration}
 import com.saldubatech.dcf.material.Material
 import com.saldubatech.dcf.node.components.{Sink, Component}
-import com.saldubatech.dcf.node.components.buffers.{RandomIndexed, FIFOBuffer}
+import com.saldubatech.dcf.node.components.buffers.{RandomIndexed, SequentialBuffer}
 
 
 object Link:
@@ -108,7 +108,7 @@ extends Link[M]:
     } yield rs
 
   private case class Ready(card: Id, load: M)
-  private val readyToDeliver = FIFOBuffer[Ready](s"$id[ReadyToDeliverQueue]")
+  private val readyToDeliver = SequentialBuffer.FIFO[Ready](s"$id[ReadyToDeliverQueue]")
 
   // From API.Physics
   override def transportFinalize(at: Tick, link: Id, card: Id, loadId: Id): UnitResult =

@@ -49,7 +49,9 @@ trait Buffer[M] extends Identified:
   def contents(at: Tick, m: M): Iterable[M]
   def available(at: Tick): Iterable[M]
   def available(at: Tick, m: M): Iterable[M]
-  def consume(at: Tick): AppResult[M]
+  def consumeOne(at: Tick): AppResult[M]
+  def consumeSome(at: Tick, some: Iterable[M]): AppResult[Iterable[M]]
+  def consumeAvailable(at: Tick): AppResult[Iterable[M]]
   def consume(at: Tick, m: M): AppResult[M]
 
   def consumeWhileSuccess(

@@ -54,11 +54,11 @@ object Harness:
 
   end MockLinkPhysics // class
 
-  class MockInductEnvironmentUpstream
+  class MockDischargeDownstream
   (
     val dId: Id,
     override val stationId: Id
-  ) extends Induct.Environment.Upstream with Discharge.Identity:
+  ) extends Discharge.API.Downstream with Discharge.Identity:
     val availableCards = collection.mutable.Queue.empty[Id]
     def initialize(cards: List[Id]): Unit =
       availableCards.enqueueAll(cards)
@@ -70,9 +70,19 @@ object Harness:
       AppSuccess.unit
 
     def acknowledge(at: Tick, loadId: Id): UnitResult = AppSuccess.unit
+  end MockDischargeDownstream // class
 
-
-  end MockInductEnvironmentUpstream // class
+  class MockLinkDownstream
+  (
+    engine: MockAsyncCallback,
+    override val id: Id
+  ) extends Link.API.Downstream with Link.Identity:
+    var _count: Int = 0
+    def count = _count
+    def acknowledge(at: Tick, loadId: Id): UnitResult =
+      _count += 1
+      AppSuccess(engine.add(at){ () => AppSuccess.unit })
+  end MockLinkDownstream // class
 
   class MockInductPhysics[M <: Material]
   (

@@ -6,6 +6,7 @@ import com.saldubatech.dcf.material.{Material, Wip}
 import com.saldubatech.ddes.types.Tick
 import com.saldubatech.lang.types.{AppResult, UnitResult, AppSuccess, AppFail, AppError, collectAll}
 import com.saldubatech.dcf.job.{JobSpec, SimpleJobSpec}
+import com.saldubatech.dcf.node.components.buffers.RandomIndexed
 
 import com.saldubatech.dcf.node.{ProbeInboundMaterial, ProbeOutboundMaterial}
 
@@ -72,7 +73,7 @@ object SourceMachineSpec:
       s"T_IB",
       obIndcPhysics,
       Some(obTranCapacity),
-      Induct.Component.FIFOArrivalBuffer[M](),
+      RandomIndexed[Induct.Arrival[M]]("ArrivalBuffer"),
       obTranPhysics,
       obDistPhysics,
       inductUpstreamInjector,
@@ -155,7 +156,7 @@ class SourceMachineSpec extends BaseSpec:
           engine.runOne() shouldBe Symbol("isRight") // acknowledge
           engine.runOne() shouldBe Symbol("isRight") // Induct
           if idx == 3 then engine.runOne() shouldBe Symbol("isRight") // generation complete
-          outInduct.contents.size shouldBe idx+1
+          outInduct.contents(0).size shouldBe idx+1
       }
 
       "Have notified all the arrivals" in {

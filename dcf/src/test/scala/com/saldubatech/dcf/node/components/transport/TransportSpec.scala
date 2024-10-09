@@ -7,6 +7,7 @@ import com.saldubatech.dcf.material.{Material, Wip}
 import com.saldubatech.ddes.types.Tick
 import com.saldubatech.lang.types.{AppResult, UnitResult, AppSuccess, AppFail, AppError, collectAll}
 import com.saldubatech.dcf.job.{JobSpec, SimpleJobSpec}
+import com.saldubatech.dcf.node.components.buffers.RandomIndexed
 
 import com.saldubatech.test.ddes.MockAsyncCallback
 import com.saldubatech.dcf.node.{ProbeInboundMaterial, ProbeOutboundMaterial}
@@ -30,7 +31,7 @@ class TransportSpec extends BaseSpec:
     def dPhysics(host: Discharge.API.Physics): Discharge.Environment.Physics[ProbeInboundMaterial] = Harness.MockDischargePhysics[ProbeInboundMaterial](() => dischargeDelay, engine)
     def tPhysics(host: Link.API.Physics): Link.Environment.Physics[ProbeInboundMaterial] = Harness.MockLinkPhysics[ProbeInboundMaterial](() => transportDelay, engine)
     def iPhysics(host: Induct.API.Physics): Induct.Environment.Physics[ProbeInboundMaterial] = Harness.MockInductPhysics[ProbeInboundMaterial](() => inductDelay, engine)
-    val inductStore = Induct.Component.FIFOArrivalBuffer[ProbeInboundMaterial]()
+    val inductStore = RandomIndexed[Induct.Arrival[ProbeInboundMaterial]]("ArrivalBuffer")
     val inductUpstreamInjector: Induct[ProbeInboundMaterial, ?] => Induct.API.Upstream[ProbeInboundMaterial] = i => i
     val linkAcknowledgeFactory: Link[ProbeInboundMaterial] => Link.API.Downstream = l => new Link.API.Downstream {
       override def acknowledge(at: Tick, loadId: Id): UnitResult = AppSuccess{ engine.add(at){ () => l.acknowledge(at, loadId) } }
@@ -287,17 +288,17 @@ class TransportSpec extends BaseSpec:
         engine.pending(dischargeDelay+transportDelay+inductDelay).size shouldBe 1
       }
       "The load is 'In Arrival' in the Induct" in {
-        induct.value.cards.size shouldBe 0
-        induct.value.contents.size shouldBe 0
+        induct.value.cards(0).size shouldBe 0
+        induct.value.contents(0).size shouldBe 0
         underTest.link.value.inTransport(0).size shouldBe 0
         underTest.link.value.inTransit(0).size shouldBe 1
       }
       "Have the load and card in the Induct" in {
         // Execute the induction
         engine.run(None)
-        induct.value.cards.size shouldBe 1
-        induct.value.cards.head shouldBe cards.head
-        induct.value.contents.size shouldBe 1
+        induct.value.cards(0).size shouldBe 1
+        induct.value.cards(0).head shouldBe cards.head
+        induct.value.contents(0).size shouldBe 1
         underTest.link.value.inTransit(0).size shouldBe 0
       }
       "Be able to deliver the received load to a provided sink" in {
@@ -305,16 +306,16 @@ class TransportSpec extends BaseSpec:
         deliverer.deliver(currentTime+2, probe.id)
         mockDownstream.received.size shouldBe 1
         mockDownstream.received.head should be (currentTime+2, "TestUpstreamStation", discharge.value.id, probe)
-        induct.value.contents.size shouldBe 0
-        induct.value.available.size shouldBe 0
+        induct.value.contents(0).size shouldBe 0
+        induct.value.available(0).size shouldBe 0
       }
       "still Store a card from the received load" in {
-        induct.value.cards.size shouldBe 1
-        induct.value.cards.head shouldBe cards(0)
+        induct.value.cards(0).size shouldBe 1
+        induct.value.cards(0).head shouldBe cards(0)
       }
       "Acknowledge the received cards to their senders" in {
         induct.value.restoreAll(4)
-        induct.value.cards.size shouldBe 0
+        induct.value.cards(0).size shouldBe 0
         // Not restored yet, signal "in-transit"
         discharge.value.availableCards.size shouldBe cards.size - 1
       }

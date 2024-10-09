@@ -11,6 +11,7 @@ import com.saldubatech.dcf.material.{Material, Wip, WipPool, MaterialPool}
 import com.saldubatech.dcf.node.components.transport.{Transport, TransportImpl, Induct, Discharge, Link}
 import com.saldubatech.dcf.node.components.transport.bindings.{Induct as InductBinding, Discharge as DischargeBinding, DLink as LinkBinding}
 import com.saldubatech.dcf.node.machine.bindings.{Source as SourceBinding}
+import com.saldubatech.dcf.node.components.buffers.RandomIndexed
 
 import com.saldubatech.dcf.node.station.configurations.{Inbound, Outbound, ProcessConfiguration}
 
@@ -80,7 +81,7 @@ object PushStationSpec extends ZIOSpecDefault with LogEnabled with Matchers:
         transportId,
         iPhysics,
         Some(tCapacity),
-        Induct.Component.FIFOArrivalBuffer[ProbeInboundMaterial](),
+        RandomIndexed[Induct.Arrival[ProbeInboundMaterial]]("ArrivalBuffer"),
         tPhysics,
         dPhysics,
         inductUpstreamInjector,
@@ -112,7 +113,7 @@ object PushStationSpec extends ZIOSpecDefault with LogEnabled with Matchers:
         transportId,
         iPhysics,
         Some(tCapacity),
-        Induct.Component.FIFOArrivalBuffer[ProbeInboundMaterial](),
+        RandomIndexed[Induct.Arrival[ProbeInboundMaterial]]("ArrivalBuffer"),
         tPhysics,
         dPhysics,
         inductUpstreamInjector,

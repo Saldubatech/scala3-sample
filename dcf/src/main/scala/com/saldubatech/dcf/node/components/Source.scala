@@ -6,7 +6,7 @@ import com.saldubatech.lang.{Id, Identified}
 import com.saldubatech.lang.types._
 import com.saldubatech.ddes.types.{Tick, Duration}
 import com.saldubatech.dcf.material.Material
-import com.saldubatech.dcf.node.components.buffers.FIFOBuffer
+import com.saldubatech.dcf.node.components.buffers.SequentialBuffer
 
 object Source:
   type Identity = Component.Identity
@@ -97,14 +97,14 @@ with SubjectMixIn[Source.Environment.Listener]:
   // From Source.API.Control
   private var _complete: Boolean = false
   private def markComplete: Unit = _complete = true
-  private val arrivalQueue2 = FIFOBuffer[M](s"ArrivalQueue[$id]")
+  private val arrivalQueue = SequentialBuffer.FIFO[M](s"ArrivalQueue[$id]")
 
-  override def complete(at: Tick): Boolean = _complete && arrivalQueue2.isIdle(at)
+  override def complete(at: Tick): Boolean = _complete && arrivalQueue.isIdle(at)
 
   private var _congested: Boolean = false
   def congested: Boolean = _congested
 
-  def waiting(at: Tick): Iterable[M] = arrivalQueue2.contents(at)
+  def waiting(at: Tick): Iterable[M] = arrivalQueue.contents(at)
 
   private var _paused: Boolean = false
   def paused = _paused
@@ -121,8 +121,8 @@ with SubjectMixIn[Source.Environment.Listener]:
     else physics.goCommand(at)
 
   private def triggerDelivery(forTime: Tick): UnitResult =
-    if arrivalQueue2.isIdle(forTime) then AppSuccess.unit // nothing to do.
-    else physics.deliveryCommand(forTime, arrivalQueue2.available(forTime).head)
+    if arrivalQueue.isIdle(forTime) then AppSuccess.unit // nothing to do.
+    else physics.deliveryCommand(forTime, arrivalQueue.available(forTime).head)
 
   // From Source.API.Physics
   /**
@@ -134,7 +134,7 @@ with SubjectMixIn[Source.Environment.Listener]:
     */
   override def arrivalFinalize(atTime: Tick, load: M): UnitResult =
     doNotify(_.loadArrival(atTime, stationId, id, load))
-    arrivalQueue2.provide(atTime, load)
+    arrivalQueue.provide(atTime, load)
     triggerDelivery(atTime) // try delivery as soon as there is an arrival
 
   override def deliveryFinalize(at: Tick, load: M): UnitResult =
@@ -145,14 +145,14 @@ with SubjectMixIn[Source.Environment.Listener]:
           err => // outbound does not accept delivery
             if !congested then
               _congested = true
-              doNotify(_.congestion(at, stationId, id, arrivalQueue2.contents(at).toList))
+              doNotify(_.congestion(at, stationId, id, arrivalQueue.contents(at).toList))
             // if automated, it creates a retry for every failure
             if autoRetry then triggerDelivery(at+retryDelay())
         }
         n <-
-          doNotify(_.loadDelivered(at, stationId, id, arrivalQueue2.available(at).head))
+          doNotify(_.loadDelivered(at, stationId, id, arrivalQueue.available(at).head))
           if congested then _congested = false
-          arrivalQueue2.consume(at)
+          arrivalQueue.consumeOne(at)
           triggerDelivery(at)
       } yield n
 

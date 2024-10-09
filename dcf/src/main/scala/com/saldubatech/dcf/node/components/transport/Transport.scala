@@ -6,6 +6,7 @@ import com.saldubatech.ddes.types.{Tick, DomainMessage}
 import com.saldubatech.ddes.elements.SimActor
 import com.saldubatech.dcf.material.Material
 import com.saldubatech.dcf.node.components.{Subject, SubjectMixIn, Component, Sink}
+import com.saldubatech.dcf.node.components.buffers.{Buffer}
 
 import scala.reflect.Typeable
 import scala.util.chaining._
@@ -30,7 +31,7 @@ class TransportImpl[M <: Material, I_LISTENER <: Induct.Environment.Listener : T
   override val id: Id,
   iPhysics: Induct.API.Physics => Induct.Environment.Physics[M],
   tCapacity: Option[Int],
-  arrivalStore: Induct.Component.ArrivalBuffer[M],
+  arrivalStore: Buffer[Induct.Arrival[M]] & Buffer.Indexed[Induct.Arrival[M]],
   tPhysics: Link.API.Physics => Link.Environment.Physics[M],
   dPhysics: Discharge.API.Physics => Discharge.Environment.Physics[M],
   inductUpstreamInjector: Induct[M, ?] => Induct.API.Upstream[M],

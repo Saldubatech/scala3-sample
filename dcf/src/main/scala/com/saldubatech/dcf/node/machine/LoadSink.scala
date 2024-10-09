@@ -72,7 +72,7 @@ extends LoadSink[M, LISTENER]:
     val listener =  new Induct.Environment.Listener() {
       override val id: Id = loadSink.id
       override final def loadArrival(at: Tick, fromStation: Id, atStation: Id, atInduct: Id, load: Material): Unit =
-        val cardCount = induct.cards.size
+        val cardCount = induct.cards(at).size
         for {
           kCtl <- cardCruiseControl
           toReturn <- kCtl(at, cardCount)
