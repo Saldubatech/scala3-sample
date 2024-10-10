@@ -75,8 +75,9 @@ object Harness:
   class MockLinkDownstream
   (
     engine: MockAsyncCallback,
-    override val id: Id
+    lId: Id
   ) extends Link.API.Downstream with Link.Identity:
+    override val id: Id = lId
     var _count: Int = 0
     def count = _count
     def acknowledge(at: Tick, loadId: Id): UnitResult =

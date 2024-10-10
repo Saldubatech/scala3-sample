@@ -79,12 +79,12 @@ extends Link[M]:
 
   private lazy val _origin = origin()
 
-  private val _delivered = RandomIndexed[M](s"$id[DeliveredLoads]")
+  private lazy val _delivered = RandomIndexed[M](s"$id[DeliveredLoads]")
 
   def acknowledge(at: Tick, loadId: Id): UnitResult =
     _delivered.consume(at, loadId).map{ _ => _attemptDeliveries(at) }
 
-  private val inTransport = RandomIndexed[M](s"$id[InTransportLoads]")
+  private lazy val inTransport = RandomIndexed[M](s"$id[InTransportLoads]")
 
   // From API.Control
   override def inTransport(at: Tick): Iterable[M] = inTransport.contents(at)
@@ -100,9 +100,7 @@ extends Link[M]:
   override def loadArriving(at: Tick, card: Id, load: M): UnitResult =
     for {
       allow <- canAccept(at, card, load)
-//      o <- _origin
       rs <-
-//        o.acknowledge(at, load.id)
         inTransport.provide(at, load)
         physics.transportCommand(at, id, card, load)
     } yield rs
@@ -140,26 +138,5 @@ extends Link[M]:
     },
     { (t, r) => _delivered.provide(t, r.load) }
       )
-  //   while
-  //     readyQueue.nonEmpty &&
-  //     readyQueue.headOption.forall{
-  //       (card, load) =>
-  //         (for {
-  //           o <- _origin
-  //           ack <- o.acknowledge(at, load.id)
-  //           arrival <-
-  //             downstream.loadArriving(at, card, load)
-  //         } yield arrival).fold(
-  //             err => false,
-  //             {
-  //               _ =>
-  //                 readyQueue.dequeue()
-  //                 _delivered.provide(at, load) // to wait for an acknowledgement
-  // //                doNotify(l => l.loadDischarged(at, stationId, id, load))
-  //                 true
-  //             }
-  //           )
-  //     }
-  //   do ()
 
 end LinkMixIn // trait

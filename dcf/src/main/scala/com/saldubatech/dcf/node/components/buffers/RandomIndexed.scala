@@ -28,8 +28,7 @@ extends Buffer.Unbound[M] with Buffer.Indexed[M]:
       _contents -= m.id
       _arrivalOrder -= m
       Some(m)
-    else
-      None
+    else None
 
   override def provide(at: Tick, m: M): UnitResult =
     AppSuccess(_add(m)).unit
@@ -68,7 +67,8 @@ extends Buffer.Unbound[M] with Buffer.Indexed[M]:
     rs.collectAny
 
 
-  override def contents(at: Tick, id: Id): Iterable[M] = _contents.get(id)
+  override def contents(at: Tick, id: Id): Iterable[M] =
+    _contents.get(id)
   override def available(at: Tick, id: Id): Iterable[M] = contents(at, id)
   override def consume(at: Tick, id: Id): AppResult[M] = check( contents(at, id).flatMap( m => _remove(m) ).headOption )
 

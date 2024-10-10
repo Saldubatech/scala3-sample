@@ -97,7 +97,7 @@ libraryDependencies ++= Seq(
   Dependencies.Zio.Ecosystem.schemaTest % Test,
   Dependencies.Testing.containersPostgres % Test,
   Dependencies.Zio.Testing.magnolia % Test,
-  Dependencies.Testing.scalatic % Test,
+  Dependencies.Testing.scalactic % Test,
   Dependencies.Testing.scalaTest % Test,
   Dependencies.Pekko.test % Test // Could be Needed to provide library support for testing for other projects.
 )

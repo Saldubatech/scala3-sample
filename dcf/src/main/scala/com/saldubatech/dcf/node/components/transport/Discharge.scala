@@ -101,8 +101,8 @@ with SubjectMixIn[LISTENER]:
   val physics: Discharge.Environment.Physics[M]
 
   private val provisionedCards = collection.mutable.Set.empty[Id]
-  private val _cards = collection.mutable.Queue.empty[Id]
-  private val _delivered = RandomIndexed[M]("DeliveredBuffer")
+  private lazy  val _cards = collection.mutable.Queue.empty[Id]
+  private lazy val _delivered = RandomIndexed[M](s"$id[DeliveredBuffer]")
 
   override def availableCards: List[Id] = _cards.toList
 
@@ -185,7 +185,7 @@ with SubjectMixIn[LISTENER]:
           downstream.loadArriving(at, card, load).fold(
             { err => false },
             { _ =>
-              readyQueue.dequeue()
+              val dq = readyQueue.dequeue()
               _delivered.provide(at, load) // to wait for an acknowledgement
               doNotify(l => l.loadDischarged(at, stationId, id, load))
               true

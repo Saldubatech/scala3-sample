@@ -107,7 +107,7 @@ libraryDependencies ++= Seq(
   Dependencies.Zio.Testing.mock % Test,
   Dependencies.Testing.containersPostgres, // No testing because it builds library for others.
   Dependencies.Zio.Testing.magnolia % Test,
-  Dependencies.Testing.scalatic % Test, // Currently not used in production code.
+  Dependencies.Testing.scalactic % Test, // Currently not used in production code.
   Dependencies.Testing.scalaTest, // Needed in production for developing tests by client libraries.
   Dependencies.Zio.Ecosystem.schemaTest % Test,
   Dependencies.Pekko.test // Could be Needed to provide library support for testing for other projects.

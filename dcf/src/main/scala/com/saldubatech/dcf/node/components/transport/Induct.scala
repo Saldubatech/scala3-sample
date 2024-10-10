@@ -11,7 +11,7 @@ import zio.ZIO
 
 import scala.reflect.Typeable
 import com.saldubatech.dcf.node.components.transport.Induct.API.Deliverer
-import com.saldubatech.dcf.node.components.buffers.{Buffer, RandomAccess, SequentialBuffer}
+import com.saldubatech.dcf.node.components.buffers.{Buffer, RandomAccess, SequentialBuffer, RandomIndexed}
 
 object Induct:
   type Identity = GComponent.Identity
@@ -123,10 +123,9 @@ with SubjectMixIn[LISTENER]:
   override def contents(at: Tick): Iterable[M] = arrivalStore.contents(at).map{ _.material }
   override def available(at: Tick): Iterable[M] = arrivalStore.available(at).map{ _.material }
 
-  private val cardsInTransit = collection.mutable.Set.empty[Id]
-
   // Members declared in Induct$.API$.Control
 
+  // Card Management
   private val receivedCards = RandomAccess[Id](s"$id[ReceivedCards]")
   override def cards(at: Tick): Iterable[Id] = receivedCards.contents(at)
 
@@ -154,7 +153,7 @@ with SubjectMixIn[LISTENER]:
       restored <- o.restore(at, tr.toList)
       _ <- receivedCards.consumeSome(at, tr) // guaranteed to succeed b/c tr comes from available(at)
     } yield restored
-
+  // End of Card management. Consider a helper component of a "CardLockBox"
   /*
     Management of available Loads, to be implemented by subclasses with different behaviors (e.g. FIFO, multiplicity, ...)
   */
@@ -174,7 +173,7 @@ with SubjectMixIn[LISTENER]:
   }
 
   // Indexed by Card.
-  private val _inducting = collection.mutable.Map.empty[Id, Induct.Arrival[M]]
+  private lazy val pendingInductions = RandomIndexed[Induct.Arrival[M]](s"$id[PendingInductions]")
   // Members declared in Induct$.API$.Upstream
   override def canAccept(at: Tick, card: Id, load: M): AppResult[M] =
     AppSuccess(load)
@@ -183,43 +182,30 @@ with SubjectMixIn[LISTENER]:
     for {
       l <- link
       allowed <- canAccept(at, card, load)
-      _ <-
-        _inducting += card -> Induct.Arrival(at, card, load)
-        physics.inductCommand(at, card, load).tapError{ _ => _inducting -= card }
-      _ <-
-        cardsInTransit(card) match
-        case false =>
-          cardsInTransit += card
-          AppSuccess.unit
-        case true =>
-          AppFail.fail(s"Card[${card}] already in Transit") // Consider making it simply redundant to allow for "idempotent" loadArriving events.
+      _ <- physics.inductCommand(at, card, load).map{ _ =>
+          pendingInductions.provide(at, Induct.Arrival(at, card, load))
+        }
       rs <- l.acknowledge(at, load.id)
     } yield rs
 
 
   // Members declared in Induct$.API$.Physics
   override def inductionFail(at: Tick, card: Id, loadId: Id, cause: Option[AppError]): UnitResult =
-    GComponent.inStation(stationId, "Inducting")(_inducting.remove)(card).flatMap{
+    pendingInductions.consume(at, card).flatMap{
       arr =>
         cause match
           case None => AppFail.fail(s"Unknown Error in Induction[$id] of Station[$stationId] for Load[${loadId}] at $at")
           case Some(c) => AppFail(c)
+
     }
+
   override def inductionFinalize(at: Tick, card: Id, loadId: Id): UnitResult =
     for {
-      arrival <- GComponent.inStation(stationId, "Inducting Materials")(_inducting.remove)(card)
+      arrival <- pendingInductions.consume(at, loadId)
       o <- origin
-      from <-
-        if cardsInTransit(card) then
-          receivedCards.provide(at, card)
-          AppSuccess(card)
-        else
-          AppFail.fail(s"Card[$card] is not in transit at Induct[$id]")
+      _ <- receivedCards.provide(at, card)
       _ <- arrivalStore.provide(at, arrival)
-    } yield
-      doNotify( l =>
-        l.loadArrival(at, o.stationId, stationId, id, arrival.material)
-        )
+    } yield doNotify{ _.loadArrival(at, o.stationId, stationId, id, arrival.material)}
 end InductMixIn // trait
 
 class InductImpl[M <: Material, LISTENER <: Induct.Environment.Listener : Typeable]

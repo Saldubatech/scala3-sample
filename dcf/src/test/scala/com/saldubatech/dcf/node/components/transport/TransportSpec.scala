@@ -142,9 +142,9 @@ class TransportSpec extends BaseSpec:
       val deliverer2 = induct2.map{ _.delivery(mockDownstream) }
       val discharge2 = underTest.discharge("TestUpstreamStation", linkAPIPhysics, dischargeAPIPhysics)
       "Have no contents or available elements in its induct" in {
-        induct2.value.contents shouldBe Symbol("isEmpty")
-        induct2.value.available shouldBe Symbol("isEmpty")
-        induct2.value.cards shouldBe Symbol("isEmpty")
+        induct2.value.contents(0) shouldBe Symbol("isEmpty")
+        induct2.value.available(0) shouldBe Symbol("isEmpty")
+        induct2.value.cards(0) shouldBe Symbol("isEmpty")
       }
       "Not be able to discharge loads" in {
         discharge2.value.canDischarge(0, probe) shouldBe Symbol("isLeft")
@@ -236,9 +236,9 @@ class TransportSpec extends BaseSpec:
         engine.pending(expectedTime).size shouldBe 1
       }
       "still not have any contents in the Induct" in {
-        induct.value.contents shouldBe Symbol("isEmpty")
-        induct.value.available shouldBe Symbol("isEmpty")
-        induct.value.cards shouldBe Symbol("isEmpty")
+        induct.value.contents(0) shouldBe Symbol("isEmpty")
+        induct.value.available(0) shouldBe Symbol("isEmpty")
+        induct.value.cards(0) shouldBe Symbol("isEmpty")
       }
     }
     "Discharge and Transport physics are complete" should {
@@ -296,9 +296,9 @@ class TransportSpec extends BaseSpec:
       "Have the load and card in the Induct" in {
         // Execute the induction
         engine.run(None)
+        induct.value.contents(0).size shouldBe 1
         induct.value.cards(0).size shouldBe 1
         induct.value.cards(0).head shouldBe cards.head
-        induct.value.contents(0).size shouldBe 1
         underTest.link.value.inTransit(0).size shouldBe 0
       }
       "Be able to deliver the received load to a provided sink" in {
