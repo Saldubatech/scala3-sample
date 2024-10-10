@@ -22,7 +22,7 @@ extends Buffer.Unbound[M]:
     _contents.subtractAll(contained)
     AppSuccess(contained)
 
-  override def consumeAvailable(at: Tick): AppResult[Iterable[M]] = //check( _contents.headOption.map{ _ => _contents.remove(0) })
+  override def consumeAvailable(at: Tick): AppResult[Iterable[M]] =
     val targets = available(at)
     _contents --= targets
     AppSuccess(targets)

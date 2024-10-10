@@ -113,7 +113,7 @@ extends Induct[M, LISTENER]
 with SubjectMixIn[LISTENER]:
 
   val physics: Induct.Environment.Physics[M]
-  protected val arrivalStore: Buffer[Transfer[M]] & Buffer.Indexed[Transfer[M]] //   TransferBuffer[M]
+  protected val arrivalStore: Buffer[Transfer[M]] & Buffer.Indexed[Transfer[M]]
   protected lazy val origin: AppResult[Discharge.API.Downstream & Discharge.Identity]
   protected lazy val link: AppResult[Link.API.Downstream]
 

@@ -104,7 +104,7 @@ with SubjectMixIn[LISTENER]:
   private lazy val _cards = SequentialBuffer.FIFO[Id](s"$id[cards]")
   private lazy val _delivered = RandomIndexed[M](s"$id[DeliveredBuffer]")
 
-  override def availableCards(at: Tick): Iterable[Id] = _cards.contents(at) // _cards.toList
+  override def availableCards(at: Tick): Iterable[Id] = _cards.contents(at)
 
   override def addCards(at: Tick, cards: List[Id]): UnitResult =
     provisionedCards.addAll(cards)
@@ -124,14 +124,14 @@ with SubjectMixIn[LISTENER]:
         doNotify( _.busyNotification(at, stationId, id) )
       AppSuccess.unit
 
-  def  busy(at: Tick): Boolean = _cards.isIdle(at) // _cards.isEmpty
+  def  busy(at: Tick): Boolean = _cards.isIdle(at)
 
   // Members declared in com.saldubatech.dcf.node.components.transport.Discharge$.API$.Downstream
   override def restore(at: Tick, cards: List[Id]): UnitResult =
-    val available = _cards.contents(at).size // _cards.size
+    val available = _cards.contents(at).size
     cards.foreach{
       c =>
-        if provisionedCards(c) then _cards.provide(at, c) // _cards.enqueue(c)
+        if provisionedCards(c) then _cards.provide(at, c)
         else () // if not provisioned, retire it.
     }
     if available == 0 && _cards.contents(at).size != 0 then
@@ -154,7 +154,7 @@ with SubjectMixIn[LISTENER]:
     for {
       l <- canDischarge(at, load)
       crd <-
-        val card = _cards.contents(at).head // _cards.dequeue()
+        val card = _cards.contents(at).head
         physics.dischargeCommand(at, card, load).map{ _ => card}
       consumed <- _cards.consume(at, crd)
       _ <- _discharging.provide(at, Transfer(at, consumed, load))

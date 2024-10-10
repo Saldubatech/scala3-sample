@@ -226,14 +226,10 @@ with SubjectMixIn[LISTENER]:
     _inProgress2.contents(at, jobId).headOption match
       case Some(w: Wip.Loaded) => AppSuccess(w)
       case other => AppFail.fail(s"Job[$jobId] is not ready to start in Station[$stationId] at $at")
-    // Component.inStation(stationId, "Ready to start Job")(_inProgress.get)(jobId).flatMap {
-    //     case w: Wip.Loaded => AppSuccess(w)
-    //     case other => AppFail.fail(s"Job[$jobId] is not ready to start in Station[$stationId] at $at")
-    // }
+
 
   override def started(at: Tick): AppResult[Iterable[Wip.InProgress]] =
     AppSuccess(_inProgress2.contents(at).collect{ case w: Wip.InProgress => w })
-//    AppSuccess(_inProgress.values.collect { case w: Wip.InProgress => w }.toList )
 
   override def startRequest(at: Tick, jobId: Id): AppResult[Wip.InProgress] =
     for {
@@ -314,7 +310,7 @@ with SubjectMixIn[LISTENER]:
       toUnload <- canUnload(at, jobId)
       unload <- physics.unloadCommand(at, jobId, toUnload).map{ _ => _unloading2.provide(at, toUnload) }
     } yield
-      _inProgress2.consume(at, jobId)// will succeed b/c canUnload already checked
+      _inProgress2.consume(at, jobId) // will succeed b/c canUnload already checked
 
   // Members declared in com.saldubatech.dcf.node.structure.components.Operation$.API$.Physics
   override def unloadFailed(at: Tick, jobId: Id, wip: Option[Wip.Complete[M]], cause: Option[AppError]): UnitResult =
@@ -367,7 +363,7 @@ with SubjectMixIn[LISTENER]:
       currentDelivery.flatMap{ _ =>
         stagedQueue2.consumeOne(at)
         tryDeliver(at)
-      }.fold(// return current if nested fails.
+      }.fold( // return current if nested fails.
         err => currentDelivery,
         _ => AppSuccess.unit
       )

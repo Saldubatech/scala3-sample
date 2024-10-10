@@ -37,57 +37,57 @@ class UsageTrackerSpec extends AnyWordSpec {
   import UsageTrackerSpec._
   "A UsageTrackerImpl" when {
 
-    // "Unbounded" should {
-    //   val tracker = new UsageTrackerImpl(Id, None)
-    //   "initialize in the idle state" in {
-    //     tracker.state shouldBe UsageState.IDLE
-    //     tracker.isIdle shouldBe true
-    //     tracker.isInUse shouldBe false
-    //     tracker.isBusy shouldBe false
-    //   }
-    //   "acquire 5" in {
-    //     tracker.acquire(5) shouldBe AppSuccess.unit
-    //     tracker.state shouldBe UsageState.IN_USE
-    //     tracker.isIdle shouldBe false
-    //     tracker.isInUse shouldBe true
-    //     tracker.isBusy shouldBe false
-    //   }
-    //   "acquire another 5" in {
-    //     tracker.acquire(5) shouldBe AppSuccess.unit
-    //     tracker.state shouldBe UsageState.IN_USE
-    //     tracker.isIdle shouldBe false
-    //     tracker.isInUse shouldBe true
-    //     tracker.isBusy shouldBe false
-    //   }
-    //   "release 3" in {
-    //     tracker.release(3) shouldBe AppSuccess.unit
-    //     tracker.state shouldBe UsageState.IN_USE
-    //     tracker.isIdle shouldBe false
-    //     tracker.isInUse shouldBe true
-    //     tracker.isBusy shouldBe false
-    //   }
-    //   "release 7" in {
-    //     tracker.release(7) shouldBe AppSuccess.unit
-    //     tracker.state shouldBe UsageState.IDLE
-    //     tracker.isIdle shouldBe true
-    //     tracker.isInUse shouldBe false
-    //     tracker.isBusy shouldBe false
-    //   }
-    //   "acquire all" in {
-    //     tracker.acquireAll shouldBe AppSuccess.unit
-    //     tracker.state shouldBe UsageState.BUSY
-    //     tracker.isIdle shouldBe false
-    //     tracker.isInUse shouldBe false
-    //     tracker.isBusy shouldBe true
-    //   }
-    //   "release all" in {
-    //     tracker.releaseAll shouldBe AppSuccess.unit
-    //     tracker.state shouldBe UsageState.IDLE
-    //     tracker.isIdle shouldBe true
-    //     tracker.isInUse shouldBe false
-    //     tracker.isBusy shouldBe false
-    //   }
-    // }
+    "Unbounded" should {
+      val tracker = new UsageTrackerImpl(Id, None)
+      "initialize in the idle state" in {
+        tracker.state shouldBe UsageState.IDLE
+        tracker.isIdle shouldBe true
+        tracker.isInUse shouldBe false
+        tracker.isBusy shouldBe false
+      }
+      "acquire 5" in {
+        tracker.acquire(5) shouldBe AppSuccess.unit
+        tracker.state shouldBe UsageState.IN_USE
+        tracker.isIdle shouldBe false
+        tracker.isInUse shouldBe true
+        tracker.isBusy shouldBe false
+      }
+      "acquire another 5" in {
+        tracker.acquire(5) shouldBe AppSuccess.unit
+        tracker.state shouldBe UsageState.IN_USE
+        tracker.isIdle shouldBe false
+        tracker.isInUse shouldBe true
+        tracker.isBusy shouldBe false
+      }
+      "release 3" in {
+        tracker.release(3) shouldBe AppSuccess.unit
+        tracker.state shouldBe UsageState.IN_USE
+        tracker.isIdle shouldBe false
+        tracker.isInUse shouldBe true
+        tracker.isBusy shouldBe false
+      }
+      "release 7" in {
+        tracker.release(7) shouldBe AppSuccess.unit
+        tracker.state shouldBe UsageState.IDLE
+        tracker.isIdle shouldBe true
+        tracker.isInUse shouldBe false
+        tracker.isBusy shouldBe false
+      }
+      "acquire all" in {
+        tracker.acquireAll shouldBe AppSuccess.unit
+        tracker.state shouldBe UsageState.BUSY
+        tracker.isIdle shouldBe false
+        tracker.isInUse shouldBe false
+        tracker.isBusy shouldBe true
+      }
+      "release all" in {
+        tracker.releaseAll shouldBe AppSuccess.unit
+        tracker.state shouldBe UsageState.IDLE
+        tracker.isIdle shouldBe true
+        tracker.isInUse shouldBe false
+        tracker.isBusy shouldBe false
+      }
+    }
 
     "Bounded" should {
       val tracker = new UsageTrackerImpl(Id, Some(10))
