@@ -6,11 +6,12 @@ import com.saldubatech.dcf.material.{Material, Wip}
 import com.saldubatech.ddes.types.{Tick, Duration}
 import com.saldubatech.lang.types.{AppResult, UnitResult, AppSuccess, AppFail, AppError, collectAll}
 import com.saldubatech.dcf.job.{JobSpec, SimpleJobSpec}
+import com.saldubatech.dcf.node.components.buffers.RandomIndexed
 
 import com.saldubatech.dcf.node.{ProbeInboundMaterial, ProbeOutboundMaterial}
 
 import com.saldubatech.dcf.node.components.{Sink, Harness as ComponentsHarness, OperationImpl, Operation}
-import com.saldubatech.dcf.node.components.transport.{Transport, TransportImpl, Discharge, Induct, Link}
+import com.saldubatech.dcf.node.components.transport.{Transport, TransportImpl, Discharge, Induct, Link, Transfer}
 
 import com.saldubatech.test.ddes.MockAsyncCallback
 import com.saldubatech.dcf.node.components.{Harness as ComponentHarness}
@@ -28,7 +29,7 @@ object PushMachineNotificationsSpec:
     def dPhysics(host: Discharge.API.Physics): TransportHarness.MockDischargePhysics[ProbeInboundMaterial] = TransportHarness.MockDischargePhysics[ProbeInboundMaterial](() => dischargeDelay, engine)
     def tPhysics(host: Link.API.Physics): TransportHarness.MockLinkPhysics[ProbeInboundMaterial] = TransportHarness.MockLinkPhysics[ProbeInboundMaterial](() => transportDelay, engine)
     def iPhysics(host: Induct.API.Physics): TransportHarness.MockInductPhysics[ProbeInboundMaterial] = TransportHarness.MockInductPhysics[ProbeInboundMaterial](() => inductDelay, engine)
-    val inductStore = Induct.Component.FIFOArrivalBuffer[ProbeInboundMaterial]()
+    val inductStore = RandomIndexed[Transfer[ProbeInboundMaterial]]("ArrivalBuffer")
     val inductUpstreamInjector: Induct[ProbeInboundMaterial, ?] => Induct.API.Upstream[ProbeInboundMaterial] = i => i
     def linkAcknowledgeFactory( l: => Link[ProbeInboundMaterial]): Link.API.Downstream = new Link.API.Downstream {
       override def acknowledge(at: Tick, loadId: Id): UnitResult = AppSuccess{ engine.add(at){ () => l.acknowledge(at, loadId) } }
@@ -71,12 +72,13 @@ object PushMachineNotificationsSpec:
         case Some(m : ProbeInboundMaterial) => AppSuccess(Some(m))
         case Some(other) => AppFail.fail(s"Unexpected Material type: $other")
 
-  class Listener(override val id: Id) extends PushMachine.Environment.Listener {
+  class Listener(lId: Id) extends PushMachine.Environment.Listener {
+    override lazy val id: Id = lId
     val jobNotifications = collection.mutable.Set.empty[(String, Tick, Id, Id, Wip)]
     val materialNotifications = collection.mutable.Set.empty[(String, Tick, Id, Id, Id, Material, String)]
 
     def jobArrival(at: Tick, atStation: Id, atMachine: Id, job: JobSpec): Unit =
-      jobNotifications += (("jobLoaded", at, atStation, atMachine, Wip.New(job.id, job, List(), atStation, at)))
+      jobNotifications += (("jobLoaded", at, atStation, atMachine, Wip.New(job, List(), atStation, at)))
     def materialArrival(at: Tick, atStation: Id, atMachine: Id, atInduct: Id, load: Material): Unit =
       materialNotifications += (("materialArrival", at, atStation, atMachine, atInduct, load, "INBOUND"))
     def jobLoaded(at: Tick, atStation: Id, atMachine: Id, wip: Wip.Loaded): Unit =
@@ -133,7 +135,7 @@ class PushMachineNotificationsSpec extends BaseSpec:
       val mockOpPhysics = ComponentHarness.MockOperationPhysics[ProbeInboundMaterial](engine, () => 1, () => 10, () => 100)
       val readyPool = com.saldubatech.dcf.material.WipPool.InMemory[Wip.Unloaded[ProbeInboundMaterial]]()
       val acceptedPool = com.saldubatech.dcf.material.MaterialPool.SimpleInMemory[Material]("UnderTest")
-      val operation = OperationImpl[ProbeInboundMaterial, Operation.Environment.Listener]("operation", "UnderTest", 3, producer, mockOpPhysics, acceptedPool, readyPool, Some(obDischarge.asSink))
+      val operation = OperationImpl[ProbeInboundMaterial, Operation.Environment.Listener]("operation", "UnderTest", 3, 100, producer, mockOpPhysics, acceptedPool, readyPool, Some(obDischarge.asSink))
       mockOpPhysics.underTest = operation
       val underTest = PushMachineImpl[ProbeInboundMaterial]("machine", "UnderTest", ibInduct, obDischarge, operation)
       underTest.listen(harnessListener)

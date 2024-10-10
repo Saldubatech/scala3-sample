@@ -1,6 +1,6 @@
 package com.saldubatech.dcf.resource
 
-import com.saldubatech.lang.types.{AppSuccess, AppResult, AppFail}
+import com.saldubatech.lang.types._
 
 enum OperationalState(val status: String):
   case UNKNOWN(override val status: String) extends OperationalState(status)

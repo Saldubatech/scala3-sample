@@ -36,7 +36,12 @@ inThisBuild(
 //    ciDefaultTargetJavaVersions := Seq("8"),
     semanticdbEnabled           := true,
     semanticdbVersion           := scalafixSemanticdb.revision,
-    Test / logBuffered          := false
+    Test / logBuffered          := false,
+    Test / javaOptions          ++= Seq(
+                                      "-Xmx4G",
+                                      "-Xms1G",
+                                      "-XX:MaxMetaspaceSize=512m"
+                                    )
   )
 )
 scalacOptions += "-explain"

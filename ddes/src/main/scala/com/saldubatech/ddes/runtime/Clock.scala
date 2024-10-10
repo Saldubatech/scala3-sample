@@ -58,7 +58,7 @@ class Clock(
     collection.mutable.SortedMap()
 
   private def updateCommandQueue(cmd: Command): Unit =
-    commandQueue.getOrElseUpdate(cmd.forEpoch, collection.mutable.ListBuffer()) += cmd
+    commandQueue.getOrElseUpdate(cmd.effectiveForEpoch(now), collection.mutable.ListBuffer()) += cmd
 
   private def popNextCommands(): Option[(Tick, scala.collection.mutable.ListBuffer[Command])] =
     commandQueue.headOption.map { t => commandQueue.remove(t._1); t }
@@ -83,14 +83,17 @@ class Clock(
       else
         sLog.info(s"\"${cmd.origin}\" -> \"${cmd.destination}\": [$now] ${cmd.signal.toString().take(20)}...${cmd.signal.toString().drop(msg.size-20)}")
     }
-    openAction(cmd.send)
+    openAction(cmd.send(now))
 
   private def scheduleCommand(ctx: ActorContext[PROTOCOL], cmd: Command): Unit =
     cmd.forEpoch match
-      case present if present == now =>
+      case None =>
+        log.debug(s" > Immediate ${cmd}")
+        triggerCommand(cmd)
+      case Some(present) if present == now =>
         log.debug(s" > Present ${cmd}")
         triggerCommand(cmd)
-      case future if future > now =>
+      case Some(future) if future > now =>
         log.debug(s" > Future ${cmd}")
         updateCommandQueue(cmd)
         log.trace(s" > With Queue[${commandQueue.size}]: $commandQueue")

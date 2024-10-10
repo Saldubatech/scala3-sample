@@ -9,6 +9,7 @@ import com.saldubatech.dcf.node.components.Operation
 class ProcessConfiguration[M <: Material]
 (
   val maxConcurrentJobs: Int,
+  val maxStagingCapacity: Int,
   val produce: (Tick, Wip.InProgress) => AppResult[Option[M]],
   val loadingSuccessDuration: (at: Tick, wip: Wip.New) => Duration,
   val processSuccessDuration: (at: Tick, wip: Wip.InProgress) => Duration,

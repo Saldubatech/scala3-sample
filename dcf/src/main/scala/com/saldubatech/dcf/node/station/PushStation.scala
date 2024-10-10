@@ -74,7 +74,7 @@ object PushStation:
       induct <- maybeIbInduct
     } yield
       OperationImpl(
-        "operation", host.stationId, process.maxConcurrentJobs, process.produce, opPhysics, process.acceptedPool, process.readyWipPool, Some(discharge.asSink)
+        "operation", host.stationId, process.maxConcurrentJobs, process.maxStagingCapacity, process.produce, opPhysics, process.acceptedPool, process.readyWipPool, Some(discharge.asSink)
       )
 
     // Machine
@@ -99,7 +99,7 @@ object PushStation:
         val linkPhysicsAdaptor = LinkBinding.API.ServerAdaptors.physics(outboundLink)
         val linkDownstreamAdaptor = LinkBinding.API.ServerAdaptors.downstream(outboundLink)
         val dPhysicsAdaptor = DischargeBinding.API.ServerAdaptors.physics(discharge)
-        val dischargeDownstreamAdaptor = DischargeBinding.API.ServerAdaptors.downstream(discharge)
+        val dischargeDownstreamAdaptor = DischargeBinding.API.ServerAdaptors.downstream(discharge, discharge.id)
         (at: Tick) => {
           case inductUpstreamSignal: InductBinding.API.Signals.Upstream => inductUpstreamAdaptor(at)(inductUpstreamSignal)
           case inductPhysicsSignal: InductBinding.API.Signals.Physics => inductPhysicsAdaptor(at)(inductPhysicsSignal)

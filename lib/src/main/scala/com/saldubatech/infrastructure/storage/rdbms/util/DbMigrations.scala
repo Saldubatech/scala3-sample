@@ -34,9 +34,7 @@ class FlywayMigrations(config: FlywayMigrations.FlywayDbConfiguration) extends D
     cfg.load().migrate().migrationsExecuted
 
   private def logValidationErrorsIfAny(cfg: FluentConfiguration): Unit = {
-    val validated = cfg.ignorePendingMigrations(true)
-      .load()
-      .validateWithResult()
+    val validated = cfg.load().validateWithResult()
 
     if (!validated.validationSuccessful)
       for (error <- validated.invalidMigrations.asScala)

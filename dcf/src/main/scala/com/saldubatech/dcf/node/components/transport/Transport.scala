@@ -6,6 +6,7 @@ import com.saldubatech.ddes.types.{Tick, DomainMessage}
 import com.saldubatech.ddes.elements.SimActor
 import com.saldubatech.dcf.material.Material
 import com.saldubatech.dcf.node.components.{Subject, SubjectMixIn, Component, Sink}
+import com.saldubatech.dcf.node.components.buffers.{Buffer}
 
 import scala.reflect.Typeable
 import scala.util.chaining._
@@ -27,10 +28,10 @@ end Transport // trait
 
 class TransportImpl[M <: Material, I_LISTENER <: Induct.Environment.Listener : Typeable, D_LISTENER <: Discharge.Environment.Listener : Typeable]
 (
-  override val id: Id,
+  tId: Id,
   iPhysics: Induct.API.Physics => Induct.Environment.Physics[M],
   tCapacity: Option[Int],
-  arrivalStore: Induct.Component.ArrivalBuffer[M],
+  arrivalStore: Buffer[Transfer[M]] & Buffer.Indexed[Transfer[M]],
   tPhysics: Link.API.Physics => Link.Environment.Physics[M],
   dPhysics: Discharge.API.Physics => Discharge.Environment.Physics[M],
   inductUpstreamInjector: Induct[M, ?] => Induct.API.Upstream[M],
@@ -39,6 +40,7 @@ class TransportImpl[M <: Material, I_LISTENER <: Induct.Environment.Listener : T
 )
 extends Transport[M, I_LISTENER, D_LISTENER]:
   transport =>
+  override lazy val id: Id = tId
 
   private val dischargeInjector: () => AppResult[Discharge[M, D_LISTENER]] = () => discharge
   private val linkInjector: () => AppResult[Link[M]] = () => link
@@ -73,7 +75,7 @@ extends Transport[M, I_LISTENER, D_LISTENER]:
           err => _induct.flatMap{
             i =>
             AppSuccess(new LinkMixIn[M] {
-              override val id: Id = s"Link[${transport.id}]"
+              override lazy val id: Id = s"Link[${transport.id}]"
               override val maxCapacity = tCapacity
               override val physics = linkPhysics
               override val downstream = inductUpstreamInjector(i)

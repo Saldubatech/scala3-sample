@@ -6,9 +6,10 @@ import com.saldubatech.ddes.types.{Tick, DomainMessage}
 
 trait Command:
   val issuedAt: Tick
-  val forEpoch: Tick
+  val forEpoch: Option[Tick]
   val id: Id
-  def send: Id
+  final def effectiveForEpoch(now: Tick): Tick = forEpoch.getOrElse(now)
+  def send(now: Tick): Id
 
   val origin: String
   val destination: String
