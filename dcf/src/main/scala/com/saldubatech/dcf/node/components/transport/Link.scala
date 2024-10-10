@@ -124,7 +124,6 @@ extends Link[M]:
           case Some(c) => AppFail(c)
     }
 
-//  private val readyQueue = collection.mutable.Queue.empty[(Id, M)]
   /* See Discharge._attemptDischarges. Opportunity to consolidate */
   private def _attemptDeliveries(at: Tick): Unit =
     readyToDeliver.consumeWhileSuccess(at,
