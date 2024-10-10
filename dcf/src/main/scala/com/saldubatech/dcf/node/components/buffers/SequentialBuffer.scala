@@ -16,7 +16,8 @@ object SequentialBuffer:
 
 end SequentialBuffer // object
 
-abstract class SequentialBuffer[M](override val id: Id) extends Buffer.Unbound[M]:
+abstract class SequentialBuffer[M](bId: Id) extends Buffer.Unbound[M]:
+  override lazy val id: Id = bId
   // private val _contents = collection.mutable.Queue.empty[M]
 
   protected val _contents: collection.mutable.AbstractBuffer[M]

@@ -4,8 +4,9 @@ import com.saldubatech.lang.{Id, Identified}
 import com.saldubatech.ddes.types.Tick
 import com.saldubatech.lang.types.*
 
-class RandomAccess[M](override val id: Id = "RandomAccessBuffer")
+class RandomAccess[M](bId: Id = "RandomAccessBuffer")
 extends Buffer.Unbound[M]:
+  override lazy val id: Id = bId
   private val _contents = collection.mutable.ListBuffer.empty[M]
 
   override def provide(at: Tick, m: M): UnitResult = AppSuccess(_contents += m)

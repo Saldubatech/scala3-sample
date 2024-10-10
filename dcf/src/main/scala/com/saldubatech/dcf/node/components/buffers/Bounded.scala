@@ -8,9 +8,10 @@ class Bounded[M](
   base: Buffer.Unbound[M],
   override val capacity: Int
 )(
-  override val id: Id = s"Bounded[${base.id}]"
+  bId: Id = s"Bounded[${base.id}]"
 )
 extends Buffer.Bound[M]:
+  override lazy val id: Id = bId
   export base.{contents, available, consume, consumeWhileSuccess, consumeAvailable, consumeOne, consumeSome}
 
   override def canProvide(at: Tick, m: M): AppResult[M] =

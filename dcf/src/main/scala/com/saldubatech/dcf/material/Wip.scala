@@ -11,22 +11,20 @@ object Wip:
 
   case class New
   (
-    override val id: Id,
     override val jobSpec: JobSpec,
     override val rawMaterials: List[Material],
     override val station: Id,
     override val arrived: Tick
   ) extends AtRest:
     def load(at: Tick): Loaded =
-      Loaded(id, jobSpec, rawMaterials, station, arrived, at)
+      Loaded(jobSpec, rawMaterials, station, arrived, at)
     def failed(at: Tick): Failed =
-      Failed(id, jobSpec, rawMaterials, station, arrived, at, at, at)
+      Failed(jobSpec, rawMaterials, station, arrived, at, at, at)
 
   sealed trait Processing extends Wip
 
   case class Loaded
   (
-    override val id: Id,
     override val jobSpec: JobSpec,
     override val rawMaterials: List[Material],
     override val station: Id,
@@ -34,11 +32,10 @@ object Wip:
     loadedAt: Tick
   ) extends Processing:
     def start(at: Tick): InProgress =
-      InProgress(id, jobSpec, rawMaterials, station, arrived, loadedAt, at)
+      InProgress(jobSpec, rawMaterials, station, arrived, loadedAt, at)
 
   case class InProgress
   (
-    override val id: Id,
     override val jobSpec: JobSpec,
     override val rawMaterials: List[Material],
     override val station: Id,
@@ -47,13 +44,12 @@ object Wip:
     started: Tick
   ) extends Processing:
     def complete[PRODUCT <: Material](at: Tick, product: Option[PRODUCT]): Complete[PRODUCT] =
-      Complete(id, jobSpec, rawMaterials, station, arrived, loadedAt, started, at, product)
+      Complete(jobSpec, rawMaterials, station, arrived, loadedAt, started, at, product)
     def failed[PRODUCT <: Material](at: Tick): Failed =
-      Failed(id, jobSpec, rawMaterials, station, arrived, loadedAt, started, at)
+      Failed(jobSpec, rawMaterials, station, arrived, loadedAt, started, at)
 
   case class Complete[PRODUCT <: Material]
   (
-    override val id: Id,
     override val jobSpec: JobSpec,
     override val rawMaterials: List[Material],
     override val station: Id,
@@ -64,11 +60,10 @@ object Wip:
     product: Option[PRODUCT]
   ) extends Processing:
     def unload(at: Tick): Unloaded[PRODUCT] =
-      Unloaded(id, jobSpec, rawMaterials, station, loadedAt, arrived, started, completed, at, product)
+      Unloaded(jobSpec, rawMaterials, station, loadedAt, arrived, started, completed, at, product)
 
   case class Failed
     (
-    override val id: Id,
     override val jobSpec: JobSpec,
     override val rawMaterials: List[Material],
     override val station: Id,
@@ -78,11 +73,10 @@ object Wip:
     completed: Tick
   ) extends Processing:
     def scrap(at: Tick): Scrap =
-      Scrap(id, jobSpec, rawMaterials, station, loadedAt, arrived, started, completed, at)
+      Scrap(jobSpec, rawMaterials, station, loadedAt, arrived, started, completed, at)
 
   case class Unloaded[PRODUCT <: Material]
   (
-    override val id: Id,
     override val jobSpec: JobSpec,
     override val rawMaterials: List[Material],
     override val station: Id,
@@ -96,7 +90,6 @@ object Wip:
 
   case class Scrap
   (
-    override val id: Id,
     override val jobSpec: JobSpec,
     override val rawMaterials: List[Material],
     override val station: Id,
@@ -114,4 +107,5 @@ sealed trait Wip extends Identified:
   val rawMaterials: List[Material]
   val station: Id
   val arrived: Tick
+  final override lazy val id: Id = jobSpec.id
 end Wip // trait

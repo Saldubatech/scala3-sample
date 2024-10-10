@@ -23,7 +23,7 @@ object Discharge:
       def discharge(at: Tick, load: M): UnitResult
 
       def asSink: Sink.API.Upstream[M] = new Sink.API.Upstream[M]() {
-        override val id: Id = discharge.id
+        override lazy val id: Id = discharge.id
         override val stationId: Id = discharge.stationId
         override def canAccept(at: Tick, from: Id, load: M): UnitResult = discharge.canDischarge(at, load).asUnit
         override def acceptMaterialRequest(at: Tick, fromStation: Id, fromSource: Id, load: M): UnitResult = discharge.discharge(at, load)
@@ -202,6 +202,6 @@ class DischargeImpl[M <: Material, LISTENER <: Discharge.Environment.Listener : 
   extends DischargeMixIn[M, LISTENER]:
     self =>
     // Members declared in com.saldubatech.lang.Identified
-    override val id: Id = s"$stationId::Discharge[$dId]"
+    override lazy val id: Id = s"$stationId::Discharge[$dId]"
 
 end DischargeImpl // class

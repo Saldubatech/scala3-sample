@@ -26,9 +26,10 @@ object Discharge:
 
 
     object ClientStubs:
-      class Downstream(from: => SimActor[?], target: => SimActor[Signals.Downstream], override val stationId: Id, override val id: Id)
+      class Downstream(from: => SimActor[?], target: => SimActor[Signals.Downstream], override val stationId: Id, dId: Id)
       extends DischargeComponent.API.Downstream
       with DischargeComponent.Identity:
+        override lazy val id: Id = dId
         def restore(at: Tick, cards: List[Id]): UnitResult =
           AppSuccess(from.env.schedule(target)(at, Signals.Restore(Id, Id, id, cards)))
 

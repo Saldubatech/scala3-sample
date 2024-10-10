@@ -43,7 +43,7 @@ object SourceMachineSpec:
         called += c
       }
 
-    override val id: Id = "MockListener"
+    override lazy val id: Id = "MockListener"
     override def loadArrival(at: Tick, atStation: Id, atInduct: Id, load: Material): Unit =
       call("loadArrival", at, atStation, atInduct, load)
     override def loadInjected(at: Tick, stationId: Id, machine: Id, viaDischargeId: Id, load: Material): Unit =

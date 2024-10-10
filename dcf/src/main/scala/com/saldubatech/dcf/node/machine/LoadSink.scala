@@ -54,10 +54,10 @@ class LoadSinkImpl[M <: Material, LISTENER <: LoadSink.Environment.Listener : Ty
 )
 extends LoadSink[M, LISTENER]:
   loadSink =>
-  override val id = s"$stationId::LoadSink[$lId]"
+  override lazy val id = s"$stationId::LoadSink[$lId]"
 
   private val sink = new Sink.API.Upstream[M] {
-    override val id: Id = loadSink.id
+    override lazy val id: Id = loadSink.id
     override val stationId: Id = loadSink.stationId
     override def canAccept(at: Tick, from: Id, load: M): UnitResult = AppSuccess.unit
     override def acceptMaterialRequest(at: Tick, fromStation: Id, fromSource: Id, load: M): UnitResult =
@@ -70,7 +70,7 @@ extends LoadSink[M, LISTENER]:
   def listening(induct: Induct.API.Management[Induct.Environment.Listener] & Induct.API.Control[M]): Unit =
     val deliverer = induct.delivery(sink)
     val listener =  new Induct.Environment.Listener() {
-      override val id: Id = loadSink.id
+      override lazy val id: Id = loadSink.id
       override final def loadArrival(at: Tick, fromStation: Id, atStation: Id, atInduct: Id, load: Material): Unit =
         val cardCount = induct.cards(at).size
         for {

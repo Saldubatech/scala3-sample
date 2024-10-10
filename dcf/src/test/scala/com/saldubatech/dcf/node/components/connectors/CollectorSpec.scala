@@ -30,7 +30,7 @@ object CollectorSpec:
   with Sink.Environment.Listener
   with SubjectMixIn[LISTENER]:
     self: LISTENER =>
-    override val id: Id = downstream.id
+    override lazy val id: Id = downstream.id
     override val stationId = downstream.stationId
 
     downstream.listen(this)

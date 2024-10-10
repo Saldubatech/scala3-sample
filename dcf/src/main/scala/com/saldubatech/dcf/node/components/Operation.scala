@@ -157,7 +157,7 @@ with SubjectMixIn[LISTENER]:
     AppSuccess(acceptedPool.content(at, by))
 
   override val upstreamEndpoint: Sink.API.Upstream[M] = new Sink.API.Upstream[M] {
-    override val id: Id = operationSelf.id
+    override lazy val id: Id = operationSelf.id
     override val stationId: Id = operationSelf.stationId
 
     def acceptMaterialRequest(at: Tick, fromStation: Id, fromSource: Id, load: M): UnitResult =
@@ -174,7 +174,7 @@ with SubjectMixIn[LISTENER]:
 
 
   // Loading Implementation
-  private val _loading = collection.mutable.Map.empty[Id, Wip.New]
+  private val _loading = collection.mutable.Map.empty[Id, Wip.New] // JobId -> Wip.New
   private val _inProgress = collection.mutable.Map.empty[Id, Wip.Processing]
   private val _unloading = collection.mutable.Map.empty[Id, Wip.Complete[M]]
   override def nJobsInProgress(at: Tick): Int = _loading.size + _inProgress.size + _unloading.size
@@ -398,6 +398,6 @@ class OperationImpl[M <: Material, LISTENER <: Operation.Environment.Listener : 
 extends OperationMixIn[M, LISTENER]:
 
   // Members declared in com.saldubatech.lang.Identified
-  val id: Id = s"$stationId::Operation[$lId]"
+  override lazy val id: Id = s"$stationId::Operation[$lId]"
 
 end OperationImpl // class

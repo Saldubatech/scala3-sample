@@ -34,7 +34,7 @@ object LoadSinkSpec:
         called += c
       }
 
-    override val id: Id = "MockListener"
+    override lazy val id: Id = "MockListener"
     override def loadDeparted(at: Tick, fromStation: Id, fromSink: Id, load: Material): Unit =
       call("loadDeparted", at, fromStation, fromSink, load)
   }

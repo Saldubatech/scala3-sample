@@ -19,7 +19,8 @@ object Source:
     end Signals // object
 
     object ClientStubs:
-      class Physics[M <: Material](host: SimActor[Signals.Physics], stationId: Id, override val id: Id) extends SourceComponent.API.Physics[M]:
+      class Physics[M <: Material](host: SimActor[Signals.Physics], stationId: Id, pId: Id) extends SourceComponent.API.Physics[M]:
+        override lazy val id: Id = pId
         def arrivalFinalize(atTime: Tick, load: M): UnitResult =
           AppSuccess(host.env.selfSchedule(atTime, Signals.ArrivalFinalize[M](Id, Id, stationId, id, load)))
         def deliveryFinalize(atTime: Tick, load: M): UnitResult =

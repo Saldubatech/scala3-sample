@@ -93,7 +93,7 @@ class SourceImpl[M <: Material]
   autoRetry: Boolean = true,
 ) extends Source[M]
 with SubjectMixIn[Source.Environment.Listener]:
-  override val id: Id = s"$stationId::Source[$sId]"
+  override lazy val id: Id = s"$stationId::Source[$sId]"
   // From Source.API.Control
   private var _complete: Boolean = false
   private def markComplete: Unit = _complete = true

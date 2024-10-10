@@ -217,7 +217,7 @@ class InductImpl[M <: Material, LISTENER <: Induct.Environment.Listener : Typeab
   originP: () => AppResult[Discharge.API.Downstream & Discharge.Identity]
 )
 extends InductMixIn[M, LISTENER]:
-  override val id: Id = s"$stationId::Induct[$iId]"
+  override lazy val id: Id = s"$stationId::Induct[$iId]"
   override lazy val origin: AppResult[Discharge.API.Downstream & Discharge.Identity] = originP()
   override lazy val link: AppResult[Link.API.Downstream] = linkP()
 

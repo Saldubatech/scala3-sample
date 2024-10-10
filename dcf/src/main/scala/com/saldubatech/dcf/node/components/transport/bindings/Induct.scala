@@ -38,7 +38,7 @@ object Induct:
       end Upstream // class
 
       class CongestionControl(from: => SimActor[?], target: SimActor[Signals.CongestionControl], forInductId: Id) extends InductComponent.API.CongestionControl:
-        override val id: Id = forInductId
+        override lazy val id: Id = forInductId
         def restoreOne(at: Tick): UnitResult = AppSuccess(from.env.schedule(target)(at, Signals.Restore(Id, Id, forInductId, Some(1))))
         def restoreAll(at: Tick): UnitResult = AppSuccess(from.env.schedule(target)(at, Signals.Restore(Id, Id, forInductId, None)))
         def restoreSome(at: Tick, nCards: Int): UnitResult = AppSuccess(from.env.schedule(target)(at, Signals.Restore(Id, Id, forInductId, Some(nCards))))

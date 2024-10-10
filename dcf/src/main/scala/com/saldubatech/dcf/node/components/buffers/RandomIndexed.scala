@@ -4,8 +4,9 @@ import com.saldubatech.lang.{Id, Identified}
 import com.saldubatech.ddes.types.Tick
 import com.saldubatech.lang.types.*
 
-class RandomIndexed[M <: Identified](override val id: Id = "RandomIndexedBuffer")
+class RandomIndexed[M <: Identified](bId: Id = "RandomIndexedBuffer")
 extends Buffer.Unbound[M] with Buffer.Indexed[M]:
+  override lazy val id: Id = bId
   private val _contents = collection.mutable.Map.empty[Id, M]
   private val _arrivalOrder = collection.mutable.ListBuffer.empty[M]
 

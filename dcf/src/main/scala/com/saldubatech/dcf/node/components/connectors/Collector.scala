@@ -22,7 +22,7 @@ class Collector[M <: Material, LISTENER <: Sink.Environment.Listener]
 )
 extends Component.Identity:
   collector =>
-  override val id: Id = s"$stationId::Collector[$cId]"
+  override lazy val id: Id = s"$stationId::Collector[$cId]"
   val inlets: Map[Id, Sink.API.Upstream[Material] & Component.API.Management[Sink.Environment.Listener]] = inputLabels.map{
     label =>
       label -> proxyFactory(label, downstream)

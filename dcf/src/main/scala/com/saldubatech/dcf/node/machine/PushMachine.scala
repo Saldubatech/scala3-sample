@@ -59,12 +59,12 @@ class PushMachineImpl[M <: Material : Typeable]
 ) extends PushMachine[M]
 with SubjectMixIn[PushMachine.Environment.Listener]:
   machineSelf =>
-  override val id = s"$stationId::PushMachine[$mId]"
+  override lazy val id = s"$stationId::PushMachine[$mId]"
 
   private val deliverer = inbound.delivery(operation.upstreamEndpoint)
 
   private val inductWatcher = new Induct.Environment.Listener {
-    override val id: Id = s"${id}::InductWatcher"
+    override lazy val id: Id = s"${machineSelf.id}::InductWatcher"
 
     def loadArrival(at: Tick, fromStation: Id, atStation: Id, atInduct: Id, load: Material): Unit =
       doNotify{ l =>
@@ -77,7 +77,7 @@ with SubjectMixIn[PushMachine.Environment.Listener]:
   }.tap{inbound.listen}
 
   private val opWatcher = new Operation.Environment.Listener {
-    override val id: Id = s"${id}::OpWatcher"
+    override lazy val id: Id = s"${machineSelf.id}::OpWatcher"
     override def loadAccepted(at: Tick, atStation: Id, atSink: Id, load: Material): Unit =
       val js = PushMachine.PushJobSpec(load.id, load.id)
       operation.loadJobRequest(at, js).map{
@@ -97,7 +97,7 @@ with SubjectMixIn[PushMachine.Environment.Listener]:
 
     override def jobUnloaded(at: Tick, stationId: Id, processorId: Id, unloaded: Wip.Unloaded[?]): Unit =
       unloaded match
-        case w@Wip.Unloaded(_, _, _, _, _, _, _, _, _, Some(_ : M)) =>
+        case w@Wip.Unloaded( _, _, _, _, _, _, _, _, Some(_ : M)) =>
           doNotify(_.jobUnloaded(at, stationId, id, w))
           operation.deliver(at, w.jobSpec.id)
         case other => () // Error, should not receive a product different than M.
@@ -109,7 +109,7 @@ with SubjectMixIn[PushMachine.Environment.Listener]:
   }.tap{operation.listen}
 
   private val dischargeWatcher = new Discharge.Environment.Listener {
-    override val id: Id = s"${id}::DischargeWatcher"
+    override lazy val id: Id = s"${machineSelf.id}::DischargeWatcher"
     def loadDischarged(at: Tick, stId: Id, discharge: Id, load: Material): Unit =
       // Nothing to do. The link will take it over the outbound transport
       doNotify(_.productDischarged(at, stationId, discharge, load))

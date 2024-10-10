@@ -16,7 +16,7 @@ object Harness:
     engine: MockAsyncCallback
   ) extends Source.API.Physics[M]:
     var underTest: Source.API.Physics[M] = null
-    override val id: Id = "MockPhysicsStub"
+    override lazy val id: Id = "MockPhysicsStub"
 
     def arrivalFinalize(atTime: Tick, load: M): UnitResult =
       AppSuccess(engine.add(atTime){ () => underTest.arrivalFinalize(atTime, load) })
@@ -47,9 +47,10 @@ object Harness:
       AppSuccess(engine.add(forTime){ () => underTest.unloadFinalize(forTime, wip.jobSpec.id) })
   end MockOperationPhysics // class
 
-  class MockSink[M <: Material, LISTENER <: Sink.Environment.Listener : Typeable](override val id: Id, override val stationId: Id)
+  class MockSink[M <: Material, LISTENER <: Sink.Environment.Listener : Typeable](mId: Id, override val stationId: Id)
   extends Sink[M, LISTENER]
   with SubjectMixIn[LISTENER]:
+    override lazy val id: Id = mId
     val receivedCalls: collection.mutable.ListBuffer[String] = collection.mutable.ListBuffer.empty[String]
 
     def clear: Unit = receivedCalls.clear()
@@ -66,11 +67,12 @@ object Harness:
       AppSuccess.unit
 
   class MockCongestedSink[M <: Material, LISTENER <: Sink.Environment.Listener : Typeable](
-    override val id: Id,
+    mId: Id,
     override val stationId: Id,
     congestionLevel: Int)
   extends Sink[M, LISTENER]
   with SubjectMixIn[LISTENER]:
+    override lazy val id: Id = mId
     val acceptedMaterialRequests: collection.mutable.ListBuffer[String] = collection.mutable.ListBuffer.empty[String]
 
     def clear: Unit = acceptedMaterialRequests.clear()

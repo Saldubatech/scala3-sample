@@ -40,13 +40,14 @@ object Link:
 
   class Physics[M <: Material]
     (
-      override val id: Id,
+      pId: Id,
       host: API.Physics,
       successDuration: (at: Tick, card: Id, load: M) => Duration,
       minSlotDuration: Duration = 1,
       failDuration: (at: Tick, card: Id, load: M) => Duration = (at: Tick, card: Id, load: M) => 0,
       failureRate: (at: Tick, card: Id, load: M) => Double = (at: Tick, card: Id, load: M) => 0.0
     ) extends Environment.Physics[M] with Identity:
+      override lazy val id: Id = pId
       var latestDischargeTime: Tick = 0
 
       def transportCommand(at: Tick, atLink: Id, card: Id, load: M): UnitResult =

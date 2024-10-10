@@ -39,7 +39,8 @@ object Source:
     end Signals
 
     object ClientStubs:
-      class Listener(override val id: Id, host: ActorSubject) extends SourceMachine.Environment.Listener:
+      class Listener(lId: Id, host: ActorSubject) extends SourceMachine.Environment.Listener:
+        override lazy val id: Id = lId
         override def loadArrival(at: Tick, atStation: Id, atInduct: Id, load: Material): Unit =
           host.eventNotify(NewJob(at, Id, atStation)) // (at, newJobId, atStation)
 

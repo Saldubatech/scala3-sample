@@ -34,7 +34,7 @@ class SourceSpec extends BaseSpec {
     )
     mockPhysicsStub.underTest = underTest
     class MockListener extends Source.Environment.Listener {
-      override val id: Id = "MockListener"
+      override lazy val id: Id = "MockListener"
       val arrivals = collection.mutable.ListBuffer.empty[(Tick, Id, Id, Material)]
       val deliveries = collection.mutable.ListBuffer.empty[(Tick, Id, Id, Material)]
       val congestions = collection.mutable.ListBuffer.empty[(Tick, Id, Id, List[Material])]

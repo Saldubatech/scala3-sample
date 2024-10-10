@@ -53,14 +53,14 @@ class SourceMachineImpl[M <: Material]
 extends SourceMachine[M]
 with SubjectMixIn[SourceMachine.Environment.Listener]:
   selfMachine =>
-  override val id: Id = s"$stationId::Source[$mId]"
+  override lazy val id: Id = s"$stationId::Source[$mId]"
 
   val source: Source[M] = SourceImpl[M]("source", stationId, sourcePhysics, outbound.asSink)
 
   override def go(at: Tick): UnitResult = source.go(at)
 
   private val sourceWatcher = new Source.Environment.Listener {
-    override val id: Id = selfMachine.id
+    override lazy val id: Id = selfMachine.id
     override def loadArrival(at: Tick, atStation: Id, atSource: Id, load: Material): Unit = doNotify(_.loadArrival(at, atStation, id, load))
     override def loadDelivered(at: Tick, atStation: Id, atSource: Id, load: Material): Unit = ()
     override def congestion(at: Tick, atStation: Id, atSource: Id, backup: List[Material]): Unit = ()
@@ -68,7 +68,7 @@ with SubjectMixIn[SourceMachine.Environment.Listener]:
   }.tap(source.listen)
 
   private val dischargeWatcher = new Discharge.Environment.Listener {
-    override val id: Id = selfMachine.id
+    override lazy val id: Id = selfMachine.id
     def loadDischarged(at: Tick, stId: Id, discharge: Id, load: Material): Unit =
       // Nothing to do. The link will take it over the outbound transport
       doNotify(_.loadInjected(at, stationId, id, discharge, load))

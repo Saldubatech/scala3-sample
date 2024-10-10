@@ -12,5 +12,5 @@ import com.saldubatech.dcf.material.Material
   * @param material
   */
 case class Transfer[M <: Material](at: Tick, card: Id, material: M) extends Identified:
-    override val id: Id = material.id
+    override lazy val id: Id = material.id
 end Transfer

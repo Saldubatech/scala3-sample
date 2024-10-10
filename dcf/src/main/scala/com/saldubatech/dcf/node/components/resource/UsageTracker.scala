@@ -173,7 +173,8 @@ trait UsageTracker extends Identified:
 
 end UsageTracker // trait
 
-class UsageTrackerImpl(override val id: Id, val capacity: Option[Eaches], override val notifier: UsageTracker.Notifier = UsageTracker.NoOpNotifier) extends UsageTracker:
+class UsageTrackerImpl(uId: Id, val capacity: Option[Eaches], override val notifier: UsageTracker.Notifier = UsageTracker.NoOpNotifier) extends UsageTracker:
+  override lazy val id: Id = uId
   import UsageTracker._
   import UsageState._
   private var _state: UsageState = IDLE

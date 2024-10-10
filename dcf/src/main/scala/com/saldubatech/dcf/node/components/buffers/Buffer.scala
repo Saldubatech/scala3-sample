@@ -36,7 +36,7 @@ object Buffer:
 end Buffer // object
 
 trait Buffer[M] extends Identified:
-  val id: Id = "Buffer"
+  override lazy val id: Id = "Buffer"
   def provide(at: Tick, m: M): UnitResult
 
   final def isIdle(at: Tick): Boolean = contents(at).isEmpty

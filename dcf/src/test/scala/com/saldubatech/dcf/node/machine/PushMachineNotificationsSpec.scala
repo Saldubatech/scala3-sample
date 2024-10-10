@@ -72,12 +72,13 @@ object PushMachineNotificationsSpec:
         case Some(m : ProbeInboundMaterial) => AppSuccess(Some(m))
         case Some(other) => AppFail.fail(s"Unexpected Material type: $other")
 
-  class Listener(override val id: Id) extends PushMachine.Environment.Listener {
+  class Listener(lId: Id) extends PushMachine.Environment.Listener {
+    override lazy val id: Id = lId
     val jobNotifications = collection.mutable.Set.empty[(String, Tick, Id, Id, Wip)]
     val materialNotifications = collection.mutable.Set.empty[(String, Tick, Id, Id, Id, Material, String)]
 
     def jobArrival(at: Tick, atStation: Id, atMachine: Id, job: JobSpec): Unit =
-      jobNotifications += (("jobLoaded", at, atStation, atMachine, Wip.New(job.id, job, List(), atStation, at)))
+      jobNotifications += (("jobLoaded", at, atStation, atMachine, Wip.New(job, List(), atStation, at)))
     def materialArrival(at: Tick, atStation: Id, atMachine: Id, atInduct: Id, load: Material): Unit =
       materialNotifications += (("materialArrival", at, atStation, atMachine, atInduct, load, "INBOUND"))
     def jobLoaded(at: Tick, atStation: Id, atMachine: Id, wip: Wip.Loaded): Unit =

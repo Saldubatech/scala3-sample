@@ -20,28 +20,29 @@ object OperationNotificationSpec:
         case Some(m : ProbeInboundMaterial) => AppSuccess(Some(m))
         case Some(other) => AppFail.fail(s"Unexpected Material type: $other")
 
-  class Listener(override val id: Id = "HarnessListener") extends Operation.Environment.Listener{
+  class Listener(lId: Id = "HarnessListener") extends Operation.Environment.Listener:
+    override lazy val id: Id = lId
 
-      val jobNotifications = collection.mutable.Set.empty[(String, Tick, Id, Id, Wip)]
-      val materialNotifications = collection.mutable.Set.empty[(String, Tick, Id, Id, Option[Id], Option[Id], Material, String)]
+    val jobNotifications = collection.mutable.Set.empty[(String, Tick, Id, Id, Wip)]
+    val materialNotifications = collection.mutable.Set.empty[(String, Tick, Id, Id, Option[Id], Option[Id], Material, String)]
 
-      override def loadAccepted(at: Tick, atStation: Id, atSink: Id, load: Material): Unit =
-        materialNotifications += (("loadAccepted", at, atStation, atSink, None, None, load, "INBOUND"))
-      override def jobLoaded(at: Tick, stationId: Id, processorId: Id, loaded: Wip.Loaded): Unit =
-        jobNotifications += (("jobLoaded", at, stationId, processorId, loaded))
-      override def jobStarted(at: Tick, stationId: Id, processorId: Id, inProgress: Wip.InProgress): Unit =
-        jobNotifications += (("jobStarted", at, stationId, processorId, inProgress))
-      override def jobCompleted(at: Tick, stationId: Id, processorId: Id, completed: Wip.Complete[?]): Unit =
-        jobNotifications += (("jobCompleted", at, stationId, processorId, completed))
-      override def jobUnloaded(at: Tick, stationId: Id, processorId: Id, unloaded: Wip.Unloaded[?]): Unit =
-        jobNotifications += (("jobUnloaded", at, stationId, processorId, unloaded))
-      override def jobFailed(at: Tick, stationId: Id, processorId: Id, failed: Wip.Failed): Unit =
-        jobNotifications += (("jobFailed", at, stationId, processorId, failed))
-      override def jobDelivered(at: Tick, stationId: Id, processorId: Id, delivered: Wip.Unloaded[?]): Unit =
-        jobNotifications += (("jobDelivered", at, stationId, processorId, delivered))
-      override def jobScrapped(at: Tick, stationId: Id, processorId: Id, scrapped: Wip.Scrap): Unit =
-        jobNotifications += (("jobScrapped", at, stationId, processorId, scrapped))
-    }
+    override def loadAccepted(at: Tick, atStation: Id, atSink: Id, load: Material): Unit =
+      materialNotifications += (("loadAccepted", at, atStation, atSink, None, None, load, "INBOUND"))
+    override def jobLoaded(at: Tick, stationId: Id, processorId: Id, loaded: Wip.Loaded): Unit =
+      jobNotifications += (("jobLoaded", at, stationId, processorId, loaded))
+    override def jobStarted(at: Tick, stationId: Id, processorId: Id, inProgress: Wip.InProgress): Unit =
+      jobNotifications += (("jobStarted", at, stationId, processorId, inProgress))
+    override def jobCompleted(at: Tick, stationId: Id, processorId: Id, completed: Wip.Complete[?]): Unit =
+      jobNotifications += (("jobCompleted", at, stationId, processorId, completed))
+    override def jobUnloaded(at: Tick, stationId: Id, processorId: Id, unloaded: Wip.Unloaded[?]): Unit =
+      jobNotifications += (("jobUnloaded", at, stationId, processorId, unloaded))
+    override def jobFailed(at: Tick, stationId: Id, processorId: Id, failed: Wip.Failed): Unit =
+      jobNotifications += (("jobFailed", at, stationId, processorId, failed))
+    override def jobDelivered(at: Tick, stationId: Id, processorId: Id, delivered: Wip.Unloaded[?]): Unit =
+      jobNotifications += (("jobDelivered", at, stationId, processorId, delivered))
+    override def jobScrapped(at: Tick, stationId: Id, processorId: Id, scrapped: Wip.Scrap): Unit =
+      jobNotifications += (("jobScrapped", at, stationId, processorId, scrapped))
+  end Listener // class
 end OperationNotificationSpec // object
 
 class OperationNotificationSpec extends BaseSpec:
