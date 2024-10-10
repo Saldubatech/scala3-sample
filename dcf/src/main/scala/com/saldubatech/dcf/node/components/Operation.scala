@@ -354,15 +354,19 @@ with SubjectMixIn[LISTENER]:
     if paused then AppFail.fail(s"Delivery is Paused")
     if stagedQueue.isEmpty then AppSuccess.unit
     else
-      val currentDelivery = (for {
-      ds <- downstream
-      product <- stagedQueue.head.product
-    } yield
-        ds.acceptMaterialRequest(at, stationId, id, product).map{
-          _ =>
-            doNotify(_.jobDelivered(at, stationId, id, stagedQueue.dequeue()))
-        }).getOrElse(AppSuccess.unit) // the possible failures are if downstream is not defined or there is no product to deliver.
-      currentDelivery.flatMap{ _ => tryDeliver(at) }.fold(// return current if nested fails.
+      val candidateWip = stagedQueue.head
+      val maybeDeliver = for {
+          ds <- downstream
+          product <- candidateWip.product
+        } yield
+          ds.acceptMaterialRequest(at, stationId, id, product).map{
+            _ => doNotify(_.jobDelivered(at, stationId, id, candidateWip))
+          }
+      val currentDelivery = maybeDeliver.getOrElse(AppSuccess.unit) // the possible failures are if downstream is not defined or there is no product to deliver.
+      currentDelivery.flatMap{ _ =>
+        stagedQueue.dequeue()
+        tryDeliver(at)
+      }.fold(// return current if nested fails.
         err => currentDelivery,
         _ => AppSuccess.unit
       )
