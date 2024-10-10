@@ -7,7 +7,7 @@ import com.saldubatech.util.stack
 import com.saldubatech.ddes.types.{Tick, Duration}
 import com.saldubatech.dcf.material.Material
 import com.saldubatech.dcf.node.components.{Subject, SubjectMixIn, Component, Sink}
-import com.saldubatech.dcf.node.components.buffers.RandomIndexed
+import com.saldubatech.dcf.node.components.buffers.{RandomIndexed, SequentialBuffer}
 
 import scala.reflect.Typeable
 
@@ -172,27 +172,34 @@ with SubjectMixIn[LISTENER]:
     for {
       load <- Component.inStation(stationId, "Discharging")(_discharging.remove)(card)
     } yield
-      readyQueue.enqueue(card -> load)
+      readyQueue.provide(at, card -> load)
       _attemptDischarges(at)
 
-  private val readyQueue = collection.mutable.Queue.empty[(Id, M)]
+  private lazy val readyQueue = SequentialBuffer.FIFO[(Id, M)](s"$id[readyQueue]")
 
   private def _attemptDischarges(at: Tick): Unit =
-    while
-      readyQueue.nonEmpty &&
-      readyQueue.headOption.forall{
-        (card, load) =>
-          downstream.loadArriving(at, card, load).fold(
-            { err => false },
-            { _ =>
-              val dq = readyQueue.dequeue()
-              _delivered.provide(at, load) // to wait for an acknowledgement
-              doNotify(l => l.loadDischarged(at, stationId, id, load))
-              true
-            }
-          )
-      }
-    do ()
+    readyQueue.consumeWhileSuccess(at,
+    { (t, r) => downstream.loadArriving(t, r._1, r._2) },
+    { (t, r) =>
+        _delivered.provide(t, r._2) // to wait for acknowledgement
+        doNotify(_.loadDischarged(t, stationId, id, r._2))
+    }
+    )
+    // while
+    //   !readyQueue.isIdle(at) &&
+    //   readyQueue.headOption.forall{
+    //     (card, load) =>
+    //       downstream.loadArriving(at, card, load).fold(
+    //         { err => false },
+    //         { _ =>
+    //           val dq = readyQueue.dequeue()
+    //           _delivered.provide(at, load) // to wait for an acknowledgement
+    //           doNotify(l => l.loadDischarged(at, stationId, id, load))
+    //           true
+    //         }
+    //       )
+    //   }
+    // do ()
 end DischargeMixIn // trait
 
 
