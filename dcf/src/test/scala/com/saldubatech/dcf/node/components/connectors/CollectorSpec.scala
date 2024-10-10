@@ -3,19 +3,51 @@ package com.saldubatech.dcf.node.components.connectors
 import com.saldubatech.test.BaseSpec
 import com.saldubatech.lang.Id
 import com.saldubatech.dcf.material.{Material, Wip}
+import com.saldubatech.dcf.node.components.buffers.RandomIndexed
+import com.saldubatech.dcf.node.components.SubjectMixIn
 import com.saldubatech.ddes.types.Tick
 import com.saldubatech.lang.types.{AppResult, UnitResult, AppSuccess, AppFail, AppError, collectAll}
 import com.saldubatech.dcf.job.{JobSpec, SimpleJobSpec}
 
+import scala.reflect.Typeable
+
 import com.saldubatech.dcf.node.{ProbeInboundMaterial, ProbeOutboundMaterial}
 
-import com.saldubatech.dcf.node.components.{Sink, ProxySink, Component}
+import com.saldubatech.dcf.node.components.{Sink, Component}
 
 import org.scalatest.matchers.should.Matchers._
 import com.saldubatech.dcf.node.components.Harness.MockSink
 
 object CollectorSpec:
+  class ProxySink[M <: Material, LISTENER <: Sink.Environment.Listener : Typeable]
+  (
+    pId: Id,
+    downstream: Sink.API.Upstream[M] & Component.API.Management[LISTENER]
+  )
+  extends Sink.Identity
+  with Sink.API.Upstream[M]
+  with Component.API.Management[LISTENER]
+  with Sink.Environment.Listener
+  with SubjectMixIn[LISTENER]:
+    self: LISTENER =>
+    override val id: Id = downstream.id
+    override val stationId = downstream.stationId
 
+    downstream.listen(this)
+
+  //  private val inTransit = collection.mutable.Map.empty[Id, M]
+    private val inTransit2 = RandomIndexed[M](s"$id[InTransit]")
+    override def acceptMaterialRequest(at: Tick, fromStation: Id, fromSource: Id, load: M): UnitResult =
+  //    inTransit += load.id -> load
+      inTransit2.provide(at, load)
+      downstream.acceptMaterialRequest(at, fromStation, fromSource, load)
+
+    override def canAccept(at: Tick, from: Id, load: M): UnitResult =
+      downstream.canAccept(at, from, load)
+
+    override def loadAccepted(at: Tick, stationId: Id, sinkId: Id, load: Material): Unit =
+      inTransit2.consume(at, load.id).map{ld => doNotify{ _.loadAccepted(at, stationId, id, ld)} }
+  //    inTransit.remove(load.id).map{ld => doNotify{ _.loadAccepted(at, stationId, id, ld)} }
 end CollectorSpec // object
 
 class CollectorSpec extends BaseSpec:
