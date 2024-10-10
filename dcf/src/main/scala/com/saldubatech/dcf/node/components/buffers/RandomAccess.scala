@@ -28,7 +28,7 @@ extends Buffer.Unbound[M]:
 
   override def consume(at: Tick, m: M): AppResult[M] =
     _contents.indexOf(m) match
-      case -1 => AppFail.fail(s"Element not Found in $id")
+      case -1 => AppFail.fail(s"Element $m not Found in $id")
       case idx => AppSuccess(_contents.remove(idx))
 
   override def consumeWhileSuccess(

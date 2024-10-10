@@ -31,7 +31,7 @@ class TransportImpl[M <: Material, I_LISTENER <: Induct.Environment.Listener : T
   override val id: Id,
   iPhysics: Induct.API.Physics => Induct.Environment.Physics[M],
   tCapacity: Option[Int],
-  arrivalStore: Buffer[Induct.Arrival[M]] & Buffer.Indexed[Induct.Arrival[M]],
+  arrivalStore: Buffer[Transfer[M]] & Buffer.Indexed[Transfer[M]],
   tPhysics: Link.API.Physics => Link.Environment.Physics[M],
   dPhysics: Discharge.API.Physics => Discharge.Environment.Physics[M],
   inductUpstreamInjector: Induct[M, ?] => Induct.API.Upstream[M],

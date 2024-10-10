@@ -5,6 +5,7 @@ import com.saldubatech.lang.types._
 import com.saldubatech.math.randomvariables.Distributions.probability
 import com.saldubatech.ddes.types.{Tick, Duration}
 import com.saldubatech.dcf.material.Material
+
 import com.saldubatech.dcf.node.components.{Subject, SubjectMixIn, Sink, Component as GComponent}
 
 import zio.ZIO
@@ -72,10 +73,6 @@ object Induct:
     end Downstream
   end Environment
 
-  case class Arrival[M <: Material](at: Tick, card: Id, material: M) extends Identified:
-    override val id: Id = material.id
-  end Arrival
-
   class Physics[-M <: Material]
   (
       host: API.Physics,
@@ -116,7 +113,7 @@ extends Induct[M, LISTENER]
 with SubjectMixIn[LISTENER]:
 
   val physics: Induct.Environment.Physics[M]
-  protected val arrivalStore: Buffer[Induct.Arrival[M]] & Buffer.Indexed[Induct.Arrival[M]] //   Induct.ArrivalBuffer[M]
+  protected val arrivalStore: Buffer[Transfer[M]] & Buffer.Indexed[Transfer[M]] //   TransferBuffer[M]
   protected lazy val origin: AppResult[Discharge.API.Downstream & Discharge.Identity]
   protected lazy val link: AppResult[Link.API.Downstream]
 
@@ -173,7 +170,7 @@ with SubjectMixIn[LISTENER]:
   }
 
   // Indexed by Card.
-  private lazy val pendingInductions = RandomIndexed[Induct.Arrival[M]](s"$id[PendingInductions]")
+  private lazy val pendingInductions = RandomIndexed[Transfer[M]](s"$id[PendingInductions]")
   // Members declared in Induct$.API$.Upstream
   override def canAccept(at: Tick, card: Id, load: M): AppResult[M] =
     AppSuccess(load)
@@ -183,7 +180,7 @@ with SubjectMixIn[LISTENER]:
       l <- link
       allowed <- canAccept(at, card, load)
       _ <- physics.inductCommand(at, card, load).map{ _ =>
-          pendingInductions.provide(at, Induct.Arrival(at, card, load))
+          pendingInductions.provide(at, Transfer(at, card, load))
         }
       rs <- l.acknowledge(at, load.id)
     } yield rs
@@ -214,7 +211,7 @@ class InductImpl[M <: Material, LISTENER <: Induct.Environment.Listener : Typeab
   override val stationId: Id,
   // from Induct.API.Control
   // from InductMixIn
-  override val arrivalStore: Buffer[Induct.Arrival[M]] & Buffer.Indexed[Induct.Arrival[M]],
+  override val arrivalStore: Buffer[Transfer[M]] & Buffer.Indexed[Transfer[M]],
   override val physics: Induct.Environment.Physics[M],
   linkP: () => AppResult[Link.API.Downstream],
   originP: () => AppResult[Discharge.API.Downstream & Discharge.Identity]

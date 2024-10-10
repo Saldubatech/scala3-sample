@@ -11,7 +11,7 @@ import com.saldubatech.dcf.node.components.buffers.RandomIndexed
 import com.saldubatech.dcf.node.{ProbeInboundMaterial, ProbeOutboundMaterial}
 
 import com.saldubatech.dcf.node.components.{Sink, Source, SourceImpl, Harness as ComponentsHarness}
-import com.saldubatech.dcf.node.components.transport.{Transport, TransportImpl, Discharge, Induct, Link}
+import com.saldubatech.dcf.node.components.transport.{Transport, TransportImpl, Discharge, Induct, Link, Transfer}
 
 import com.saldubatech.test.ddes.MockAsyncCallback
 import com.saldubatech.dcf.node.components.transport.{Harness as TransportHarness}
@@ -73,7 +73,7 @@ object SourceMachineSpec:
       s"T_IB",
       obIndcPhysics,
       Some(obTranCapacity),
-      RandomIndexed[Induct.Arrival[M]]("ArrivalBuffer"),
+      RandomIndexed[Transfer[M]]("ArrivalBuffer"),
       obTranPhysics,
       obDistPhysics,
       inductUpstreamInjector,

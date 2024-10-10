@@ -8,7 +8,7 @@ import com.saldubatech.ddes.runtime.{Clock, OAM}
 import com.saldubatech.ddes.elements.{SimulationComponent, SimActor}
 import com.saldubatech.ddes.system.SimulationSupervisor
 import com.saldubatech.dcf.material.{Material, Wip, WipPool, MaterialPool}
-import com.saldubatech.dcf.node.components.transport.{Transport, TransportImpl, Induct, Discharge, Link}
+import com.saldubatech.dcf.node.components.transport.{Transport, TransportImpl, Induct, Discharge, Link, Transfer}
 import com.saldubatech.dcf.node.components.transport.bindings.{Induct as InductBinding, Discharge as DischargeBinding, DLink as LinkBinding}
 import com.saldubatech.dcf.node.machine.bindings.{Source as SourceBinding}
 import com.saldubatech.dcf.node.components.buffers.RandomIndexed
@@ -83,7 +83,7 @@ object PushStationCardCongestionSpec extends ZIOSpecDefault with LogEnabled with
         transportId,
         iPhysics,
         Some(tCapacity),
-        RandomIndexed[Induct.Arrival[ProbeInboundMaterial]]("ArrivalBuffer"),
+        RandomIndexed[Transfer[ProbeInboundMaterial]]("ArrivalBuffer"),
         tPhysics,
         dPhysics,
         inductUpstreamInjector,
@@ -115,7 +115,7 @@ object PushStationCardCongestionSpec extends ZIOSpecDefault with LogEnabled with
         transportId,
         iPhysics,
         Some(tCapacity),
-        RandomIndexed[Induct.Arrival[ProbeInboundMaterial]]("ArrivalBuffer"),
+        RandomIndexed[Transfer[ProbeInboundMaterial]]("ArrivalBuffer"),
         tPhysics,
         dPhysics,
         inductUpstreamInjector,

@@ -43,7 +43,7 @@ class InductSpec extends BaseSpec:
         new InductImpl[ProbeInboundMaterial, Induct.Environment.Listener](
           "underTest",
           "UT",
-          RandomIndexed[Induct.Arrival[ProbeInboundMaterial]]("ArrivalBuffer"),
+          RandomIndexed[Transfer[ProbeInboundMaterial]]("ArrivalBuffer"),
           mockPhysics,
           linkP,
           originP)

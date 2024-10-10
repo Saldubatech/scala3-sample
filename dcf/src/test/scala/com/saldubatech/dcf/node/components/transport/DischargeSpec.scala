@@ -25,7 +25,7 @@ class DischargeSpec extends BaseSpec:
   val engine = MockAsyncCallback()
   val mockPhysics = Harness.MockDischargePhysics[ProbeInboundMaterial](() => 1L, engine)
   val mockInduct = Harness.MockInductUpstream[ProbeInboundMaterial]()
-  val probe = ProbeInboundMaterial(Id, 0)
+  def probe = ProbeInboundMaterial(Id, 0) // Declared a function to ensure uniqueness of Ids
   "A Discharge" when {
     "created " should {
       val underTest = TestDischarge[ProbeInboundMaterial, Discharge.Environment.Listener]("Dsc", "underTest", mockPhysics, mockInduct, engine)
@@ -53,9 +53,17 @@ class DischargeSpec extends BaseSpec:
       "reject an additional attempt to discharge" in {
         underTest.discharge(4, probe) shouldBe Symbol("isLeft")
       }
-      "enable discharging after completing a discharge and being acknowledged of a card" in {
+      "Execute the discharge of the accepted loads" in {
         engine.runOne() shouldBe Symbol("isRight")
         mockInduct.receivedLoads.size shouldBe 1
+        engine.runOne() shouldBe Symbol("isRight")
+        mockInduct.receivedLoads.size shouldBe 2
+        engine.runOne() shouldBe Symbol("isRight")
+        mockInduct.receivedLoads.size shouldBe 3
+        engine.runOne() shouldBe Symbol("isRight")
+        mockInduct.receivedLoads.size shouldBe 4
+      }
+      "enable discharging after completing a discharge and being acknowledged of a card" in {
         underTest.downstreamAcknowledgeEndpoint.restore(4, List(mockInduct.receivedLoads.head._2))
         engine.run(None)
         mockInduct.receivedLoads.size shouldBe 4

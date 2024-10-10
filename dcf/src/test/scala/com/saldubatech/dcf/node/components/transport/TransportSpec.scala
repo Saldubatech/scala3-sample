@@ -31,7 +31,7 @@ class TransportSpec extends BaseSpec:
     def dPhysics(host: Discharge.API.Physics): Discharge.Environment.Physics[ProbeInboundMaterial] = Harness.MockDischargePhysics[ProbeInboundMaterial](() => dischargeDelay, engine)
     def tPhysics(host: Link.API.Physics): Link.Environment.Physics[ProbeInboundMaterial] = Harness.MockLinkPhysics[ProbeInboundMaterial](() => transportDelay, engine)
     def iPhysics(host: Induct.API.Physics): Induct.Environment.Physics[ProbeInboundMaterial] = Harness.MockInductPhysics[ProbeInboundMaterial](() => inductDelay, engine)
-    val inductStore = RandomIndexed[Induct.Arrival[ProbeInboundMaterial]]("ArrivalBuffer")
+    val inductStore = RandomIndexed[Transfer[ProbeInboundMaterial]]("ArrivalBuffer")
     val inductUpstreamInjector: Induct[ProbeInboundMaterial, ?] => Induct.API.Upstream[ProbeInboundMaterial] = i => i
     val linkAcknowledgeFactory: Link[ProbeInboundMaterial] => Link.API.Downstream = l => new Link.API.Downstream {
       override def acknowledge(at: Tick, loadId: Id): UnitResult = AppSuccess{ engine.add(at){ () => l.acknowledge(at, loadId) } }
@@ -186,7 +186,7 @@ class TransportSpec extends BaseSpec:
         engine.pending(dischargeDelay).size shouldBe 1
       }
       "reduce the number of available cards by 1" in {
-        discharge.value.availableCards.size should be (0)
+        discharge.value.availableCards(0).size should be (0)
       }
       "not allow discharging after using up the provided cards" in {
         discharge.value.canDischarge(1, probe) shouldBe Symbol("isLeft")
@@ -227,7 +227,7 @@ class TransportSpec extends BaseSpec:
         engine.runOne() shouldBe Symbol("isRight")
       }
       "reduce the number of available cards by 1" in {
-        discharge.value.availableCards.size should be (cards.size-1)
+        discharge.value.availableCards(0).size should be (cards.size-1)
       }
       "have triggered the physics of transport" in {
         engine.pending.size shouldBe 1
@@ -317,11 +317,11 @@ class TransportSpec extends BaseSpec:
         induct.value.restoreAll(4)
         induct.value.cards(0).size shouldBe 0
         // Not restored yet, signal "in-transit"
-        discharge.value.availableCards.size shouldBe cards.size - 1
+        discharge.value.availableCards(0).size shouldBe cards.size - 1
       }
       "The Discharge received the card when signal completes" in {
         engine.runOne()
-        discharge.value.availableCards.size shouldBe cards.size
+        discharge.value.availableCards(0).size shouldBe cards.size
       }
     }
   }
