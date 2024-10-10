@@ -7,10 +7,11 @@ import com.saldubatech.ddes.types.{Tick, Duration}
 import com.saldubatech.dcf.job.JobSpec
 import com.saldubatech.dcf.material.{Material, Wip, MaterialPool, WipPool}
 
+import com.saldubatech.dcf.node.components.buffers.{RandomIndexed, SequentialBuffer}
+
 import util.chaining.scalaUtilChainingOps
 
 import scala.reflect.Typeable
-
 
 object Operation:
   type Identity = Component.Identity
@@ -28,22 +29,22 @@ object Operation:
       def accepted(at: Tick, by: Option[Tick]): AppResult[List[Material]]
 
       def canLoad(at: Tick, js: JobSpec): AppResult[Wip.New]
-      def loaded(at: Tick): AppResult[List[Wip.Loaded]]
+      def loaded(at: Tick): AppResult[Iterable[Wip.Loaded]]
       def loadJobRequest(at: Tick, js: JobSpec): UnitResult
 
       def canStart(at: Tick, jobId: Id): AppResult[Wip.Loaded]
-      def started(at: Tick): AppResult[List[Wip.InProgress]]
+      def started(at: Tick): AppResult[Iterable[Wip.InProgress]]
       def startRequest(at: Tick, jobId: Id): AppResult[Wip.InProgress]
 
       def canComplete(at: Tick, jobId: Id): AppResult[Wip.InProgress]
-      def completeJobs(at: Tick): AppResult[List[Wip.Complete[PRODUCT]]]
-      def failedJobs(at: Tick): AppResult[List[Wip.Failed]]
+      def completeJobs(at: Tick): AppResult[Iterable[Wip.Complete[PRODUCT]]]
+      def failedJobs(at: Tick): AppResult[Iterable[Wip.Failed]]
 
       def canUnload(at: Tick, jobId: Id): AppResult[Wip.Complete[PRODUCT]]
       def canScrap(at: Tick, jobId: Id): AppResult[Wip.Failed]
 
       def unloadRequest(at: Tick, jobId: Id): UnitResult
-      def unloaded(at: Tick): AppResult[List[Wip.Unloaded[PRODUCT]]]
+      def unloaded(at: Tick): AppResult[Iterable[Wip.Unloaded[PRODUCT]]]
 
       def scrap(at: Tick, jobId: Id): AppResult[Wip.Scrap]
       def deliver(at: Tick, jobId: Id): UnitResult
@@ -174,18 +175,18 @@ with SubjectMixIn[LISTENER]:
 
 
   // Loading Implementation
-  private val _loading = collection.mutable.Map.empty[Id, Wip.New] // JobId -> Wip.New
-  private val _inProgress = collection.mutable.Map.empty[Id, Wip.Processing]
-  private val _unloading = collection.mutable.Map.empty[Id, Wip.Complete[M]]
-  override def nJobsInProgress(at: Tick): Int = _loading.size + _inProgress.size + _unloading.size
+  private val _loading = RandomIndexed[Wip.New](s"$id[LoadingWip]")
+  private val _inProgress2 = RandomIndexed[Wip.Processing]("InProgressJobs")
+  private val _unloading2 = RandomIndexed[Wip.Complete[M]]("UnloadingWip")
+  override def nJobsInProgress(at: Tick): Int = _loading.contents(at).size + _inProgress2.contents(at).size + _unloading2.contents(at).size
 
   // Members declared in com.saldubatech.dcf.node.structure.components.Operation$.API$.Control
   override def canLoad(at: Tick, js: JobSpec): AppResult[Wip.New] =
     if nJobsInProgress(at) < maxConcurrentJobs then acceptedPool.checkJob(at, js)
     else AppFail.fail(s"Station[$stationId] is busy at $at")
 
-  override def loaded(at: Tick): AppResult[List[Wip.Loaded]] =
-    AppSuccess(_inProgress.values.collect { case w: Wip.Loaded => w}.toList )
+  override def loaded(at: Tick): AppResult[Iterable[Wip.Loaded]] =
+    AppSuccess(_inProgress2.contents(at).collect { case w: Wip.Loaded => w })
 
   override def loadJobRequest(at: Tick, js: JobSpec): UnitResult =
     for {
@@ -193,17 +194,17 @@ with SubjectMixIn[LISTENER]:
       requested <-
         val matReq = wip.jobSpec.rawMaterials.toSet
         acceptedPool.remove(at, m => matReq(m.id))
-        _loading += js.id -> wip
+        _loading.provide(at, wip)
         physics.loadJobCommand(at, wip).tapError{
           _ =>
             // Rollback if command cannot be issued.
             acceptedPool.add(at, wip.rawMaterials)
-            _loading -= js.id
+            _loading.consume(at, js.id)
         }
     } yield requested
 
   override def loadFailed(at: Tick, jobId: Id, request: Option[Wip.Failed], cause: Option[AppError]): UnitResult =
-    Component.inStation(stationId, "Loading Job")(_loading.remove)(jobId).flatMap {
+    _loading.consume(at, jobId).flatMap{
       w =>
         // Load failed, so return all materials to accepted. (note arrival time is updated...?)
         acceptedPool.add(at, w.rawMaterials)
@@ -213,43 +214,47 @@ with SubjectMixIn[LISTENER]:
     }
 
   override def loadFinalize(at: Tick, jobId: Id): UnitResult =
-    Component.inStation(stationId, "Loading Job")(_loading.remove)(jobId).map {
+    _loading.consume(at, jobId).map{
       w =>
         val loadedWip = w.load(at)
-        _inProgress.update(jobId, loadedWip)
+        _inProgress2.consume(at, jobId)
+        _inProgress2.provide(at, loadedWip)
         doNotify{ _.jobLoaded(at, stationId, id, loadedWip) }
     }
 
   override def canStart(at: Tick, jobId: Id): AppResult[Wip.Loaded] =
-    Component.inStation(stationId, "Ready to start Job")(_inProgress.get)(jobId).flatMap {
-        case w: Wip.Loaded => AppSuccess(w)
-        case other => AppFail.fail(s"Job[$jobId] is not ready to start in Station[$stationId] at $at")
-    }
+    _inProgress2.contents(at, jobId).headOption match
+      case Some(w: Wip.Loaded) => AppSuccess(w)
+      case other => AppFail.fail(s"Job[$jobId] is not ready to start in Station[$stationId] at $at")
+    // Component.inStation(stationId, "Ready to start Job")(_inProgress.get)(jobId).flatMap {
+    //     case w: Wip.Loaded => AppSuccess(w)
+    //     case other => AppFail.fail(s"Job[$jobId] is not ready to start in Station[$stationId] at $at")
+    // }
 
-  override def started(at: Tick): AppResult[List[Wip.InProgress]] =
-    AppSuccess(_inProgress.values.collect { case w: Wip.InProgress => w }.toList )
+  override def started(at: Tick): AppResult[Iterable[Wip.InProgress]] =
+    AppSuccess(_inProgress2.contents(at).collect{ case w: Wip.InProgress => w })
+//    AppSuccess(_inProgress.values.collect { case w: Wip.InProgress => w }.toList )
 
   override def startRequest(at: Tick, jobId: Id): AppResult[Wip.InProgress] =
     for {
       w <- canStart(at, jobId)
       started = w.start(at)
-      _ <-
-        val previous = _inProgress(jobId)
-        _inProgress.update(jobId, started)
-        physics.startCommand(at, started).tapError{ _ => _inProgress.update(jobId, previous) }
+      _ <- physics.startCommand(at, started)
+      previous <- _inProgress2.consume(at, jobId)
+      _ <- _inProgress2.provide(at, started)
     } yield
       doNotify(_.jobStarted(at, stationId, id, started))
       started
 
   override def canComplete(at: Tick, jobId: Id): AppResult[Wip.InProgress] =
-    Component.inStation(stationId, "Completable Job")(_inProgress.get)(jobId).flatMap {
-      case w: Wip.InProgress => AppSuccess(w)
+    _inProgress2.available(at, jobId).headOption match
+      case Some(w: Wip.InProgress) => AppSuccess(w)
       case other => AppFail.fail(s"Job[$jobId] Already Started in Station[$stationId] at $at")
-    }
 
   private def doFailJob(at: Tick, w: Wip.InProgress): Wip.Failed =
       val failed = w.failed(at)
-      _inProgress.update(w.jobSpec.id, w.failed(at))
+      _inProgress2.consume(at, w.id)
+      _inProgress2.provide(at, w.failed(at))
       doNotify(_.jobFailed(at, stationId, id, failed))
       failed
 
@@ -271,35 +276,34 @@ with SubjectMixIn[LISTENER]:
           {
             product =>
               val complete = w.complete(at, product)
-              _inProgress.update(jobId, complete)
+              _inProgress2.consume(at, jobId)
+              _inProgress2.provide(at, complete)
               AppSuccess(doNotify(_.jobCompleted(at, stationId, id, complete)))
           }
         )
     } yield rs
 
-  override def completeJobs(at: Tick): AppResult[List[Wip.Complete[M]]] =
-    AppSuccess(_inProgress.values.collect{ case w: Wip.Complete[?] => w.asInstanceOf[Wip.Complete[M]] }.toList)
+  override def completeJobs(at: Tick): AppResult[Iterable[Wip.Complete[M]]] =
+    AppSuccess(_inProgress2.contents(at).collect{ case w: Wip.Complete[?] => w.asInstanceOf[Wip.Complete[M]] })
 
-  override def failedJobs(at: Tick): AppResult[List[Wip.Failed]] =
-    AppSuccess(_inProgress.values.collect{ case w: Wip.Failed => w }.toList)
+  override def failedJobs(at: Tick): AppResult[Iterable[Wip.Failed]] =
+    AppSuccess(_inProgress2.contents(at).collect{ case w: Wip.Failed => w })
 
 
   override def canScrap(at: Tick, jobId: Id): AppResult[Wip.Failed] =
-    Component.inStation(stationId, "Failed Job")(_inProgress.get)(jobId).flatMap{
-      case w: Wip.Failed => AppSuccess(w)
+    _inProgress2.available(at, jobId).headOption match
+      case Some(w : Wip.Failed) => AppSuccess(w)
       case other => AppFail.fail(s"Job[$jobId] not Failed in Station[$stationId] at $at")
-    }
 
   override def canUnload(at: Tick, jobId: Id): AppResult[Wip.Complete[M]] =
-    Component.inStation(stationId, "Completed Job")(_inProgress.get)(jobId).flatMap{
-      case w: Wip.Complete[?] => AppSuccess(w.asInstanceOf[Wip.Complete[M]])
+    _inProgress2.available(at, jobId).headOption match
+      case Some(w: Wip.Complete[?]) => AppSuccess(w.asInstanceOf[Wip.Complete[M]])
       case other => AppFail.fail(s"Job[$jobId] not Complete in Station[$stationId] at $at")
-    }
 
   override def scrap(at: Tick, jobId: Id): AppResult[Wip.Scrap] =
     canScrap(at, jobId).map{
       w =>
-        _inProgress.remove(jobId)
+        _inProgress2.consume(at, jobId)
         val scrapped = w.scrap(at)
         doNotify(_.jobScrapped(at, stationId, id, scrapped))
         scrapped
@@ -308,27 +312,23 @@ with SubjectMixIn[LISTENER]:
   override def unloadRequest(at: Tick, jobId: Id): UnitResult =
     for {
       toUnload <- canUnload(at, jobId)
-      unload <-
-        _unloading += jobId -> toUnload
-        physics.unloadCommand(at, jobId, toUnload).tapError{ err => _unloading -= jobId }
+      unload <- physics.unloadCommand(at, jobId, toUnload).map{ _ => _unloading2.provide(at, toUnload) }
     } yield
-      _inProgress.remove(jobId) // will succeed b/c canUnload already checked
-      unload
+      _inProgress2.consume(at, jobId)// will succeed b/c canUnload already checked
 
   // Members declared in com.saldubatech.dcf.node.structure.components.Operation$.API$.Physics
   override def unloadFailed(at: Tick, jobId: Id, wip: Option[Wip.Complete[M]], cause: Option[AppError]): UnitResult =
-    Component.inStation(stationId, "Unloading Job")(_unloading.remove)(jobId).flatMap{
+    _unloading2.consume(at, jobId).flatMap{
       w =>
         // Put it back in the inProgress map
-        _inProgress += jobId -> w
+        _inProgress2.provide(at, w)
         cause match
           case None => AppFail.fail(s"Job[$jobId] Unloading for Unknown Failure in Station[$stationId] at $at")
           case Some(err) => AppFail(err)
     }
 
   override def unloadFinalize(at: Tick, jobId: Id): UnitResult =
-    Component.inStation(stationId, "Unloading Job")(_unloading.remove)(jobId).map{
-      w =>
+    _unloading2.consume(at, jobId).map{ w =>
         val unloaded = w.unload(at)
         readyWipPool.add(at, unloaded)
         doNotify(_.jobUnloaded(at, stationId, id, unloaded))
@@ -348,23 +348,24 @@ with SubjectMixIn[LISTENER]:
     _paused = false
     tryDeliver(at)
 
-  private val stagedQueue = collection.mutable.Queue.empty[Wip.Unloaded[M]]
+  private val stagedQueue2 = SequentialBuffer.FIFO[Wip.Unloaded[M]]("StagedLoads")
 
   private def tryDeliver(at: Tick): UnitResult =
     if paused then AppFail.fail(s"Delivery is Paused")
-    if stagedQueue.isEmpty then AppSuccess.unit
+    if stagedQueue2.available(at).isEmpty then AppSuccess.unit
     else
-      val candidateWip = stagedQueue.head
+      val candidateWip = stagedQueue2.available(at)
       val maybeDeliver = for {
           ds <- downstream
-          product <- candidateWip.product
+          wip <- candidateWip.headOption
+          product <- wip.product
         } yield
           ds.acceptMaterialRequest(at, stationId, id, product).map{
-            _ => doNotify(_.jobDelivered(at, stationId, id, candidateWip))
+            _ => doNotify(_.jobDelivered(at, stationId, id, wip))
           }
       val currentDelivery = maybeDeliver.getOrElse(AppSuccess.unit) // the possible failures are if downstream is not defined or there is no product to deliver.
       currentDelivery.flatMap{ _ =>
-        stagedQueue.dequeue()
+        stagedQueue2.consumeOne(at)
         tryDeliver(at)
       }.fold(// return current if nested fails.
         err => currentDelivery,
@@ -376,7 +377,7 @@ with SubjectMixIn[LISTENER]:
       wip <- readyWipPool.contents(at, jobId)
     } yield
       readyWipPool.remove(at, jobId)
-      stagedQueue.enqueue(wip)
+      stagedQueue2.provide(at, wip)
       tryDeliver(at)).getOrElse(AppFail.fail(s"No Unloaded Wip available at $at for $jobId in $id"))
 
 end OperationMixIn // trait
