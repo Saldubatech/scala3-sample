@@ -6,7 +6,7 @@ import com.saldubatech.ddes.types.{Tick, Duration}
 import com.saldubatech.lang.types.{AppResult, UnitResult, AppSuccess, AppFail, AppError, collectAll}
 import com.saldubatech.dcf.job.{JobSpec, SimpleJobSpec}
 
-import com.saldubatech.dcf.node.components.{Sink, Harness as ComponentsHarness, OperationImpl, Operation}
+import com.saldubatech.dcf.node.components.{Sink, Harness as ComponentsHarness}
 import com.saldubatech.dcf.node.components.transport.{Transport, TransportImpl, Discharge, Induct, Link, Transfer}
 import com.saldubatech.dcf.node.components.buffers.{RandomAccess, RandomIndexed}
 import com.saldubatech.dcf.node.components.action.{UnitResourcePool, ResourceType, Action, Task, Wip as Wip2}

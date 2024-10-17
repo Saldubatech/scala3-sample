@@ -27,26 +27,6 @@ object Harness:
 
   end MockSourcePhysicsStub // class
 
-  class MockOperationPhysics[M <: Material]
-  (
-    engine: MockAsyncCallback,
-    loadDelay: () => Duration,
-    processDelay: () => Duration,
-    unloadDelay: () => Duration
-  ) extends Operation.Environment.Physics[M]:
-    var underTest: Operation.API.Physics[M] = null
-    override def loadJobCommand(at: Tick, wip: Wip.New): UnitResult =
-      val forTime = at+loadDelay()
-      AppSuccess(engine.add(forTime){ () => underTest.loadFinalize(forTime, wip.jobSpec.id)})
-
-    override def startCommand(at: Tick, wip: Wip.InProgress): UnitResult =
-      val forTime = at+processDelay()
-      AppSuccess(engine.add(forTime){ () => underTest.completeFinalize(forTime, wip.jobSpec.id)})
-    override def unloadCommand(at: Tick, jobId: Id, wip: Wip.Complete[M]): UnitResult =
-      val forTime = at+unloadDelay()
-      AppSuccess(engine.add(forTime){ () => underTest.unloadFinalize(forTime, wip.jobSpec.id) })
-  end MockOperationPhysics // class
-
   class MockSink[M <: Material, LISTENER <: Sink.Environment.Listener : Typeable](mId: Id, override val stationId: Id)
   extends Sink[M, LISTENER]
   with SubjectMixIn[LISTENER]:

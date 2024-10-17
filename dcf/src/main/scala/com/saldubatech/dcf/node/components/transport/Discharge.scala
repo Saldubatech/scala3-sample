@@ -128,13 +128,13 @@ with SubjectMixIn[LISTENER]:
 
   // Members declared in com.saldubatech.dcf.node.components.transport.Discharge$.API$.Downstream
   override def restore(at: Tick, cards: List[Id]): UnitResult =
-    val available = _cards.contents(at).size
+    val previousAvailable = _cards.contents(at).size
     cards.foreach{
       c =>
         if provisionedCards(c) then _cards.provision(at, c)
         else () // if not provisioned, retire it.
     }
-    if available == 0 && _cards.contents(at).size != 0 then
+    if previousAvailable == 0 && _cards.contents(at).size != 0 then // new availability
       doNotify{ _.availableNotification(at, stationId, id) }
     AppSuccess.unit
 

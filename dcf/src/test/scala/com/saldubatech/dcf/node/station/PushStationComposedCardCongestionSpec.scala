@@ -33,6 +33,7 @@ object PushStationComposedCardCongestionSpec extends ZIOSpecDefault with LogEnab
 
   val pushStationCards = (1 to 2).map{ _ => Id}.toList
   val nProbes: Int = pushStationCards.size*2
+
   val sourceCards = (1 to nProbes+100).map{ _ => Id}.toList // No Constraint, simplify debugging
 
   val probeSeq = (1 to nProbes).map{ idx => (idx*40).toLong -> ProbeInboundMaterial(s"<$idx>", idx)}.toSeq
@@ -61,6 +62,7 @@ object PushStationComposedCardCongestionSpec extends ZIOSpecDefault with LogEnab
 
   val consumer = Consumer()
   val clock = Clock(None)
+
   object InboundTransport:
     val transportId = "inboundTransport"
     val inductDelay: Duration = 10
@@ -132,6 +134,7 @@ object PushStationComposedCardCongestionSpec extends ZIOSpecDefault with LogEnab
         case pim: ProbeInboundMaterial => AppSuccess(Some(pim))
         case other => AppFail.fail(s"Available Material not of type ProbeInboundMaterial")
       }
+
   val loadingDelay: Duration = 2
   val processDelay: Duration = 3
   val unloadingDelay: Duration = 4

@@ -26,11 +26,16 @@ import org.scalatest.matchers.should.Matchers
 import zio.test.{ZIOSpecDefault, assertTrue, assertCompletes}
 import org.apache.pekko.actor.testkit.typed.scaladsl.{ActorTestKit, FishingOutcomes}
 import com.saldubatech.dcf.node.ProbeInboundMaterial
+
 object PushStationComposedSpec extends ZIOSpecDefault with LogEnabled with Matchers:
 
   case class Consumed(at: Tick, fromStation: Id, fromSource: Id, atStation: Id, atSink: Id, load: ProbeInboundMaterial)
 
-  val nProbes = 10
+  val pushStationCards = (1 to 100).map{ _ => Id}.toList
+  val nProbes: Int = 10
+
+  val sourceCards = (1 to nProbes+100).map{ _ => Id}.toList // No Constraint, simplify debugging
+
   val probeSeq = (1 to nProbes).map{ idx => (idx*40).toLong -> ProbeInboundMaterial(s"<$idx>", idx)}.toSeq
   val probeIt = probeSeq.iterator
   val probes = (at: Tick) => probeIt.nextOption()
@@ -44,7 +49,6 @@ object PushStationComposedSpec extends ZIOSpecDefault with LogEnabled with Match
   val transportInboundId = "inboundTransport"
   val transportOutboundId = "outboundTransport"
 
-  val cards = (1 to nProbes+100).map{ _ => Id}.toList
 
   class Consumer {
     val consumed = collection.mutable.ListBuffer.empty[Consumed]
@@ -58,6 +62,7 @@ object PushStationComposedSpec extends ZIOSpecDefault with LogEnabled with Match
 
   val consumer = Consumer()
   val clock = Clock(None)
+
   object InboundTransport:
     val transportId = "inboundTransport"
     val inductDelay: Duration = 10
@@ -134,7 +139,6 @@ object PushStationComposedSpec extends ZIOSpecDefault with LogEnabled with Match
   val processDelay: Duration = 3
   val unloadingDelay: Duration = 4
 
-
   lazy val sink = SinkStation[ProbeInboundMaterial](
     sinkStation,
     Inbound(
@@ -157,7 +161,7 @@ object PushStationComposedSpec extends ZIOSpecDefault with LogEnabled with Match
     InboundTransport.transport,
     OutboundTransport.transport,
     process,
-    cards,
+    pushStationCards,
     clock
     )
   lazy val source = SourceStation[ProbeInboundMaterial](
@@ -166,7 +170,7 @@ object PushStationComposedSpec extends ZIOSpecDefault with LogEnabled with Match
       InboundTransport.transport,
       (at, card, load) => InboundTransport.dischargeDelay,
       (at, card, load) => InboundTransport.transportDelay,
-      cards
+      sourceCards
     ),
     probes,
     clock

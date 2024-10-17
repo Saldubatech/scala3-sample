@@ -22,7 +22,6 @@ import com.saldubatech.dcf.node.station.configurations.{Inbound, Outbound, Proce
 
 import scala.reflect.{Typeable, ClassTag}
 import scala.util.chaining.scalaUtilChainingOps
-import com.saldubatech.dcf.node.machine.PushMachine
 
 object PushStationComposed:
   type PROTOCOL =

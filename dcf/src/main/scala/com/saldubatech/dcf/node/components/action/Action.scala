@@ -26,6 +26,9 @@ object Action:
 
     trait Control[OB <: Material]:
 
+      def outboundRelief(at: Tick): Unit
+      def outboundCongestion(at: Tick): Unit
+
       def status(at: Tick, wipId: Id): AppResult[Status]
       def acceptedMaterials(at: Tick): AppResult[Iterable[Material]]
 
@@ -102,6 +105,25 @@ object Action:
         serverPool, wipSlots, requestedTaskBuffer, inboundBuffer, physics, retryDelay
         )(aId, componentId, stationId, outbound)
 
+  class CongestionMarker(lId: Id, onRelief: Option[Tick => Unit]) extends Identified:
+    override lazy val id: Id = s"$lId::CongestionMarker"
+
+    private var _congested: Boolean = false
+
+    def isCongested: Boolean = _congested
+
+    def congested(at: Tick): Boolean = {_congested = true; true}
+    def relieved(at: Tick): Boolean =
+      _congested = false
+      onRelief.map{ r => r(at) }
+      false
+
+    def guard[R](f: () => AppResult[R]): AppResult[R] =
+      if _congested then AppFail.fail(s"$id Congested")
+      else f()
+
+  end CongestionMarker
+
 end Action // object
 
 
@@ -131,9 +153,14 @@ class ActionImpl[OB <: Material]
 ) extends Action[OB]
 with SubjectMixIn[Action.Environment.Listener]
 with LogEnabled:
+  import Action._
+
   override lazy val id: Id = s"$stationId::$componentId::$aId"
 
+  private val _outboundCongestion = new CongestionMarker(s"$id::Outbound", Some(trySend))
 
+  override def outboundRelief(at: Tick): Unit = _outboundCongestion.relieved(at)
+  override def outboundCongestion(at: Tick): Unit = _outboundCongestion.congested(at)
 
   override def canAccept(at: Tick, from: Id, load: Material): UnitResult =
     trySend(at) // first try to flush out pending deliveries to release resources
@@ -146,8 +173,7 @@ with LogEnabled:
     } yield doNotify(
       l => l.loadAccepted(at, stationId, id, load))
 
-  def acceptedMaterials(at: Tick): AppResult[Iterable[Material]] =
-    AppSuccess(inboundBuffer.contents(at))
+  override def acceptedMaterials(at: Tick): AppResult[Iterable[Material]] = AppSuccess(inboundBuffer.contents(at))
 
   private val _availableMaterials: Supply[Material] = MaterialSupplyFromBuffer[Material]("InboundMaterials")(inboundBuffer)
 
@@ -203,26 +229,26 @@ with LogEnabled:
       rs <- physics.command(at, addInProgressWip)
     } yield doNotify(_.taskStarted(at, stationId, id, addInProgressWip))
 
-
   private def trySend(at: Tick): Unit =
-    outboundBuffer.consumeWhileSuccess(at,
-    { (t, r) =>
-      outbound.acceptMaterialRequest(t, stationId, id, r.product)
-    },
-    {
-      (t, r) =>
-        r.entryResources.foreach( rs => rs.release(t))
-//        outboundBuffer.consume(at, r) Done by the "consumeWhileSuccess"
-        doNotify( _.taskCompleted(t, stationId, id, r))
-      }
-    )
+    _outboundCongestion.guard{
+      () =>
+        outboundBuffer.consumeWhileSuccess(at,
+            { (t, r) =>
+              outbound.acceptMaterialRequest(t, stationId, id, r.product).tapError( err => _outboundCongestion.congested(t) )
+            },
+            {
+              (t, r) =>
+                r.entryResources.foreach( rs => rs.release(t))
+        //        outboundBuffer.consume(at, r) Done by the "consumeWhileSuccess"
+                doNotify( _.taskCompleted(t, stationId, id, r))
+              }
+            )
+    }
     if !outboundBuffer.state(at).isIdle then retryDelay().map{ d => trySend(at+d) }
-
-
 
   override def finalize(at: Tick, wipId: Id): UnitResult =
     trySend(at) // first try to flush out pending deliveries to release resources
-    inProgressTasks.contents(at, wipId).map{
+    inProgressTasks.contents(at, wipId).map{ // only one at most
       wip =>
         val completed = for {
           // consume the materials

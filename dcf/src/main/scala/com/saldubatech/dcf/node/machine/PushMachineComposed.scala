@@ -6,7 +6,6 @@ import com.saldubatech.util.LogEnabled
 import com.saldubatech.ddes.types.Tick
 import com.saldubatech.dcf.material.Material
 import com.saldubatech.dcf.node.components.{SubjectMixIn, Component, Sink}
-import com.saldubatech.dcf.node.components.{Operation, OperationImpl}
 import com.saldubatech.dcf.node.components.transport.{Induct, Discharge}
 import com.saldubatech.dcf.node.components.Subject
 import com.saldubatech.dcf.node.components.action.{Action, Task, Wip as Wip2}
@@ -147,8 +146,8 @@ with SubjectMixIn[PushMachineComposed.Environment.Listener]:
     def loadDischarged(at: Tick, stId: Id, discharge: Id, load: Material): Unit =
       // Nothing to do. The link will take it over the outbound transport
       doNotify(_.productDischarged(at, stationId, machineSelf.id, discharge, load))
-    def busyNotification(at: Tick, stId: Id, discharge: Id): Unit = () // unloadingAction.pause(at)  // For future to handle congestion
-    def availableNotification(at: Tick, stationId: Id, discharge: Id): Unit = () // unloadingAction.resume(at) // For future to handle congestion
+    def busyNotification(at: Tick, stId: Id, discharge: Id): Unit = unloadingAction.outboundCongestion(at)
+    def availableNotification(at: Tick, stationId: Id, discharge: Id): Unit = unloadingAction.outboundRelief(at)
   }.tap(outbound.listen)
 
 end PushMachineComposedImpl // class
