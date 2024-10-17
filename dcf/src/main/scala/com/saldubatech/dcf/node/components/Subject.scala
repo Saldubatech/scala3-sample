@@ -12,6 +12,7 @@ trait Subject[+LISTENER <: Identified]:
 end Subject // trait
 
 trait SubjectMixIn[LISTENER <: Identified : Typeable] extends Subject[LISTENER]:
+  self: Identified =>
   val stationId: Id
 
   protected val listeners = collection.mutable.Map.empty[Id, Identified]

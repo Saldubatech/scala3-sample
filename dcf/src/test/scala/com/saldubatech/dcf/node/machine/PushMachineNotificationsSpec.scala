@@ -78,7 +78,7 @@ object PushMachineNotificationsSpec:
     val materialNotifications = collection.mutable.Set.empty[(String, Tick, Id, Id, Id, Material, String)]
 
     def jobArrival(at: Tick, atStation: Id, atMachine: Id, job: JobSpec): Unit =
-      jobNotifications += (("jobLoaded", at, atStation, atMachine, Wip.New(job, List(), atStation, at)))
+      jobNotifications += (("jobArrival", at, atStation, atMachine, Wip.New(job, List(), atStation, at)))
     def materialArrival(at: Tick, atStation: Id, atMachine: Id, atInduct: Id, load: Material): Unit =
       materialNotifications += (("materialArrival", at, atStation, atMachine, atInduct, load, "INBOUND"))
     def jobLoaded(at: Tick, atStation: Id, atMachine: Id, wip: Wip.Loaded): Unit =
@@ -172,35 +172,34 @@ class PushMachineNotificationsSpec extends BaseSpec:
           // finalize loading job
           engine.runOne()
           harnessListener.materialNotifications.size shouldBe 1
-          harnessListener.jobNotifications.size shouldBe 2
+          harnessListener.jobNotifications.size shouldBe 3
           // start & complete job
           engine.runOne()
           harnessListener.materialNotifications.size shouldBe 1
-          harnessListener.jobNotifications.size shouldBe 3
+          harnessListener.jobNotifications.size shouldBe 4
           // unload job
           engine.runOne()
           harnessListener.materialNotifications.size shouldBe 1
-          harnessListener.jobNotifications.size shouldBe 4
+          harnessListener.jobNotifications.size shouldBe 5
           // finalize discharge
           engine.runOne()
           harnessListener.materialNotifications.size shouldBe 2
-          harnessListener.jobNotifications.size shouldBe 4
+          harnessListener.jobNotifications.size shouldBe 5
           // finalize transport, no notifications
           engine.runOne()
           harnessListener.materialNotifications.size shouldBe 2
-          harnessListener.jobNotifications.size shouldBe 4
+          harnessListener.jobNotifications.size shouldBe 5
           // finalize acknowledge & outbound induct
           engine.run(None)
           harnessListener.materialNotifications.size shouldBe 2
-          harnessListener.jobNotifications.size shouldBe 4
+          harnessListener.jobNotifications.size shouldBe 5
           deliverer.deliver(44, probe.id) shouldBe Symbol("isRight")
           harnessListener.materialNotifications.size shouldBe 2
-          harnessListener.jobNotifications.size shouldBe 4
+          harnessListener.jobNotifications.size shouldBe 5
         }
       }
     }
   }
 
 end PushMachineNotificationsSpec // class
-
 

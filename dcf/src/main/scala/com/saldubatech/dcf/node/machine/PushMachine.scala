@@ -85,6 +85,7 @@ with SubjectMixIn[PushMachine.Environment.Listener]:
       }
 
     override def jobLoaded(at: Tick, stationId: Id, processorId: Id, loaded: Wip.Loaded): Unit =
+      doNotify( _.jobLoaded(at, stationId, machineSelf.id, loaded) )
       operation.startRequest(at, loaded.jobSpec.id)
 
     override def jobStarted(at: Tick, stationId: Id, processorId: Id, inProgress: Wip.InProgress): Unit =

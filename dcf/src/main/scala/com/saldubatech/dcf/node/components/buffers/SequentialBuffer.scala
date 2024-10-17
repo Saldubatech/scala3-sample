@@ -3,6 +3,7 @@ package com.saldubatech.dcf.node.components.buffers
 import com.saldubatech.lang.{Id, Identified}
 import com.saldubatech.ddes.types.Tick
 import com.saldubatech.lang.types.*
+import com.saldubatech.dcf.node.State
 
 object SequentialBuffer:
 
@@ -18,13 +19,18 @@ end SequentialBuffer // object
 
 abstract class SequentialBuffer[M](bId: Id) extends Buffer.Unbound[M]:
   override lazy val id: Id = bId
-  // private val _contents = collection.mutable.Queue.empty[M]
-
   protected val _contents: collection.mutable.AbstractBuffer[M]
 
-  override def provide(at: Tick, m: M): UnitResult =
+  override protected[buffers] def doRemove(at: Tick, m: M): Unit =
+    _contents.subtractOne(m)
+    if _contents.isEmpty then stateHolder.releaseAll(at)
+    else stateHolder.release(at)
+
+  override def provision(at: Tick, m: M): AppResult[M] =
+    stateHolder.acquire(at).map{ _ =>
       _contents += m
-      AppSuccess.unit
+      m
+    }
 
   override def contents(at: Tick): Iterable[M] = _contents
 
@@ -34,43 +40,65 @@ abstract class SequentialBuffer[M](bId: Id) extends Buffer.Unbound[M]:
 
   override def available(at: Tick, m: M): Iterable[M] = _contents.headOption.filter{ _ == m }
 
-  override def consumeOne(at: Tick): AppResult[M] = check(_contents.headOption.map{ h => _contents -= h ; h })
+  // Does check for availability rules. It assumes:
+  //    - There is availability as defined by `available(at)`
+  //    - Busy will **ONLY** happen if contents is empty.
+  private def _doConsume(at: Tick, candidate: M): AppResult[M] =
+    _contents.indexOf(candidate) match
+      case bad if bad < 0 => AppFail.fail(s"Element $candidate not Found in $id")
+      case idx =>
+        _contents.remove(idx)
+        (if _contents.isEmpty then stateHolder.releaseAll(at) else stateHolder.release(at))
+        .tapError{ err => _contents.insert(idx, candidate) }
+        .map{ _ => candidate }
+
+  override def consume(at: Tick, m: M): AppResult[M] =
+    available(at).headOption match
+      case Some(candidate) if candidate == m => _doConsume(at, candidate)
+      case _ => AppFail.fail(s"Element $m not available in $id at $at")
+
+
+  override def consumeOne(at: Tick): AppResult[M] =
+    for {
+      candidate <- fromOption(available(at).headOption)
+      _ <- _doConsume(at, candidate)
+    } yield candidate
+
+  override def consumeAvailable(at: Tick): AppResult[Iterable[M]] =
+    consumeSome(at, contents(at))
 
   override def consumeSome(at: Tick, some: Iterable[M]): AppResult[Iterable[M]] =
-    var check = some
+    var check = some.toList
     consumeWhileSuccess(
       at,
-      (t, e) =>
-        if check.nonEmpty && check.head == e then
-          check = check.tail
-          AppSuccess.unit
-        else if check.isEmpty then AppFail.fail(s"No more elements to check at $id")
-        else AppFail.fail(s"Element $e not found in $id at $at"),
+      {
+        (t, e) =>
+          check match
+            case Nil => AppFail.fail(s"No more elements to check at $id")
+            case h :: t if e == h =>
+              check = t
+              AppSuccess.unit
+            case _ => AppFail.fail(s"Element $e not found in $id at $at")
+      },
       (t, e) => ()
       )
 
-  override def consumeAvailable(at: Tick): AppResult[Iterable[M]] =
-    AppSuccess( _contents.headOption.map{ h => _contents -= h ; h } )
+  override def consumeWhileSuccess(at: Tick, f: (at: Tick, e: M) => UnitResult, onSuccess: (at: Tick, e: M) => Unit): AppResult[Iterable[M]] =
+    _consumeWhileSuccess(at, f, onSuccess)
 
-  override def consume(at: Tick, m: M): AppResult[M] =
-    check(_contents.headOption.filter{ h => h == m }.map{ h => _contents -= h ; h })
-
-  override def consumeWhileSuccess(
-    at: Tick,
-    f: (at: Tick, e: M) => UnitResult,
-    onSuccess: (at: Tick, e: M) => Unit
-    ): AppResult[Iterable[M]] =
-    _contents.headOption.map{ h =>
-      for {
-        rs <- f(at, h)
-      } yield
-        _contents -= h
-        onSuccess(at, h)
-        consumeWhileSuccess(at, f, onSuccess).fold(
-          err => Seq(h),
-          sr => Seq(h) ++ sr
-        )
-    }.getOrElse(AppFail.fail(s"Buffer is empty"))
+  private def _consumeWhileSuccess(at: Tick, f: (at: Tick, e: M) => UnitResult, onSuccess: (at: Tick, e: M) => Unit): AppResult[List[M]] =
+    available(at).headOption match
+      case None => AppSuccess(List.empty)
+      case Some(candidate) =>
+        for {
+          rs <- f(at, candidate)
+          _ <- _doConsume(at, candidate)
+        } yield
+          onSuccess(at, candidate)
+          _consumeWhileSuccess(at, f, onSuccess).fold(
+            err => List(candidate),
+            sr => candidate :: sr
+          )
 
 end SequentialBuffer // class
 

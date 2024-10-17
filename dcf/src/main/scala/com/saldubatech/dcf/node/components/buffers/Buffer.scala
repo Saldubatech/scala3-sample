@@ -3,11 +3,11 @@ package com.saldubatech.dcf.node.components.buffers
 import com.saldubatech.lang.{Id, Identified}
 import com.saldubatech.ddes.types.Tick
 import com.saldubatech.lang.types.*
-import com.saldubatech.dcf.resource.UsageState
+import com.saldubatech.dcf.node.State
 
 object Buffer:
   trait Unbound[M] extends Buffer[M]:
-
+    override def canProvision(at: Tick, m: M): AppResult[M] = AppSuccess(m)
   end Unbound
 
   trait Indexed[M <: Identified]:
@@ -21,15 +21,8 @@ object Buffer:
 
   trait Bound[M] extends Unbound[M]:
     val capacity: Int
-    def canProvide(at: Tick, m: M): AppResult[M]
 
     final def remaining(at: Tick): Int = capacity - contents(at).size
-    final def isBusy(at: Tick): Boolean = remaining(at) == 0
-    final override def isInUse(at: Tick): Boolean = !isIdle(at) && !isBusy(at)
-    final override def status(at: Tick): UsageState =
-      if isIdle(at) then UsageState.IDLE
-      else if isInUse(at) then UsageState.IN_USE
-      else UsageState.BUSY
 
   end Bound // trait
 
@@ -37,13 +30,13 @@ end Buffer // object
 
 trait Buffer[M] extends Identified:
   override lazy val id: Id = "Buffer"
-  def provide(at: Tick, m: M): UnitResult
+  def canProvision(at: Tick, m: M): AppResult[M]
 
-  final def isIdle(at: Tick): Boolean = contents(at).isEmpty
-  def isInUse(at: Tick): Boolean = !isIdle(at)
-  def status(at: Tick): UsageState =
-    if isIdle(at) then UsageState.IDLE
-    else UsageState.IDLE
+  def provision(at: Tick, m: M): AppResult[M]
+
+  protected val stateHolder: State.Holder[Buffer[M]] = State.UnlockedHolder(0, id, this, None)
+
+  final def state(at: Tick): State = stateHolder.state(at)
 
   def contents(at: Tick): Iterable[M]
   def contents(at: Tick, m: M): Iterable[M]
@@ -59,11 +52,10 @@ trait Buffer[M] extends Identified:
     f: (at: Tick, e: M) => UnitResult,
     onSuccess: (at: Tick, e: M) => Unit): AppResult[Iterable[M]]
 
-  final protected def check(o: Option[M]): AppResult[M] =
-    o match
-      case None => AppFail.fail(s"Element not Found in $id")
-      case Some(value) => AppSuccess(value)
+  protected[buffers] def doRemove(at: Tick, m: M): Unit
 
-
-
+  // final protected def checkNonEmpty(o: Option[M]): AppResult[M] =
+  //   o match
+  //     case None => AppFail.fail(s"Element not Found in $id")
+  //     case Some(value) => AppSuccess(value)
 end Buffer // trait

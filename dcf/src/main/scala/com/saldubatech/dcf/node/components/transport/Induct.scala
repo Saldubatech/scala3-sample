@@ -127,7 +127,7 @@ with SubjectMixIn[LISTENER]:
   override def cards(at: Tick): Iterable[Id] = receivedCards.contents(at)
 
   override def restoreAll(at: Tick): UnitResult =
-    if !receivedCards.isIdle(at) then
+    if !receivedCards.state(at).isIdle then
       val available = receivedCards.available(at)
       for {
         o <- origin
@@ -136,7 +136,7 @@ with SubjectMixIn[LISTENER]:
     else AppSuccess.unit // nothing to do
 
   override def restoreOne(at: Tick): UnitResult =
-    if !receivedCards.isIdle(at) then
+    if !receivedCards.state(at).isIdle then
       for {
         o <- origin
         rs <- o.restore(at, receivedCards.available(at).headOption.toList)
@@ -162,7 +162,7 @@ with SubjectMixIn[LISTENER]:
         o <- origin
         rs <-
           binding.acceptMaterialRequest(at, o.stationId, o.id, arrival.material)
-            .tapError{ _ => arrivalStore.provide(at, arrival) }
+            .tapError{ _ => arrivalStore.provision(at, arrival) }
       } yield
         doNotify( l =>
           l.loadDelivered(at, o.stationId, stationId, id, binding.id, arrival.material))
@@ -179,8 +179,8 @@ with SubjectMixIn[LISTENER]:
     for {
       l <- link
       allowed <- canAccept(at, card, load)
-      _ <- physics.inductCommand(at, card, load).map{ _ =>
-          pendingInductions.provide(at, Transfer(at, card, load))
+      _ <-  physics.inductCommand(at, card, load).map{
+         _ => pendingInductions.provision(at, Transfer(at, card, load))
         }
       rs <- l.acknowledge(at, load.id)
     } yield rs
@@ -200,8 +200,8 @@ with SubjectMixIn[LISTENER]:
     for {
       arrival <- pendingInductions.consume(at, loadId)
       o <- origin
-      _ <- receivedCards.provide(at, card)
-      _ <- arrivalStore.provide(at, arrival)
+      _ <- receivedCards.provision(at, card)
+      _ <- arrivalStore.provision(at, arrival)
     } yield doNotify{ _.loadArrival(at, o.stationId, stationId, id, arrival.material)}
 end InductMixIn // trait
 

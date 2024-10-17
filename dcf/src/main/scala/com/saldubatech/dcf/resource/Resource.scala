@@ -2,6 +2,7 @@ package com.saldubatech.dcf.resource
 
 import com.saldubatech.lang.types._
 
+
 enum OperationalState(val status: String):
   case UNKNOWN(override val status: String) extends OperationalState(status)
   case ENABLED(override val status: String) extends OperationalState(status)
@@ -41,8 +42,8 @@ trait UsageTransitions:
   def releaseAll: AppResult[State]
 
 trait AdministrativeTransitions:
-  def shutdown: AppResult[State]
-  def forceShutdown: AppResult[State]
+  def shutdown(cause: String): AppResult[State]
+  def forceShutdown(cause: String): AppResult[State]
   def unlock: AppResult[State]
 
 class StateHolder(val resourceName: String) extends OperationalTransitions with UsageTransitions with AdministrativeTransitions:
@@ -64,7 +65,7 @@ class StateHolder(val resourceName: String) extends OperationalTransitions with 
     if _unknown then AppFail.fail(s"Resource $resourceName is in an Unknown State")
     else proceed
 
-  override def shutdown: AppResult[State] = unknownCheck {
+  override def shutdown(cause: String): AppResult[State] = unknownCheck {
       state.administrative match
         case AdministrativeState.UNLOCKED =>
           state.usage match
@@ -75,7 +76,7 @@ class StateHolder(val resourceName: String) extends OperationalTransitions with 
       AppSuccess(state)
     }
 
-  override def forceShutdown: AppResult[State] = unknownCheck {
+  override def forceShutdown(cause: String): AppResult[State] = unknownCheck {
     AppSuccess(update(state.copy(administrative=AdministrativeState.LOCKED, usage=UsageState.IDLE)))
   }
 

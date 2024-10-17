@@ -108,10 +108,10 @@ with SubjectMixIn[LISTENER]:
 
   override def addCards(at: Tick, cards: List[Id]): UnitResult =
     provisionedCards.addAll(cards)
-    if _cards.isIdle(at) then
+    if _cards.state(at).isIdle then
       doNotify{ _.availableNotification(at, stationId, id) }
       val currentCards = _cards.contents(at).toSet
-      cards.filter{ c => !currentCards(c) }.map{ c => _cards.provide(at, c) }
+      cards.filter{ c => !currentCards(c) }.map{ c => _cards.provision(at, c) }
     AppSuccess.unit
 
   override def removeCards(at: Tick, cards: List[Id]): UnitResult =
@@ -120,18 +120,18 @@ with SubjectMixIn[LISTENER]:
         provisionedCards.remove(c)
         _cards.consume(at, c)
       )
-      if _cards.isIdle(at) then
+      if _cards.state(at).isIdle then
         doNotify( _.busyNotification(at, stationId, id) )
       AppSuccess.unit
 
-  def  busy(at: Tick): Boolean = _cards.isIdle(at)
+  def  busy(at: Tick): Boolean = _cards.state(at).isIdle
 
   // Members declared in com.saldubatech.dcf.node.components.transport.Discharge$.API$.Downstream
   override def restore(at: Tick, cards: List[Id]): UnitResult =
     val available = _cards.contents(at).size
     cards.foreach{
       c =>
-        if provisionedCards(c) then _cards.provide(at, c)
+        if provisionedCards(c) then _cards.provision(at, c)
         else () // if not provisioned, retire it.
     }
     if available == 0 && _cards.contents(at).size != 0 then
@@ -157,7 +157,7 @@ with SubjectMixIn[LISTENER]:
         val card = _cards.contents(at).head
         physics.dischargeCommand(at, card, load).map{ _ => card}
       consumed <- _cards.consume(at, crd)
-      _ <- _discharging.provide(at, Transfer(at, consumed, load))
+      _ <- _discharging.provision(at, Transfer(at, consumed, load))
     } yield
       if _cards.contents(at).isEmpty then doNotify{ _.busyNotification(at, stationId, id) }
       ()
@@ -175,7 +175,7 @@ with SubjectMixIn[LISTENER]:
   override def dischargeFinalize(at: Tick, card: Id, loadId: Id): UnitResult =
     _discharging.consume(at, loadId).map{
       tr =>
-        readyQueue.provide(at, card -> tr.material)
+        readyQueue.provision(at, card -> tr.material)
         _attemptDischarges(at)
     }
 
@@ -185,7 +185,7 @@ with SubjectMixIn[LISTENER]:
     readyQueue.consumeWhileSuccess(at,
     { (t, r) => downstream.loadArriving(t, r._1, r._2) },
     { (t, r) =>
-        _delivered.provide(t, r._2) // to wait for acknowledgement
+        _delivered.provision(t, r._2) // to wait for acknowledgement
         doNotify(_.loadDischarged(t, stationId, id, r._2))
     }
     )

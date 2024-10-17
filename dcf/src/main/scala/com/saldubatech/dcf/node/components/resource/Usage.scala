@@ -1,5 +1,7 @@
 package com.saldubatech.dcf.node.components.resource
 
+import com.saldubatech.dcf.material.Eaches
+
 object Usage:
   sealed trait Sign
   object Sign:

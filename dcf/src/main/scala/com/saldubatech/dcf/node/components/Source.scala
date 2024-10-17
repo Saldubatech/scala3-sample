@@ -97,9 +97,10 @@ with SubjectMixIn[Source.Environment.Listener]:
   // From Source.API.Control
   private var _complete: Boolean = false
   private def markComplete: Unit = _complete = true
+  // This must be unbounded to catch the "natural" arrival process (alternative would be balking customers model or similar)
   private val arrivalQueue = SequentialBuffer.FIFO[M](s"ArrivalQueue[$id]")
 
-  override def complete(at: Tick): Boolean = _complete && arrivalQueue.isIdle(at)
+  override def complete(at: Tick): Boolean = _complete && arrivalQueue.state(at).isIdle
 
   private var _congested: Boolean = false
   def congested: Boolean = _congested
@@ -121,7 +122,7 @@ with SubjectMixIn[Source.Environment.Listener]:
     else physics.goCommand(at)
 
   private def triggerDelivery(forTime: Tick): UnitResult =
-    if arrivalQueue.isIdle(forTime) then AppSuccess.unit // nothing to do.
+    if arrivalQueue.state(forTime).isIdle then AppSuccess.unit // nothing to do.
     else physics.deliveryCommand(forTime, arrivalQueue.available(forTime).head)
 
   // From Source.API.Physics
@@ -134,8 +135,12 @@ with SubjectMixIn[Source.Environment.Listener]:
     */
   override def arrivalFinalize(atTime: Tick, load: M): UnitResult =
     doNotify(_.loadArrival(atTime, stationId, id, load))
-    arrivalQueue.provide(atTime, load)
-    triggerDelivery(atTime) // try delivery as soon as there is an arrival
+    for {
+      arrived <- arrivalQueue.provision(atTime, load)
+      delivery <- triggerDelivery(atTime) // try delivery as soon as there is an arrival
+    } yield delivery
+
+
 
   override def deliveryFinalize(at: Tick, load: M): UnitResult =
     if paused then AppFail.fail(s"$id has been paused")

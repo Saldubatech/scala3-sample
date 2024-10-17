@@ -4,7 +4,7 @@ import com.saldubatech.lang.{Id, Identified}
 import com.saldubatech.lang.types._
 
 import com.saldubatech.dcf.resource.UsageState
-import com.saldubatech.dcf.node.components.resource.Eaches
+import com.saldubatech.dcf.material.Eaches
 import org.scalafmt.config.Indents.RelativeToLhs.`match`
 import org.apache.hadoop.shaded.org.checkerframework.checker.units.qual.s
 

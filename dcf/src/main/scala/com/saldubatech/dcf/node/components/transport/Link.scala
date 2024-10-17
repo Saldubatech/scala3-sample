@@ -102,7 +102,7 @@ extends Link[M]:
     for {
       allow <- canAccept(at, card, load)
       rs <-
-        inTransport.provide(at, load)
+        inTransport.provision(at, load)
         physics.transportCommand(at, id, card, load)
     } yield rs
 
@@ -112,7 +112,7 @@ extends Link[M]:
   // From API.Physics
   override def transportFinalize(at: Tick, link: Id, card: Id, loadId: Id): UnitResult =
     inTransport.consume(at, loadId).map{ l =>
-        readyToDeliver.provide(at, Ready(card, l))
+        readyToDeliver.provision(at, Ready(card, l))
         _attemptDeliveries(at)
       }
 
@@ -136,7 +136,7 @@ extends Link[M]:
           arrival <- downstream.loadArriving(t, r.card, r.load)
         } yield arrival
     },
-    { (t, r) => _delivered.provide(t, r.load) }
+    { (t, r) => _delivered.provision(t, r.load) }
       )
 
 end LinkMixIn // trait

@@ -55,9 +55,9 @@ class SourceSpec extends BaseSpec {
         underTest.go(0) shouldBe Symbol("isRight")
         engine.runOne() shouldBe Symbol("isRight")
         listener.arrivals.size shouldBe 1
+        listener.arrivals.last shouldBe ((100, "station", "station::Source[source]", plannedArrivals(0)._2))
         listener.deliveries.size shouldBe 0
         listener.congestions.size shouldBe 0
-        listener.arrivals.last shouldBe ((100, "station", "station::Source[source]", plannedArrivals(0)._2))
       }
       "deliver the first one" in {
         engine.runOne() shouldBe Symbol("isRight")

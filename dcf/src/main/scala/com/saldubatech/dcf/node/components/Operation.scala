@@ -194,7 +194,7 @@ with SubjectMixIn[LISTENER]:
       requested <-
         val matReq = wip.jobSpec.rawMaterials.toSet
         acceptedPool.remove(at, m => matReq(m.id))
-        _loading.provide(at, wip)
+        _loading.provision(at, wip)
         physics.loadJobCommand(at, wip).tapError{
           _ =>
             // Rollback if command cannot be issued.
@@ -218,7 +218,7 @@ with SubjectMixIn[LISTENER]:
       w =>
         val loadedWip = w.load(at)
         _inProgress2.consume(at, jobId)
-        _inProgress2.provide(at, loadedWip)
+        _inProgress2.provision(at, loadedWip)
         doNotify{ _.jobLoaded(at, stationId, id, loadedWip) }
     }
 
@@ -237,7 +237,7 @@ with SubjectMixIn[LISTENER]:
       started = w.start(at)
       _ <- physics.startCommand(at, started)
       previous <- _inProgress2.consume(at, jobId)
-      _ <- _inProgress2.provide(at, started)
+      _ <- _inProgress2.provision(at, started)
     } yield
       doNotify(_.jobStarted(at, stationId, id, started))
       started
@@ -250,7 +250,7 @@ with SubjectMixIn[LISTENER]:
   private def doFailJob(at: Tick, w: Wip.InProgress): Wip.Failed =
       val failed = w.failed(at)
       _inProgress2.consume(at, w.id)
-      _inProgress2.provide(at, w.failed(at))
+      _inProgress2.provision(at, w.failed(at))
       doNotify(_.jobFailed(at, stationId, id, failed))
       failed
 
@@ -273,7 +273,7 @@ with SubjectMixIn[LISTENER]:
             product =>
               val complete = w.complete(at, product)
               _inProgress2.consume(at, jobId)
-              _inProgress2.provide(at, complete)
+              _inProgress2.provision(at, complete)
               AppSuccess(doNotify(_.jobCompleted(at, stationId, id, complete)))
           }
         )
@@ -308,7 +308,7 @@ with SubjectMixIn[LISTENER]:
   override def unloadRequest(at: Tick, jobId: Id): UnitResult =
     for {
       toUnload <- canUnload(at, jobId)
-      unload <- physics.unloadCommand(at, jobId, toUnload).map{ _ => _unloading2.provide(at, toUnload) }
+      unload <- physics.unloadCommand(at, jobId, toUnload).map{ _ => _unloading2.provision(at, toUnload) }
     } yield
       _inProgress2.consume(at, jobId) // will succeed b/c canUnload already checked
 
@@ -317,7 +317,7 @@ with SubjectMixIn[LISTENER]:
     _unloading2.consume(at, jobId).flatMap{
       w =>
         // Put it back in the inProgress map
-        _inProgress2.provide(at, w)
+        _inProgress2.provision(at, w)
         cause match
           case None => AppFail.fail(s"Job[$jobId] Unloading for Unknown Failure in Station[$stationId] at $at")
           case Some(err) => AppFail(err)
@@ -373,7 +373,7 @@ with SubjectMixIn[LISTENER]:
       wip <- readyWipPool.contents(at, jobId)
     } yield
       readyWipPool.remove(at, jobId)
-      stagedQueue2.provide(at, wip)
+      stagedQueue2.provision(at, wip)
       tryDeliver(at)).getOrElse(AppFail.fail(s"No Unloaded Wip available at $at for $jobId in $id"))
 
 end OperationMixIn // trait

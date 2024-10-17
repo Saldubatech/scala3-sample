@@ -56,7 +56,7 @@ class InductSpec extends BaseSpec:
         underTest.cards(0) shouldBe Symbol("isEmpty")
       }
       "Accept a load arriving from an upstream Discharge" in {
-        underTest.loadArriving(currentTime, cards(0), probes(0))
+        underTest.loadArriving(currentTime, cards(0), probes(0)) shouldBe Symbol("isRight")
         engine.pending.size shouldBe 2
       }
       "Acknowledge the load to the upstream link" in {

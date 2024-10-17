@@ -39,7 +39,7 @@ object CollectorSpec:
     private val inTransit2 = RandomIndexed[M](s"$id[InTransit]")
     override def acceptMaterialRequest(at: Tick, fromStation: Id, fromSource: Id, load: M): UnitResult =
   //    inTransit += load.id -> load
-      inTransit2.provide(at, load)
+      inTransit2.provision(at, load)
       downstream.acceptMaterialRequest(at, fromStation, fromSource, load)
 
     override def canAccept(at: Tick, from: Id, load: M): UnitResult =
