@@ -1,0 +1,90 @@
+@startuml OperationalResouce_ST
+title
+= Operational Resource State Chart
+end title
+
+state start<<fork>>
+
+state Operational {
+  state ENABLED
+  state DISABLED
+
+  [*] --> ENABLED
+
+  ENABLED -> ENABLED: repair
+  DISABLED -> DISABLED: fault
+
+  ENABLED <-- DISABLED: repair\n.
+  ENABLED --> DISABLED: fault\n **=> releaseAll**
+--
+  state anyOp<<choice>>
+  anyOp -> [*]: from any
+
+}
+
+state Administrative {
+
+  state UNLOCKED
+  state SHUTTINGDOWN
+  state LOCKED
+
+  [*] --> LOCKED
+
+  UNLOCKED -> UNLOCKED: Unlock
+  LOCKED -> LOCKED: Lock
+  SHUTTINGDOWN -> SHUTTINGDOWN: Lock
+
+  LOCKED <-- UNLOCKED: Lock\n**[IDLE]**
+  SHUTTINGDOWN <-- UNLOCKED: Lock\n**[!IDLE]**
+  SHUTTINGDOWN <-- UNLOCKED: forceLock **=> releaseAll**
+
+  LOCKED --> UNLOCKED: Unlock
+  SHUTTINGDOWN --> UNLOCKED: Unlock
+
+  LOCKED <-- SHUTTINGDOWN: ReleaseAll
+  LOCKED -[hidden]-> SHUTTINGDOWN
+ --
+  state anyAdm<<choice>>
+  anyAdm -> [*]: from any
+}
+
+state Usage {
+  state IDLE
+  state IN_USE
+  state BUSY
+
+  [*] --> IDLE
+
+  IDLE --> IN_USE: Acquire
+  IDLE <-- IN_USE: ReleaseAll
+  IDLE <- IDLE: Release | ReleaseAll
+
+  IN_USE -> IN_USE: Acquire
+  IN_USE <- IN_USE: Release
+
+  IDLE --> BUSY: AcquireAll
+  IN_USE --> BUSY: AcquireAll
+
+  IDLE <-- BUSY: ReleaseAll
+  IN_USE <-- BUSY: Release
+--
+  state anyUse<<choice>>
+  anyUse -> [*]: from any
+
+}
+
+state end<<join>>
+
+[*] --> start
+
+start --> Usage
+start --> Operational
+start --> Administrative
+
+Usage --> end
+Operational --> end
+Administrative --> end
+
+end --> [*]
+
+@enduml

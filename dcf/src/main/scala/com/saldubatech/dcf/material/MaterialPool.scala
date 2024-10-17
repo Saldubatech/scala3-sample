@@ -48,7 +48,8 @@ object MaterialPool:
       job.rawMaterials.collect{
         case rId if keys(rId) => _pool(rId)
       } match
-        case l if l.size == job.rawMaterials.size => AppSuccess(Wip.New(job.id, job, l.map(_._2), stationId, at))
+        // The assignment of job.id to the Wip.id is critical for lookups. Moving it to the Wip class.
+        case l if l.size == job.rawMaterials.size => AppSuccess(Wip.New(job, l.map(_._2), stationId, at))
         case other => AppFail.fail(s"Material Requirements for Job[${job.id}] not available at Station[$stationId]")
 
 
