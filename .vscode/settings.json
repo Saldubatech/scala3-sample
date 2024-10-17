@@ -117,7 +117,7 @@
       "username": "test_user"
     }
   ],
-  "python.testing.pytestEnabled": true,
+  "python.testing.pytestEnabled": false,
   "python.analysis.autoFormatStrings": true,
   "python.analysis.autoImportCompletions": true,
   "python.analysis.completeFunctionParens": true,
@@ -134,13 +134,13 @@
   "python.testing.pytestArgs": [
     "analysis"
   ],
-  "python.testing.unittestEnabled": false,
+  "python.testing.unittestEnabled": true,
   "python.testing.unittestArgs": [
     "-v",
     "-s",
     "./analysis",
     "-p",
-    "test_*.py"
+    "test*.py"
   ],
   "testExplorer.showOnRun": true,
   "testExplorer.addToEditorContextMenu": true,

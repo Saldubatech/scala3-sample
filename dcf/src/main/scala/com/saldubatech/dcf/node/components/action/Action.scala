@@ -4,12 +4,10 @@ import com.saldubatech.lang.{Id, Identified}
 import com.saldubatech.lang.types._
 import com.saldubatech.math.randomvariables.Distributions.probability
 import com.saldubatech.ddes.types.{Tick, Duration}
-import com.saldubatech.dcf.resource.AdministrativeTransitions
 import com.saldubatech.dcf.material.{Material, Eaches}
 import com.saldubatech.dcf.node.components.{Component, Sink, SubjectMixIn}
 import com.saldubatech.dcf.node.components.buffers.{Buffer, RandomIndexed, RandomAccess}
 import com.saldubatech.util.{LogEnabled, stack}
-import com.saldubatech.dcf.resource.State
 
 import scala.reflect.ClassTag
 
@@ -26,7 +24,7 @@ object Action:
   object API:
     type Upstream = Sink.API.Upstream[Material]
 
-    trait Control[OB <: Material] extends AdministrativeTransitions:
+    trait Control[OB <: Material]:
 
       def status(at: Tick, wipId: Id): AppResult[Status]
       def acceptedMaterials(at: Tick): AppResult[Iterable[Material]]
@@ -248,10 +246,5 @@ with LogEnabled:
     if newTasks.contents(at, wipId).nonEmpty then AppSuccess(Action.Status.REQUESTED)
     else if inProgressTasks.contents(at, wipId).nonEmpty then AppSuccess(Action.Status.IN_PROGRESS)
     else AppFail.fail(s"No Wip[$wipId] in $id")
-
-  // Admin Actions
-  override def shutdown(cause: String): AppResult[State] = ???
-  override def forceShutdown(cause: String): AppResult[State] = ???
-  override def unlock: AppResult[State] = ???
 
 end ActionImpl // class
