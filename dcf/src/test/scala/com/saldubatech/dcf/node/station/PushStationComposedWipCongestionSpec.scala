@@ -217,11 +217,6 @@ object PushStationComposedWipCongestionSpec extends ZIOSpecDefault with LogEnabl
           }
           assert(r.size == stationMaxWip)
 
-//          termProbe.expectNoMessage(1000.millis)
-          // simSupervisor.directRootSendNow(sink)(
-          //   InductBinding.API.Signals.Restore(Id, Id, s"${sink.stationId}::Induct[${OutboundTransport.transportId}]", Some(2))
-          // )(using 1.second)
-
           found = 0
           val r2 = termProbe.fishForMessage(10.second){
             c =>

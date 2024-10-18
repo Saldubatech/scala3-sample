@@ -4,6 +4,7 @@ import com.saldubatech.lang.{Id, Identified}
 import com.saldubatech.ddes.types.Tick
 
 import com.saldubatech.dcf.material.Material
+import com.saldubatech.dcf.node.components.resources.ResourcePool
 
 sealed trait Wip[+OB <: Material] extends Identified:
   val task: Task[OB]

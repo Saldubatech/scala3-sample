@@ -10,6 +10,8 @@ import com.saldubatech.dcf.node.components.buffers.{Buffer, RandomIndexed, Rando
 import com.saldubatech.util.{LogEnabled, stack}
 
 import scala.util.chaining.scalaUtilChainingOps
+import com.saldubatech.dcf.node.components.resources.UnitResourcePool
+import com.saldubatech.dcf.node.components.resources.ResourceType
 
 object Action:
   sealed trait Status
@@ -98,24 +100,6 @@ object Action:
       else host.fail(at + failureDuration(at, wip), wip.id, None)
   end Physics
 
-  class Builder[OB <: Material](
-    serverPool: UnitResourcePool[ResourceType.Processor],
-    wipSlots: UnitResourcePool[ResourceType.WipSlot],
-    requestedTaskBuffer: Buffer[Task[OB]],
-    inboundBuffer: Buffer[Material] & Buffer.Indexed[Material],
-    physics: Action.Environment.Physics[OB],
-    retryProxy: Action.API.Chron
-  ):
-    def build(
-      aId: Id,
-      componentId: Id,
-      stationId: Id,
-      outbound: Sink.API.Upstream[OB]
-    ): Action[OB] =
-      ActionImpl(
-        serverPool, wipSlots, requestedTaskBuffer, inboundBuffer, physics, retryProxy
-        )(aId, componentId, stationId, outbound)
-
   class CongestionMarker(lId: Id, onRelief: Option[Tick => Unit]) extends Identified:
     override lazy val id: Id = s"$lId::CongestionMarker"
 
@@ -149,7 +133,7 @@ with Action.API.Chron
 end Action // trait
 
 
-class ActionImpl[OB <: Material]
+abstract class AbstractAction[OB <: Material]
 (
   serverPool: UnitResourcePool[ResourceType.Processor],
   wipSlots: UnitResourcePool[ResourceType.WipSlot],
@@ -167,6 +151,10 @@ with SubjectMixIn[Action.Environment.Listener]
 with LogEnabled:
   import Action._
 
+  protected def postSendHouseKeeping(at: Tick, wip: Wip.Complete[OB, OB]): UnitResult
+  protected def prepareToAccept(at: Tick, load: Material): UnitResult
+
+
   override lazy val id: Id = s"$stationId::$componentId::$aId"
 
   private val _outboundCongestion = new CongestionMarker(s"$id::Outbound", Some(trySend))
@@ -182,6 +170,7 @@ with LogEnabled:
   override def acceptMaterialRequest(at: Tick, fromStation: Id, fromSource: Id, load: Material): UnitResult =
     for {
       allowed <- canAccept(at, fromStation, load)
+      _ <- prepareToAccept(at, load)
       rs <- inboundBuffer.provision(at, load)
     } yield doNotify( l => l.loadAccepted(at, stationId, id, load) )
 
@@ -265,8 +254,8 @@ with LogEnabled:
           outboundBuffer.consumeWhileSuccess(at,
           {
             (t, r) =>
-              r.entryResources.map( rs => rs.release(t)).collectAll
               r.materialAllocations.map{ a => a.consume(at)}.collectAll
+              postSendHouseKeeping(t, r)
       //        outboundBuffer.consume(at, r) Done by the "consumeWhileSuccess"
               doNotify( _.taskCompleted(t, stationId, id, r))
             }
@@ -293,7 +282,7 @@ with LogEnabled:
           wipRemoved <- inProgressTasks.consume(at, wip.id)
           toSend <- outboundBuffer.provision(at, wipRemoved.complete(at, product, materials))
         } yield ()
-        // Now see if resources have been released and try pending.
+        // Now see if resources have been released and try pending tasks.
         trySend(at)
         tryStart(at)
         completed
@@ -309,4 +298,4 @@ with LogEnabled:
     else if inProgressTasks.contents(at, wipId).nonEmpty then AppSuccess(Action.Status.IN_PROGRESS)
     else AppFail.fail(s"No Wip[$wipId] in $id")
 
-end ActionImpl // class
+end AbstractAction // class

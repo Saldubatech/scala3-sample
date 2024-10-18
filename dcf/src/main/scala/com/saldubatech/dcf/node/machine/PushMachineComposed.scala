@@ -9,7 +9,7 @@ import com.saldubatech.dcf.node.components.{SubjectMixIn, Component, Sink}
 import com.saldubatech.dcf.node.components.transport.{Induct, Discharge}
 import com.saldubatech.dcf.node.components.Subject
 import com.saldubatech.dcf.node.components.buffers.SequentialBuffer
-import com.saldubatech.dcf.node.components.action.{Action, Task, Wip as Wip2}
+import com.saldubatech.dcf.node.components.action.{Action, UnacknowledgingAction, Task, Wip as Wip2}
 
 import scala.reflect.{Typeable, ClassTag}
 import scala.util.chaining.scalaUtilChainingOps
@@ -43,9 +43,9 @@ object PushMachineComposed:
     val loadingPrefix = "Loading"
   end Builder // object
   class Builder[M <: Material : Typeable : ClassTag](
-    loadingBuilder: Action.Builder[M],
-    processingBuilder: Action.Builder[M],
-    unloadingBuilder: Action.Builder[M]
+    loadingBuilder: UnacknowledgingAction.Builder[M],
+    processingBuilder: UnacknowledgingAction.Builder[M],
+    unloadingBuilder: UnacknowledgingAction.Builder[M]
   ) :
     def build(
       mId: Id,

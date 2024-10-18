@@ -14,7 +14,9 @@ import com.saldubatech.dcf.material.Material
 import com.saldubatech.dcf.node.components.transport.{Induct, Transport, Discharge, Link}
 import com.saldubatech.dcf.node.components.transport.bindings.{Induct as InductBinding, Discharge as DischargeBinding, DLink as LinkBinding}
 import com.saldubatech.dcf.node.components.buffers.{RandomAccess, RandomIndexed, BoundedIndexed}
-import com.saldubatech.dcf.node.components.action.{Action, Wip, UnitResourcePool, ResourceType, Task}
+import com.saldubatech.dcf.node.components.action.{Action, UnacknowledgingAction, Wip, Task}
+import com.saldubatech.dcf.node.components.resources.UnitResourcePool
+import com.saldubatech.dcf.node.components.resources.ResourceType
 import com.saldubatech.dcf.node.components.action.bindings.{Action as ActionBinding}
 import com.saldubatech.dcf.node.machine.{PushMachineComposed, PushMachineComposedImpl}
 
@@ -57,8 +59,8 @@ object PushStationComposed:
     private val obLinkPhysicsHost: Link.API.Physics = LinkBinding.API.ClientStubs.Physics(host)
     private val maybeObDischarge = outbound.discharge(host.stationId, obLinkPhysicsHost, obDischargePhysicsHost)
 
-    val serverPool = UnitResourcePool[ResourceType.Processor]("serverPool", process.maxConcurrentJobs)
-    val wipSlots = UnitResourcePool[ResourceType.WipSlot]("wipSlots", process.maxWip)
+    val serverPool = UnitResourcePool[ResourceType.Processor]("serverPool", Some(process.maxConcurrentJobs))
+    val wipSlots = UnitResourcePool[ResourceType.WipSlot]("wipSlots", Some(process.maxWip))
     val retryDelay = () => Some(13L)
 
     val loadingActionId = s"$stationId::$machineId::${PushMachineComposed.Builder.loadingPrefix}"
@@ -73,7 +75,7 @@ object PushStationComposed:
       process.loadingFailureRate
       )
     val loadingChron = Action.ChronProxy(ActionBinding.API.ClientStubs.Chron(host, loadingActionId), process.loadingRetry)
-    private val loadingBuilder = Action.Builder[M](serverPool, wipSlots, loadingTaskBuffer, loadingInboundBuffer, loadingPhysics, loadingChron)
+    private val loadingBuilder = UnacknowledgingAction.Builder[M](serverPool, wipSlots, loadingTaskBuffer, loadingInboundBuffer, loadingPhysics, loadingChron)
 
     val processingActionId = s"$stationId::$machineId::${PushMachineComposed.Builder.processingPrefix}"
     val processingTaskBuffer = RandomAccess[Task[M]](s"${PushMachineComposed.Builder.processingPrefix}Tasks") // Unbound b/c limit given by WipSlots
@@ -86,7 +88,7 @@ object PushStationComposed:
       process.processingFailureRate
       )
     val processingChron = Action.ChronProxy(ActionBinding.API.ClientStubs.Chron(host, processingActionId), process.processingRetry)
-    private val processingBuilder = Action.Builder[M](serverPool, wipSlots, processingTaskBuffer, processingInboundBuffer, processingPhysics, processingChron)
+    private val processingBuilder = UnacknowledgingAction.Builder[M](serverPool, wipSlots, processingTaskBuffer, processingInboundBuffer, processingPhysics, processingChron)
 
     val unloadingActionId = s"$stationId::$machineId::${PushMachineComposed.Builder.unloadingPrefix}"
     val unloadingTaskBuffer = RandomAccess[Task[M]](s"${PushMachineComposed.Builder.unloadingPrefix}Tasks") // Unbound b/c limit given by WipSlots
@@ -99,7 +101,7 @@ object PushStationComposed:
       process.unloadingFailureRate
       )
     val unloadingChron = Action.ChronProxy(ActionBinding.API.ClientStubs.Chron(host, unloadingActionId), process.unloadingRetry)
-    private val unloadingBuilder = Action.Builder[M](serverPool, wipSlots, unloadingTaskBuffer, unloadingInboundBuffer, unloadingPhysics, unloadingChron)
+    private val unloadingBuilder = UnacknowledgingAction.Builder[M](serverPool, wipSlots, unloadingTaskBuffer, unloadingInboundBuffer, unloadingPhysics, unloadingChron)
 
     private val machineBuilder = PushMachineComposed.Builder[M](
       loadingBuilder, processingBuilder, unloadingBuilder

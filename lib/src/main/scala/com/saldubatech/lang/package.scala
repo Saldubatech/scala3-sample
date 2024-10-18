@@ -7,7 +7,7 @@ type Id = String
 
 def Id = UUID.randomUUID().toString
 
-trait Identified:
+trait Identified extends Any:
   lazy val id: Id
 
 inline def Partial[A, B](pf: PartialFunction[A, B]): PartialFunction[A, B] = pf

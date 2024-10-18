@@ -9,7 +9,9 @@ import com.saldubatech.dcf.job.{JobSpec, SimpleJobSpec}
 import com.saldubatech.dcf.node.components.{Sink, Harness as ComponentsHarness}
 import com.saldubatech.dcf.node.components.transport.{Transport, TransportImpl, Discharge, Induct, Link, Transfer}
 import com.saldubatech.dcf.node.components.buffers.{RandomAccess, RandomIndexed}
-import com.saldubatech.dcf.node.components.action.{UnitResourcePool, ResourceType, Action, ActionImpl, Task, Wip as Wip2}
+import com.saldubatech.dcf.node.components.action.{Action, UnacknowledgingAction, Task, Wip as Wip2}
+import com.saldubatech.dcf.node.components.resources.UnitResourcePool
+import com.saldubatech.dcf.node.components.resources.ResourceType
 
 import scala.reflect.{Typeable, ClassTag}
 
@@ -82,10 +84,10 @@ object PushMachineHarness:
     wipSlots: UnitResourcePool[ResourceType.WipSlot],
     actionPhysics: Action.Environment.Physics[M],
     chron: Action.API.Chron
-    ): Action.Builder[M] =
+    ): UnacknowledgingAction.Builder[M] =
       val taskBuffer = RandomAccess[Task[M]](s"${prefix}Tasks")
       val inboundBuffer = RandomIndexed[Material](s"${prefix}InboundBuffer")
-      Action.Builder[M](
+      UnacknowledgingAction.Builder[M](
         serverPool,
         wipSlots,
         taskBuffer,

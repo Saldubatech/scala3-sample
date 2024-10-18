@@ -88,7 +88,9 @@ extends Link[M]:
   private lazy val inTransport = RandomIndexed[M](s"$id[InTransportLoads]")
 
   // From API.Control
+  // Within the Link itself
   override def inTransport(at: Tick): Iterable[M] = inTransport.contents(at)
+  // Within the link plus those delivered but not yet acknowledged
   override def inTransit(at: Tick): Iterable[M] = inTransport(at) ++ _delivered.contents(at)
 
   // From API.Upstream

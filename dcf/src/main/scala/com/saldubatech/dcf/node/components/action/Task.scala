@@ -9,6 +9,7 @@ import com.saldubatech.dcf.node.components.Component
 import scala.reflect.{Typeable}
 import scala.reflect.ClassTag
 import alleycats.std.all
+import com.saldubatech.dcf.node.components.resources.{ResourcePool, UnitResourcePool, ResourceType}
 
 trait Task[+OB <: Material] extends Identified:
   import Task._
@@ -27,8 +28,8 @@ trait Task[+OB <: Material] extends Identified:
 end Task // trait
 
 object Task:
-
-  class NoOp[M <: Material : Typeable : ClassTag](materialIdRequired: Id) extends Task[M]:
+  import com.saldubatech.dcf.node.components.resources.given
+  class NoOp[M <: Material : Typeable : ClassTag](val materialIdRequired: Id) extends Task[M]:
     override def materialsRequirements[S <: Supply[?]](at: Tick, suppliers: Iterable[Supply[?]]): AppResult[Iterable[Supply.Requirement[Material, ?]]] =
       mr[MaterialSupplyFromBuffer[M]](at, suppliers)
 

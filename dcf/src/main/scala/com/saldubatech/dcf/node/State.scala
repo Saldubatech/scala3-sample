@@ -64,7 +64,18 @@ object State:
 
   def UnlockedHolder[HOST](at: Tick, resourceName: String, host: HOST, transitionCallback: Option[(Tick, State.StateTransition) => Unit] = None): Holder[HOST] =
     Holder(at, resourceName, host, transitionCallback).tap{ _.unlock(at) }
-  class Holder[HOST](val at: Tick, val resourceName: String, host: HOST, transitionCallback: Option[(Tick, State.StateTransition) => Unit] = None):
+
+  trait UsageTracker:
+    def useState(at: Tick): State.Usage =
+      if isIdle(at) then State.Usage.IDLE
+      else if isBusy(at) then State.Usage.BUSY
+      else State.Usage.IN_USE
+
+    def isIdle(at: Tick): Boolean
+    def isInUse(at: Tick): Boolean = !isIdle(at) && !isBusy(at)
+    def isBusy(at: Tick): Boolean
+  class Holder[HOST](val at: Tick, val resourceName: String, host: HOST, transitionCallback: Option[(Tick, State.StateTransition) => Unit] = None)
+  extends UsageTracker:
 
     private var history = List[StateTransition](StateTransition(at, Start(resourceName), Unknown(resourceName)))
     def state(at: Tick) = history.head.current
@@ -79,9 +90,9 @@ object State:
           }.tap{ st => history = st :: history }
       }
 
-    def isIdle(at: Tick): Boolean = state(at).isIdle
-    def isInUse(at: Tick): Boolean = state(at).isInUse
-    def isBusy(at: Tick): Boolean = state(at).isBusy
+    override def isIdle(at: Tick): Boolean = state(at).isIdle
+    override def isInUse(at: Tick): Boolean = state(at).isInUse
+    override def isBusy(at: Tick): Boolean = state(at).isBusy
 
     def isEnabled(at: Tick): AppResult[String] = state(at).isEnabled
 
@@ -129,13 +140,22 @@ object State:
     def release(at: Tick): AppResult[StateTransition] = update(at, _.release)
     def releaseAll(at: Tick): AppResult[StateTransition] = update(at, _.releaseAll)
 
-
     // admin transitions
     def shutdown(at: Tick): AppResult[StateTransition] = update(at, _.shutdown)
     def forceShutdown(at: Tick, cause: String): AppResult[StateTransition] = update(at, _.forceShutdown(cause))
     def unlock(at: Tick): AppResult[StateTransition] = update(at, _.unlock)
-
   end Holder
+
+  class DelegatedUsageTracker[R] private (host: (at: Tick) => R, idle: R => Boolean, busy: R => Boolean) extends UsageTracker:
+    override def isBusy(at: Tick): Boolean = busy(host(at))
+    override def isIdle(at: Tick): Boolean = idle(host(at))
+  end DelegatedUsageTracker // class
+
+  object DelegatedUsageTracker:
+    def apply[R](idle: R => Boolean, busy: R => Boolean): (((at: Tick) => R) => UsageTracker) =
+      r => new DelegatedUsageTracker(r, idle, busy)
+
+  end DelegatedUsageTracker // object
 end State // object
 
 case class State(

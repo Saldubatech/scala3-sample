@@ -9,7 +9,9 @@ import com.saldubatech.dcf.job.{JobSpec, SimpleJobSpec}
 import com.saldubatech.dcf.node.components.{Sink, Harness as ComponentsHarness}
 import com.saldubatech.dcf.node.components.transport.{Transport, TransportImpl, Discharge, Induct, Link, Transfer}
 import com.saldubatech.dcf.node.components.buffers.{RandomAccess, RandomIndexed}
-import com.saldubatech.dcf.node.components.action.{UnitResourcePool, ResourceType, Action, ActionImpl, Task, Wip as Wip2}
+import com.saldubatech.dcf.node.components.action.{Action, UnacknowledgingAction, Task, Wip as Wip2}
+import com.saldubatech.dcf.node.components.resources.UnitResourcePool
+import com.saldubatech.dcf.node.components.resources.ResourceType
 
 import scala.reflect.{Typeable, ClassTag}
 
@@ -93,8 +95,8 @@ class PushMachineComposedNotificationsSpec extends BaseSpec:
 
       // >>>>>>>>>>>>>>>>>> Build the Machine <<<<<<<<<<<<<<<<<<<<<<<
 
-      val serverPool = UnitResourcePool[ResourceType.Processor]("serverPool", 3)
-      val wipSlots = UnitResourcePool[ResourceType.WipSlot]("wipSlots", 1000) // unlimited # of tasks can be requested
+      val serverPool = UnitResourcePool[ResourceType.Processor]("serverPool", Some(3))
+      val wipSlots = UnitResourcePool[ResourceType.WipSlot]("wipSlots", Some(1000)) // unlimited # of tasks can be requested
       val retryDelay = () => Some(13L)
 
       val unloadingDuration = (at: Tick, wip: Wip2[M]) => 100L
