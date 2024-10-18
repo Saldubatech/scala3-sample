@@ -15,9 +15,11 @@ class LayoutBuilder extends Topology:
   // Completed
   private val lines = collection.mutable.ListBuffer.empty[Line]
 
-  private case class E(val behavior: Sink, val id: Id = Id) extends End
+  private case class E(val behavior: Sink, lId: Id = Id) extends End:
+    override lazy val id: Id = lId
 
-  private case class S(val behavior: Source, val id: Id = Id) extends Start:
+  private case class S(val behavior: Source, lId: Id = Id) extends Start:
+    override lazy val id: Id = lId
     override def to(ch: Channel): StartFlow =
       val rs = SF(this, List(ch))
       partials += rs
@@ -36,23 +38,28 @@ class LayoutBuilder extends Topology:
       lines += rs
       rs
 
-  private case class C(val behavior: Transport, val id: Id = Id) extends Channel:
+  private case class C(val behavior: Transport, lId: Id = Id) extends Channel:
+    override lazy val id: Id = lId
     def to(ch: Channel): SegmentFlow = SGF(List(this, ch))
     def to(fl: SegmentFlow): SegmentFlow = SGF(this :: fl.string)
     def to(ef: EndFlow): EndFlow = EF(List(this), ef.end)
 
-  private case class EF(override val string: List[Channel], end: End, override val id: Id = Id) extends EndFlow
+  private case class EF(override val string: List[Channel], end: End, lId: Id = Id) extends EndFlow:
+    override lazy val id: Id = lId
 
-  private case class SF(override val start: Start, string: List[Channel], override val id: Id = Id) extends StartFlow:
+  private case class SF(override val start: Start, string: List[Channel], lId: Id = Id) extends StartFlow:
+    override lazy val id: Id = lId
     override def to(ch: Channel): StartFlow = SF(this.start, ch :: this.string)
     override def to(eCh: EndFlow): Line = L(this.start, this.string ++ eCh.string, eCh.end)
     override def to(e: End): Line = L(this.start, this.string, e)
 
-  private case class SGF(override val string: List[Channel], override val id: Id = Id) extends SegmentFlow:
+  private case class SGF(override val string: List[Channel], lId: Id = Id) extends SegmentFlow:
+    override lazy val id: Id = lId
     def to(ch: Channel): SegmentFlow = SGF(ch :: this.string)
     def to(e: End): EndFlow = EF(this.string, e)
 
-  private case class L(val start: Start, string: List[Channel], end: End, override val id: Id = Id) extends Line:
+  private case class L(val start: Start, string: List[Channel], end: End, lId: Id = Id) extends Line:
+    override lazy val id: Id = lId
     override def reify: UnitResult =
       val s = AppSuccess(end.behavior)
       string.reverse.foldLeft[AppResult[Sink]](s)((sink, channel) => for {

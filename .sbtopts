@@ -1,3 +1,4 @@
+-J-Xmx4G
 # Needed for the sbt-dotenv plugin
 -J--add-opens=java.base/java.util=ALL-UNNAMED
 -J--add-opens=java.base/java.lang=ALL-UNNAMED

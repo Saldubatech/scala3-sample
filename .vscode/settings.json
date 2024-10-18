@@ -3,23 +3,41 @@
     "**/target": true
   },
   "cSpell.words": [
+    "alleycats",
+    "bson",
     "codecov",
     "cumsum",
     "DBIO",
     "DBRS",
     "Ddes",
     "deleter",
+    "Eaches",
     "figsize",
     "gridspec",
+    "Hikari",
+    "hikaricp",
     "Hmmss",
     "hspace",
     "Indc",
     "Kolmogorov",
+    "logback",
+    "Metaspace",
+    "mllib",
+    "Pekko",
+    "Proto",
+    "pureconfig",
     "Rdbms",
+    "reactivestreams",
     "RFOLD",
     "scalac",
+    "scalacheck",
+    "scalactic",
     "scalafix",
     "scalafmt",
+    "scalatest",
+    "scalaz",
+    "scodec",
+    "scopt",
     "semanticdb",
     "sharex",
     "sharey",
@@ -28,9 +46,12 @@
     "stackless",
     "suptitle",
     "SZIO",
+    "testcontainers",
+    "testkit",
     "tpolecat",
     "TUPLIFY",
     "Typesafe",
+    "untasked",
     "URIO",
     "wspace",
     "xlabel",
@@ -97,7 +118,7 @@
       "username": "test_user"
     }
   ],
-  "python.testing.pytestEnabled": false,
+  "python.testing.pytestEnabled": true,
   "python.analysis.autoFormatStrings": true,
   "python.analysis.autoImportCompletions": true,
   "python.analysis.completeFunctionParens": true,
@@ -114,13 +135,13 @@
   "python.testing.pytestArgs": [
     "analysis"
   ],
-  "python.testing.unittestEnabled": true,
+  "python.testing.unittestEnabled": false,
   "python.testing.unittestArgs": [
     "-v",
     "-s",
     "./analysis",
     "-p",
-    "*_test.py"
+    "test*.py"
   ],
   "testExplorer.showOnRun": true,
   "testExplorer.addToEditorContextMenu": true,
@@ -175,7 +196,7 @@
   "metals.inlayHints.implicitArguments.enable": true,
   "metals.inlayHints.implicitConversions.enable": true,
   "metals.ammoniteJvmProperties": [
-    "-Xmx1G"
+    "-Xmx4G"
   ],
   "metals.autoImportBuild": "initial",
   "metals.defaultBspToBuildTool": false,
@@ -184,8 +205,8 @@
   "metals.inlayHints.inferredTypes.enable": true,
   "metals.inlayHints.typeParameters.enable": true,
   "metals.serverProperties": [
-    "-Xmx2G"
+    "-Xmx4G"
   ],
   "metals.suggestLatestUpgrade": true,
-  "metals.serverVersion": "1.3.5+143-e6110753-SNAPSHOT"
+  "metals.serverVersion": "1.3.5+177-b1c38568-SNAPSHOT"
 }

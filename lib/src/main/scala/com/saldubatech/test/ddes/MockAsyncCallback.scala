@@ -13,8 +13,10 @@ end MockAsyncCallback // object
 class MockAsyncCallback:
   val pending = collection.mutable.SortedMap.empty[Long, collection.mutable.ListBuffer[(String, MockAsyncCallback.CALLBACK)]]
   def show =
-    val rs = pending.values.flatMap{ l => l.map{ _._1 } }.mkString("\n>>>\n\t", "\n\t", "\n>>>")
-    rs
+    (for {
+      (epoch, commands) <- pending
+    } yield
+      s"At: $epoch:\n\t"+commands.mkString("\n\t")).mkString("\n")
 
   def clear = pending.clear
 

@@ -6,6 +6,7 @@ import com.saldubatech.math.randomvariables.Distributions.probability
 import com.saldubatech.ddes.types.{Tick, Duration}
 import com.saldubatech.dcf.material.Material
 import com.saldubatech.dcf.node.components.{Sink, Component}
+import com.saldubatech.dcf.node.components.buffers.{RandomIndexed, SequentialBuffer}
 
 
 object Link:
@@ -19,7 +20,8 @@ object Link:
     end Downstream
 
     trait Control[M <: Material]:
-      def currentInTransit: List[M]
+      def inTransit(at: Tick): Iterable[M]
+      def inTransport(at: Tick): Iterable[M]
     end Control // trait
 
     trait Physics:
@@ -38,20 +40,21 @@ object Link:
 
   class Physics[M <: Material]
     (
-      override val id: Id,
+      pId: Id,
       host: API.Physics,
       successDuration: (at: Tick, card: Id, load: M) => Duration,
       minSlotDuration: Duration = 1,
       failDuration: (at: Tick, card: Id, load: M) => Duration = (at: Tick, card: Id, load: M) => 0,
       failureRate: (at: Tick, card: Id, load: M) => Double = (at: Tick, card: Id, load: M) => 0.0
     ) extends Environment.Physics[M] with Identity:
+      override lazy val id: Id = pId
       var latestDischargeTime: Tick = 0
 
       def transportCommand(at: Tick, atLink: Id, card: Id, load: M): UnitResult =
         if (probability() > failureRate(at, card, load)) then
           // Ensures FIFO delivery
           latestDischargeTime = math.max(latestDischargeTime+minSlotDuration, at + successDuration(at, card, load))
-          host.transportFinalize(at, id, card, load.id)
+          host.transportFinalize(latestDischargeTime, id, card, load.id)
         else host.transportFail(at + failDuration(at, card, load), id, card, load.id, None)
     end Physics // class
 
@@ -77,64 +80,63 @@ extends Link[M]:
 
   private lazy val _origin = origin()
 
-  private val _inTransit = collection.mutable.Map.empty[Id, M]
-
-  def backSignalProxy(upstream: Discharge.API.Downstream & Discharge.Identity): Discharge.API.Downstream & Discharge.Identity =
-    new Discharge.API.Downstream() with Discharge.Identity {
-      override val id: Id = upstream.id
-      override val stationId: Id = upstream.stationId
-      override def acknowledge(at: Tick, loadId: Id): UnitResult =
-        for {
-          _ <- link.acknowledge(at, loadId)
-          _ <- upstream.acknowledge(at, loadId)
-        } yield ()
-
-      override def restore(at: Tick, cards: List[Id]): UnitResult = upstream.restore(at, cards)
-    }
+  private lazy val _delivered = RandomIndexed[M](s"$id[DeliveredLoads]")
 
   def acknowledge(at: Tick, loadId: Id): UnitResult =
-    for {
-      load <- Component.inStation(id, "InTransitLoad")(_inTransit.remove)(loadId)
-      // acknowledgement <- upstream.acknowledge(at, loadId).tapError{
-      //   err => _inTransit += loadId -> load
-      // }
-    } yield ()
+    _delivered.consume(at, loadId).map{ _ => _attemptDeliveries(at) }
+
+  private lazy val inTransport = RandomIndexed[M](s"$id[InTransportLoads]")
 
   // From API.Control
-  def currentInTransit: List[M] = _inTransit.values.toList
+  // Within the Link itself
+  override def inTransport(at: Tick): Iterable[M] = inTransport.contents(at)
+  // Within the link plus those delivered but not yet acknowledged
+  override def inTransit(at: Tick): Iterable[M] = inTransport(at) ++ _delivered.contents(at)
+
   // From API.Upstream
   override def canAccept(at: Tick, card: Id, load: M): AppResult[M] =
     maxCapacity match
       case None => AppSuccess(load)
       case Some(max) =>
-        if max > _inTransit.size then AppSuccess(load) else AppFail.fail(s"Transit Link[$id] is full")
+        if max > (inTransport.contents(at).size + _delivered.contents(at).size) then AppSuccess(load) else AppFail.fail(s"Transit Link[$id] is full")
 
   override def loadArriving(at: Tick, card: Id, load: M): UnitResult =
     for {
       allow <- canAccept(at, card, load)
-      o <- _origin
       rs <-
-        o.acknowledge(at, load.id)
-        _inTransit += load.id -> load
+        inTransport.provision(at, load)
         physics.transportCommand(at, id, card, load)
     } yield rs
 
+  private case class Ready(card: Id, load: M)
+  private val readyToDeliver = SequentialBuffer.FIFO[Ready](s"$id[ReadyToDeliverQueue]")
+
   // From API.Physics
   override def transportFinalize(at: Tick, link: Id, card: Id, loadId: Id): UnitResult =
-    for {
-      load <- Component.inStation(id, "InTransit Material")(_inTransit.get)(loadId)
-      _ <- downstream.loadArriving(at, card, load)
-            .tapError{ _ => _inTransit += load.id -> load }
-      acknowledgement <- acknowledge(at, loadId)
-    } yield acknowledgement
+    inTransport.consume(at, loadId).map{ l =>
+        readyToDeliver.provision(at, Ready(card, l))
+        _attemptDeliveries(at)
+      }
 
   override def transportFail(at: Tick, linkId: Id, card: Id, loadId: Id, cause: Option[AppError]): UnitResult =
     // This removes the load upon failure (e.g. it gets physically removed via an exit chute or something like that)
-    Component.inStation(id, "InTransit Material")(_inTransit.remove)(loadId).flatMap{
+    inTransport.consume(at, loadId).flatMap {
       arr =>
         cause match
           case None => AppFail.fail(s"Unknown Error Transporting in Link[$id] for Load[${loadId}] at $at")
           case Some(c) => AppFail(c)
     }
+
+  /* See Discharge._attemptDischarges. Opportunity to consolidate */
+  private def _attemptDeliveries(at: Tick): Unit =
+    if readyToDeliver.contents(at).nonEmpty then
+      readyToDeliver.consumeWhileSuccess(at, (t, r) => _delivered.provision(t, r.load)){
+        (t, r) =>
+          for {
+            o <- _origin
+            ack <- o.acknowledge(at, r.load.id)
+            arrival <- downstream.loadArriving(t, r.card, r.load)
+          } yield arrival
+      }
 
 end LinkMixIn // trait

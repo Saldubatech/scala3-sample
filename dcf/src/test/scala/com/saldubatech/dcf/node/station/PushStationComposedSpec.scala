@@ -7,10 +7,12 @@ import com.saldubatech.ddes.types.{Tick, Duration, DomainMessage}
 import com.saldubatech.ddes.runtime.{Clock, OAM}
 import com.saldubatech.ddes.elements.{SimulationComponent, SimActor}
 import com.saldubatech.ddes.system.SimulationSupervisor
-import com.saldubatech.dcf.material.{Material, Wip, WipPool, MaterialPool}
-import com.saldubatech.dcf.node.components.transport.{Transport, TransportImpl, Induct, Discharge, Link}
+import com.saldubatech.dcf.material.Material
+import com.saldubatech.dcf.node.components.action.Wip
+import com.saldubatech.dcf.node.components.transport.{Transport, TransportImpl, Induct, Discharge, Link, Transfer}
 import com.saldubatech.dcf.node.components.transport.bindings.{Induct as InductBinding, Discharge as DischargeBinding, DLink as LinkBinding}
-import com.saldubatech.dcf.node.machine.bindings.{LoadSource as LoadSourceBinding}
+import com.saldubatech.dcf.node.machine.bindings.{Source as SourceBinding}
+import com.saldubatech.dcf.node.components.buffers.RandomIndexed
 
 import com.saldubatech.dcf.node.station.configurations.{Inbound, Outbound, ProcessConfiguration}
 
@@ -25,12 +27,19 @@ import zio.test.{ZIOSpecDefault, assertTrue, assertCompletes}
 import org.apache.pekko.actor.testkit.typed.scaladsl.{ActorTestKit, FishingOutcomes}
 import com.saldubatech.dcf.node.ProbeInboundMaterial
 
-object PushStationSpec extends ZIOSpecDefault with LogEnabled with Matchers:
+object PushStationComposedSpec extends ZIOSpecDefault with LogEnabled with Matchers:
 
   case class Consumed(at: Tick, fromStation: Id, fromSource: Id, atStation: Id, atSink: Id, load: ProbeInboundMaterial)
 
-  val nProbes = 10
-  val probes = (1 to nProbes).map{ idx => (idx*40).toLong -> ProbeInboundMaterial(s"<$idx>", idx)}.toSeq
+  val pushStationCards = (1 to 100).map{ _ => Id}.toList
+  val nProbes: Int = 10
+
+  val sourceCards = (1 to nProbes+100).map{ _ => Id}.toList // No Constraint, simplify debugging
+
+  val probeSeq = (1 to nProbes).map{ idx => (idx*40).toLong -> ProbeInboundMaterial(s"<$idx>", idx)}.toSeq
+  val probeIt = probeSeq.iterator
+  val probes = (at: Tick) => probeIt.nextOption()
+
 
   val pushStation = "PUSH_STATION"
   val sinkStation = "SINK_STATION"
@@ -40,7 +49,6 @@ object PushStationSpec extends ZIOSpecDefault with LogEnabled with Matchers:
   val transportInboundId = "inboundTransport"
   val transportOutboundId = "outboundTransport"
 
-  val cards = (1 to nProbes+100).map{ _ => Id}.toList
 
   class Consumer {
     val consumed = collection.mutable.ListBuffer.empty[Consumed]
@@ -54,6 +62,7 @@ object PushStationSpec extends ZIOSpecDefault with LogEnabled with Matchers:
 
   val consumer = Consumer()
   val clock = Clock(None)
+
   object InboundTransport:
     val transportId = "inboundTransport"
     val inductDelay: Duration = 10
@@ -77,7 +86,7 @@ object PushStationSpec extends ZIOSpecDefault with LogEnabled with Matchers:
         transportId,
         iPhysics,
         Some(tCapacity),
-        Induct.Component.FIFOArrivalBuffer[ProbeInboundMaterial](),
+        RandomIndexed[Transfer[ProbeInboundMaterial]]("ArrivalBuffer"),
         tPhysics,
         dPhysics,
         inductUpstreamInjector,
@@ -109,7 +118,7 @@ object PushStationSpec extends ZIOSpecDefault with LogEnabled with Matchers:
         transportId,
         iPhysics,
         Some(tCapacity),
-        Induct.Component.FIFOArrivalBuffer[ProbeInboundMaterial](),
+        RandomIndexed[Transfer[ProbeInboundMaterial]]("ArrivalBuffer"),
         tPhysics,
         dPhysics,
         inductUpstreamInjector,
@@ -118,18 +127,17 @@ object PushStationSpec extends ZIOSpecDefault with LogEnabled with Matchers:
       )
   end OutboundTransport // object
 
-  val producer: (Tick, Wip.InProgress) => AppResult[Option[ProbeInboundMaterial]] =
-    (at, wip) =>
-      wip.rawMaterials.headOption match
-        case None => AppSuccess(None)
-        case Some(m : ProbeInboundMaterial) => AppSuccess(Some(m))
-        case Some(other) => AppFail.fail(s"Unexpected Material type: $other")
+  val producer: (Tick, Wip.InProgress[ProbeInboundMaterial]) => AppResult[Option[ProbeInboundMaterial]] =
+    (at, wip) => wip.materialAllocations.headOption match
+      case None => AppFail.fail(s"No Available material")
+      case Some(allocation) => allocation.consume(at).flatMap{
+        case pim: ProbeInboundMaterial => AppSuccess(Some(pim))
+        case other => AppFail.fail(s"Available Material not of type ProbeInboundMaterial")
+      }
+
   val loadingDelay: Duration = 2
   val processDelay: Duration = 3
   val unloadingDelay: Duration = 4
-  val readyPool = WipPool.InMemory[Wip.Unloaded[ProbeInboundMaterial]]()
-  val acceptedPool = MaterialPool.SimpleInMemory[Material]("UnderTest")
-
 
   lazy val sink = SinkStation[ProbeInboundMaterial](
     sinkStation,
@@ -138,23 +146,23 @@ object PushStationSpec extends ZIOSpecDefault with LogEnabled with Matchers:
       (at, card, load) => OutboundTransport.inductDelay
       ),
     Some(consumer.consume),
-    clock
+    clock=clock
     )
   val process = ProcessConfiguration[ProbeInboundMaterial](
     maxConcurrentJobs=100,
+    maxWip=100,
+    inboundBuffer=10000,
     producer,
     (at, wip) => loadingDelay,
     (at, wip) => processDelay,
-    (at, wip) => processDelay,
-    acceptedPool,
-    readyPool
+    (at, wip) => processDelay
   )
-  lazy val underTest: PushStation[ProbeInboundMaterial] = PushStation[ProbeInboundMaterial](
+  lazy val underTest: PushStationComposed[ProbeInboundMaterial] = PushStationComposed[ProbeInboundMaterial](
     pushStation,
     InboundTransport.transport,
     OutboundTransport.transport,
     process,
-    cards,
+    pushStationCards,
     clock
     )
   lazy val source = SourceStation[ProbeInboundMaterial](
@@ -163,7 +171,7 @@ object PushStationSpec extends ZIOSpecDefault with LogEnabled with Matchers:
       InboundTransport.transport,
       (at, card, load) => InboundTransport.dischargeDelay,
       (at, card, load) => InboundTransport.transportDelay,
-      cards
+      sourceCards
     ),
     probes,
     clock
@@ -183,26 +191,26 @@ object PushStationSpec extends ZIOSpecDefault with LogEnabled with Matchers:
         val simSupervisor = SimulationSupervisor("PushStationSpecSupervisor", clock, Some(config))
         val actorSystem = ActorSystem(simSupervisor.start, "PushStationSpec_ActorSystem")
         val fixture = ActorTestKit(actorSystem)
-
         val termProbe = fixture.createTestProbe[Consumed]()
         consumer.target = termProbe.ref
+
         for {
-          rootRs <-
-              OAM.kickAwake(using 1.second, actorSystem)
+          rootRs <- OAM.kickAwake(using 1.second, actorSystem)
         } yield
           rootRs shouldBe OAM.AOK
-          simSupervisor.directRootSend(source)(0, LoadSourceBinding.API.Signals.Run(Id, Id))(using 1.second)
+          simSupervisor.directRootSend(source)(0, SourceBinding.API.Signals.Go(Id, Id, s"${source.stationId}::Source[source]"))(using 1.second)
           var found = 0
+
           val r = termProbe.fishForMessage(5.second){
             c =>
               found += 1
-              log.info(s"Found $found out of ${probes.size}")
+              log.info(s"Found $found out of ${probeSeq.size}")
               c match
                 case Consumed(_, "PUSH_STATION", "PUSH_STATION::Discharge[outboundTransport]", "SINK_STATION", "SINK_STATION::LoadSink[sink]", _) =>
-                  if found == probes.size then FishingOutcomes.complete else FishingOutcomes.continue
+                  if found == probeSeq.size then FishingOutcomes.complete else FishingOutcomes.continue
                 case other => FishingOutcomes.fail(s"Found $other")
           }
-          assert(r.size == probes.size)
+          assert(r.size == probeSeq.size)
           termProbe.expectNoMessage(300.millis)
           fixture.shutdownTestKit()
           assertCompletes
@@ -210,4 +218,4 @@ object PushStationSpec extends ZIOSpecDefault with LogEnabled with Matchers:
     )
   }
 
-end PushStationSpec // class
+end PushStationComposedSpec // class

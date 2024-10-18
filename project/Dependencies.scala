@@ -13,11 +13,11 @@ object Dependencies {
       val refined = "eu.timepit" %% "refined" % refinedVersion
       val cats =  "eu.timepit" %% "refined-cats" % refinedVersion // optional
       val eval = "eu.timepit" %% "refined-eval" % refinedVersion // optional, JVM-only
-      val jsonpaath = "eu.timepit" %% "refined-jsonpath" % refinedVersion // optional, JVM-only
-      val pureconfig = "eu.timepit" %% "refined-pureconfig" % refinedVersion // optional, JVM-only
-      val scalacheck = "eu.timepit" %% "refined-scalacheck" % refinedVersion // optional
+      val jsonPath = "eu.timepit" %% "refined-jsonpath" % refinedVersion // optional, JVM-only
+      val pureConfig = "eu.timepit" %% "refined-pureconfig" % refinedVersion // optional, JVM-only
+      val scalaCheck = "eu.timepit" %% "refined-scalacheck" % refinedVersion // optional
       val scalaz = "eu.timepit" %% "refined-scalaz" % refinedVersion // optional
-      val refinedScodec = "eu.timepit" %% "refined-scodec" % refinedVersion // optional
+      val refinedSCodec = "eu.timepit" %% "refined-scodec" % refinedVersion // optional
       val scopt = "eu.timepit" %% "refined-scopt" % refinedVersion // optional
       val shapeless = "eu.timepit" %% "refined-shapeless" % refinedVersion  // optional
     }
@@ -123,7 +123,7 @@ object Dependencies {
 
   object Pekko {
     // https://mvnrepository.com/artifact/org.apache.pekko/pekko-actor
-    val pekkoVersion = "1.1.0-M1"
+    val pekkoVersion = "1.1.2"
     val actor = "org.apache.pekko" %% "pekko-actor-typed" % pekkoVersion
     val test = "org.apache.pekko" %% "pekko-actor-testkit-typed" % pekkoVersion
   }
@@ -170,8 +170,11 @@ object Dependencies {
 
     // https://flywaydb.org/
     // https://alexn.org/blog/2020/11/15/managing-database-migrations-scala/
-    val flywayDbVersion = "10.14.4"
-    val flywayDb = "org.flywaydb" % "flyway-core" % "7.2.0"
+    val flywayDbVersion = "10.19.0"
+    val flywayDb = "org.flywaydb" % "flyway-core" % flywayDbVersion
+    // https://mvnrepository.com/artifact/org.flywaydb/flyway-database-postgresql
+    val flywayPostgres = "org.flywaydb" % "flyway-database-postgresql" % flywayDbVersion % "runtime"
+
 
     val postgresqlVersion = "42.7.3" // "42.6.0"
     val postgres = "org.postgresql" % "postgresql" % postgresqlVersion
@@ -183,7 +186,7 @@ object Dependencies {
       "com.dimafeng" %% "testcontainers-scala-postgresql" % containersPostgresVersion
     val scalaTestVersion = "3.2.18"
     val scalaTest = "org.scalatest" %% "scalatest" % scalaTestVersion
-    val scalatic = "org.scalactic" %% "scalactic" % scalaTestVersion
+    val scalactic = "org.scalactic" %% "scalactic" % scalaTestVersion
 
   }
 }

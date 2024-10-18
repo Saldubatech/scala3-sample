@@ -7,6 +7,7 @@ import com.saldubatech.dcf.material.{Material, Wip}
 import com.saldubatech.ddes.types.Tick
 import com.saldubatech.lang.types.{AppResult, UnitResult, AppSuccess, AppFail, AppError, collectAll}
 import com.saldubatech.dcf.job.{JobSpec, SimpleJobSpec}
+import com.saldubatech.dcf.node.components.buffers.RandomIndexed
 
 import com.saldubatech.test.ddes.MockAsyncCallback
 import com.saldubatech.dcf.node.{ProbeInboundMaterial, ProbeOutboundMaterial}
@@ -30,7 +31,7 @@ class TransportSpec extends BaseSpec:
     def dPhysics(host: Discharge.API.Physics): Discharge.Environment.Physics[ProbeInboundMaterial] = Harness.MockDischargePhysics[ProbeInboundMaterial](() => dischargeDelay, engine)
     def tPhysics(host: Link.API.Physics): Link.Environment.Physics[ProbeInboundMaterial] = Harness.MockLinkPhysics[ProbeInboundMaterial](() => transportDelay, engine)
     def iPhysics(host: Induct.API.Physics): Induct.Environment.Physics[ProbeInboundMaterial] = Harness.MockInductPhysics[ProbeInboundMaterial](() => inductDelay, engine)
-    val inductStore = Induct.Component.FIFOArrivalBuffer[ProbeInboundMaterial]()
+    val inductStore = RandomIndexed[Transfer[ProbeInboundMaterial]]("ArrivalBuffer")
     val inductUpstreamInjector: Induct[ProbeInboundMaterial, ?] => Induct.API.Upstream[ProbeInboundMaterial] = i => i
     val linkAcknowledgeFactory: Link[ProbeInboundMaterial] => Link.API.Downstream = l => new Link.API.Downstream {
       override def acknowledge(at: Tick, loadId: Id): UnitResult = AppSuccess{ engine.add(at){ () => l.acknowledge(at, loadId) } }
@@ -141,9 +142,9 @@ class TransportSpec extends BaseSpec:
       val deliverer2 = induct2.map{ _.delivery(mockDownstream) }
       val discharge2 = underTest.discharge("TestUpstreamStation", linkAPIPhysics, dischargeAPIPhysics)
       "Have no contents or available elements in its induct" in {
-        induct2.value.contents shouldBe Symbol("isEmpty")
-        induct2.value.available shouldBe Symbol("isEmpty")
-        induct2.value.cards shouldBe Symbol("isEmpty")
+        induct2.value.contents(0) shouldBe Symbol("isEmpty")
+        induct2.value.available(0) shouldBe Symbol("isEmpty")
+        induct2.value.cards(0) shouldBe Symbol("isEmpty")
       }
       "Not be able to discharge loads" in {
         discharge2.value.canDischarge(0, probe) shouldBe Symbol("isLeft")
@@ -185,7 +186,7 @@ class TransportSpec extends BaseSpec:
         engine.pending(dischargeDelay).size shouldBe 1
       }
       "reduce the number of available cards by 1" in {
-        discharge.value.availableCards.size should be (0)
+        discharge.value.availableCards(0).size should be (0)
       }
       "not allow discharging after using up the provided cards" in {
         discharge.value.canDischarge(1, probe) shouldBe Symbol("isLeft")
@@ -226,7 +227,7 @@ class TransportSpec extends BaseSpec:
         engine.runOne() shouldBe Symbol("isRight")
       }
       "reduce the number of available cards by 1" in {
-        discharge.value.availableCards.size should be (cards.size-1)
+        discharge.value.availableCards(0).size should be (cards.size-1)
       }
       "have triggered the physics of transport" in {
         engine.pending.size shouldBe 1
@@ -235,9 +236,9 @@ class TransportSpec extends BaseSpec:
         engine.pending(expectedTime).size shouldBe 1
       }
       "still not have any contents in the Induct" in {
-        induct.value.contents shouldBe Symbol("isEmpty")
-        induct.value.available shouldBe Symbol("isEmpty")
-        induct.value.cards shouldBe Symbol("isEmpty")
+        induct.value.contents(0) shouldBe Symbol("isEmpty")
+        induct.value.available(0) shouldBe Symbol("isEmpty")
+        induct.value.cards(0) shouldBe Symbol("isEmpty")
       }
     }
     "Discharge and Transport physics are complete" should {
@@ -280,46 +281,47 @@ class TransportSpec extends BaseSpec:
         engine.runOne()
         engine.pending.size shouldBe 1
         engine.pending(dischargeDelay+transportDelay).size shouldBe 1
-        underTest.link.value.currentInTransit.size shouldBe 1
+        underTest.link.value.inTransit(0).size shouldBe 1
         // Execute the transport
         engine.runOne()
         engine.pending.size shouldBe 2
         engine.pending(dischargeDelay+transportDelay+inductDelay).size shouldBe 1
       }
       "The load is 'In Arrival' in the Induct" in {
-        induct.value.cards.size shouldBe 0
-        induct.value.contents.size shouldBe 0
-        underTest.link.value.currentInTransit.size shouldBe 0
+        induct.value.cards(0).size shouldBe 0
+        induct.value.contents(0).size shouldBe 0
+        underTest.link.value.inTransport(0).size shouldBe 0
+        underTest.link.value.inTransit(0).size shouldBe 1
       }
       "Have the load and card in the Induct" in {
         // Execute the induction
         engine.run(None)
-        induct.value.cards.size shouldBe 1
-        induct.value.cards.head shouldBe cards.head
-        induct.value.contents.size shouldBe 1
-        underTest.link.value.currentInTransit.size shouldBe 0
+        induct.value.contents(0).size shouldBe 1
+        induct.value.cards(0).size shouldBe 1
+        induct.value.cards(0).head shouldBe cards.head
+        underTest.link.value.inTransit(0).size shouldBe 0
       }
       "Be able to deliver the received load to a provided sink" in {
         val currentTime = dischargeDelay+transportDelay+inductDelay
         deliverer.deliver(currentTime+2, probe.id)
         mockDownstream.received.size shouldBe 1
         mockDownstream.received.head should be (currentTime+2, "TestUpstreamStation", discharge.value.id, probe)
-        induct.value.contents.size shouldBe 0
-        induct.value.available.size shouldBe 0
+        induct.value.contents(0).size shouldBe 0
+        induct.value.available(0).size shouldBe 0
       }
       "still Store a card from the received load" in {
-        induct.value.cards.size shouldBe 1
-        induct.value.cards.head shouldBe cards(0)
+        induct.value.cards(0).size shouldBe 1
+        induct.value.cards(0).head shouldBe cards(0)
       }
       "Acknowledge the received cards to their senders" in {
         induct.value.restoreAll(4)
-        induct.value.cards.size shouldBe 0
+        induct.value.cards(0).size shouldBe 0
         // Not restored yet, signal "in-transit"
-        discharge.value.availableCards.size shouldBe cards.size - 1
+        discharge.value.availableCards(0).size shouldBe cards.size - 1
       }
       "The Discharge received the card when signal completes" in {
         engine.runOne()
-        discharge.value.availableCards.size shouldBe cards.size
+        discharge.value.availableCards(0).size shouldBe cards.size
       }
     }
   }

@@ -7,6 +7,7 @@ import com.saldubatech.util.stack
 import com.saldubatech.ddes.types.{Tick, Duration}
 import com.saldubatech.dcf.material.Material
 import com.saldubatech.dcf.node.components.{Subject, SubjectMixIn, Component, Sink}
+import com.saldubatech.dcf.node.components.buffers.{RandomIndexed, SequentialBuffer}
 
 import scala.reflect.Typeable
 
@@ -22,7 +23,7 @@ object Discharge:
       def discharge(at: Tick, load: M): UnitResult
 
       def asSink: Sink.API.Upstream[M] = new Sink.API.Upstream[M]() {
-        override val id: Id = discharge.id
+        override lazy val id: Id = discharge.id
         override val stationId: Id = discharge.stationId
         override def canAccept(at: Tick, from: Id, load: M): UnitResult = discharge.canDischarge(at, load).asUnit
         override def acceptMaterialRequest(at: Tick, fromStation: Id, fromSource: Id, load: M): UnitResult = discharge.discharge(at, load)
@@ -32,7 +33,7 @@ object Discharge:
     trait Control:
       def addCards(at: Tick, cards: List[Id]): UnitResult
       def removeCards(at: Tick, cards: List[Id]): UnitResult
-      def availableCards: List[Id]
+      def availableCards(at: Tick): Iterable[Id]
     end Control
 
     type Management[+LISTENER <: Environment.Listener] = Component.API.Management[LISTENER]
@@ -100,83 +101,93 @@ with SubjectMixIn[LISTENER]:
   val physics: Discharge.Environment.Physics[M]
 
   private val provisionedCards = collection.mutable.Set.empty[Id]
-  private val _cards = collection.mutable.Queue.empty[Id]
-  private val _inTransit = collection.mutable.Map.empty[Id, M]
+  private lazy val _cards = SequentialBuffer.FIFO[Id](s"$id[cards]")
+  private lazy val _delivered = RandomIndexed[M](s"$id[DeliveredBuffer]")
+
+  override def availableCards(at: Tick): Iterable[Id] = _cards.contents(at)
 
   override def addCards(at: Tick, cards: List[Id]): UnitResult =
     provisionedCards.addAll(cards)
-    if _cards.isEmpty then
+    if _cards.state(at).isIdle then
       doNotify{ _.availableNotification(at, stationId, id) }
-    _cards.enqueueAll(cards.filter( c => !_cards.contains(c)))
+      val currentCards = _cards.contents(at).toSet
+      cards.filter{ c => !currentCards(c) }.map{ c => _cards.provision(at, c) }
     AppSuccess.unit
 
   override def removeCards(at: Tick, cards: List[Id]): UnitResult =
-    cards.foreach( provisionedCards.remove(_) )
-    _cards.removeAll(c => !provisionedCards(c))
-    if _cards.isEmpty then
-      doNotify{ _.busyNotification(at, stationId, id) }
-    AppSuccess.unit
+    cards.foreach(
+      c =>
+        provisionedCards.remove(c)
+        _cards.consume(at, c)
+      )
+      if _cards.state(at).isIdle then
+        doNotify( _.busyNotification(at, stationId, id) )
+      AppSuccess.unit
 
-  override def availableCards: List[Id] = _cards.toList
+  def  busy(at: Tick): Boolean = _cards.state(at).isIdle
 
   // Members declared in com.saldubatech.dcf.node.components.transport.Discharge$.API$.Downstream
   override def restore(at: Tick, cards: List[Id]): UnitResult =
-    val available = _cards.size
+    val previousAvailable = _cards.contents(at).size
     cards.foreach{
       c =>
-        if provisionedCards(c) then _cards.enqueue(c)
+        if provisionedCards(c) then _cards.provision(at, c)
         else () // if not provisioned, retire it.
     }
-    if available == 0 && _cards.size != 0 then doNotify{ _.availableNotification(at, stationId, id) }
+    if previousAvailable == 0 && _cards.contents(at).size != 0 then // new availability
+      doNotify{ _.availableNotification(at, stationId, id) }
     AppSuccess.unit
 
   override def acknowledge(at: Tick, loadId: Id): UnitResult =
-    Component.inStation(id, s"InTransit Load")(_inTransit.remove)(loadId).unit
+    _delivered.consume(at, loadId).map{ _ => _attemptDischarges(at) }
 
-  private val _discharging = collection.mutable.Map.empty[Id, M]
+  // Indexed by the load.id of teh Transfer
+  private lazy val _discharging = RandomIndexed[Transfer[M]](s"$id[InDischarge]")
 
   // Members declared in com.saldubatech.dcf.node.components.transport.Discharge$.API$.Upstream
   override def canDischarge(at: Tick, load: M): AppResult[M] =
-    _cards.headOption match
+    _cards.contents(at).headOption match
       case None => AppFail.fail(s"No capacity (cards) available in Discharge[$id] of Station[$stationId] at $at")
       case Some(c) => AppSuccess(load)
 
   override def discharge(at: Tick, load: M): UnitResult =
     for {
       l <- canDischarge(at, load)
-      rs <-
-        val card = _cards.dequeue()
-        _discharging += card -> load
-        physics.dischargeCommand(at, card, load).tapError{
-          _ =>
-            _cards.enqueue(card)
-            _discharging -= card
-        }
+      crd <-
+        val card = _cards.contents(at).head
+        physics.dischargeCommand(at, card, load).map{ _ => card}
+      consumed <- _cards.consume(at, crd)
+      _ <- _discharging.provision(at, Transfer(at, consumed, load))
     } yield
-      if _cards.isEmpty then doNotify{ _.busyNotification(at, stationId, id) }
-      rs
+      if _cards.contents(at).isEmpty then doNotify{ _.busyNotification(at, stationId, id) }
+      ()
 
   // Members declared in com.saldubatech.dcf.node.components.transport.Discharge$.API$.Physics
   override def dischargeFail(at: Tick, card: Id, loadId: Id, cause: Option[AppError]): UnitResult =
-    Component.inStation(stationId, "Discharging")(_discharging.remove)(card).flatMap{
-      l =>
+    _discharging.consume(at, loadId).flatMap{
+      tr =>
         cause match
-          case None => AppFail.fail(s"Unknown Error in Discharge[$id] of Station[$stationId] for Load[${l.id}] at $at")
+          case None => AppFail.fail(s"Unknown Error in Discharge[$id] of Station[$stationId] for Load[${loadId}] at $at")
           case Some(c) => AppFail(c)
+
     }
 
   override def dischargeFinalize(at: Tick, card: Id, loadId: Id): UnitResult =
-    for {
-      load <- Component.inStation(stationId, "Discharging")(_discharging.remove)(card)
-      rs <- downstream.loadArriving(at, card, load)
-    } yield
-      _inTransit += loadId -> load
-      doNotify(
-        l =>
-          l.loadDischarged(at, stationId, id, load)
-      )
-      rs
+    _discharging.consume(at, loadId).map{
+      tr =>
+        readyQueue.provision(at, card -> tr.material)
+        _attemptDischarges(at)
+    }
 
+  private lazy val readyQueue = SequentialBuffer.FIFO[(Id, M)](s"$id[readyQueue]")
+
+  private def _attemptDischarges(at: Tick): Unit =
+    if readyQueue.contents(at).nonEmpty then
+      readyQueue.consumeWhileSuccess(at,
+      { (t, r) =>
+          _delivered.provision(t, r._2) // to wait for acknowledgement
+          doNotify(_.loadDischarged(t, stationId, id, r._2))
+      }){ (t, r) => downstream.loadArriving(t, r._1, r._2) }
 end DischargeMixIn // trait
 
 
@@ -190,6 +201,6 @@ class DischargeImpl[M <: Material, LISTENER <: Discharge.Environment.Listener : 
   extends DischargeMixIn[M, LISTENER]:
     self =>
     // Members declared in com.saldubatech.lang.Identified
-    override val id: Id = s"$stationId::Discharge[$dId]"
+    override lazy val id: Id = s"$stationId::Discharge[$dId]"
 
 end DischargeImpl // class

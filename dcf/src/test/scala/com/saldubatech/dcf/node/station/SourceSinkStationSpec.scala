@@ -7,9 +7,10 @@ import com.saldubatech.ddes.types.{Tick, Duration, DomainMessage}
 import com.saldubatech.ddes.runtime.{Clock, OAM}
 import com.saldubatech.ddes.elements.{SimulationComponent, SimActor}
 import com.saldubatech.ddes.system.SimulationSupervisor
-import com.saldubatech.dcf.node.components.transport.{Transport, TransportImpl, Induct, Discharge, Link}
+import com.saldubatech.dcf.node.components.transport.{Transport, TransportImpl, Induct, Discharge, Link, Transfer}
 import com.saldubatech.dcf.node.components.transport.bindings.{Induct as InductBinding, Discharge as DischargeBinding, DLink as LinkBinding}
-import com.saldubatech.dcf.node.machine.bindings.{LoadSource as LoadSourceBinding}
+import com.saldubatech.dcf.node.machine.bindings.{Source as SourceBinding}
+import com.saldubatech.dcf.node.components.buffers.RandomIndexed
 
 import com.saldubatech.dcf.node.station.configurations.{Inbound, Outbound}
 
@@ -29,7 +30,9 @@ object SourceSinkStationSpec extends ZIOSpecDefault with LogEnabled with Matcher
   case class Consumed(at: Tick, fromStation: Id, fromSource: Id, atStation: Id, atSink: Id, load: ProbeInboundMaterial)
 
   val nProbes = 10
-  val probes = (1 to nProbes).map{ idx => (idx*100).toLong -> ProbeInboundMaterial(s"<$idx>", idx)}.toSeq
+  val probeSeq = (1 to nProbes).map{ idx => (idx*40).toLong -> ProbeInboundMaterial(s"<$idx>", idx)}.toSeq
+  val probeIt = probeSeq.iterator
+  val probes = (at: Tick) => probeIt.nextOption()
 
   val sinkStation = "SINK_STATION"
   val sourceStation = "SOURCE_STATION"
@@ -64,9 +67,7 @@ object SourceSinkStationSpec extends ZIOSpecDefault with LogEnabled with Matcher
   def dPhysics(target: Discharge.API.Physics): Discharge.Environment.Physics[ProbeInboundMaterial] =
     Discharge.Physics(target, (at, card, load) => dischargeDelay)
   val inductUpstreamInjector: Induct[ProbeInboundMaterial, Induct.Environment.Listener] => Induct.API.Upstream[ProbeInboundMaterial] =
-    i =>
-//      println(s"##### ${source.stationId}")
-      InductBinding.API.ClientStubs.Upstream(source, transportId, sink)
+    i => InductBinding.API.ClientStubs.Upstream(source, transportId, sink)
   val linkAcknowledgeFactory: Link[ProbeInboundMaterial] => Link.API.Downstream =
     l => LinkBinding.API.ClientStubs.Downstream(sink, source)
   val cardRestoreFactory: Discharge[ProbeInboundMaterial, Discharge.Environment.Listener] => Discharge.Identity & Discharge.API.Downstream =
@@ -76,7 +77,7 @@ object SourceSinkStationSpec extends ZIOSpecDefault with LogEnabled with Matcher
       transportId,
       iPhysics,
       Some(tCapacity),
-      Induct.Component.FIFOArrivalBuffer[ProbeInboundMaterial](),
+      RandomIndexed[Transfer[ProbeInboundMaterial]]("ArrivalBuffer"),
       tPhysics,
       dPhysics,
       inductUpstreamInjector,
@@ -84,7 +85,7 @@ object SourceSinkStationSpec extends ZIOSpecDefault with LogEnabled with Matcher
       cardRestoreFactory
     )
 
-  lazy val sink = SinkStation[ProbeInboundMaterial](sinkStation, Inbound(transport, (at, card, load) => inductDelay), Some(consumer.consume), clock)
+  lazy val sink = SinkStation[ProbeInboundMaterial](sinkStation, Inbound(transport, (at, card, load) => inductDelay), Some(consumer.consume), clock=clock)
   lazy val source = SourceStation[ProbeInboundMaterial](
     sourceStation,
     Outbound(
@@ -117,17 +118,17 @@ object SourceSinkStationSpec extends ZIOSpecDefault with LogEnabled with Matcher
           rootRs <- OAM.kickAwake(using 1.second, actorSystem)
         } yield
           rootRs shouldBe OAM.AOK
-          simSupervisor.directRootSend(source)(0, LoadSourceBinding.API.Signals.Run(Id, Id))(using 1.second)
+          simSupervisor.directRootSend(source)(0, SourceBinding.API.Signals.Go(Id, Id, s"${source.stationId}::Source[source]"))(using 1.second)
           var found = 0
           val r = termProbe.fishForMessage(10.second){
             c =>
               found += 1
               c match
                 case Consumed(_, "SOURCE_STATION", "SOURCE_STATION::Discharge[transport]", "SINK_STATION", "SINK_STATION::LoadSink[sink]", _) =>
-                  if found == probes.size then FishingOutcomes.complete else FishingOutcomes.continue
+                  if found == probeSeq.size then FishingOutcomes.complete else FishingOutcomes.continue
                 case other => FishingOutcomes.fail(s"Found $other")
           }
-          assert(r.size == probes.size)
+          assert(r.size == probeSeq.size)
           termProbe.expectNoMessage(300.millis)
           fixture.shutdownTestKit()
           assertCompletes

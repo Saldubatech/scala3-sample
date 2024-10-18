@@ -81,6 +81,8 @@ class SimulationSupervisor(val name: String, val clock: Clock, private val simul
   // To be used **ONLY** in testing situations.
   def directRootSend[TARGET_DM <: DomainMessage](target: SimActor[TARGET_DM])(forTime: Tick, msg: TARGET_DM)
     (using Timeout): Unit = clock.request(target.command(forTime, root, msg))
+  def directRootSendNow[TARGET_DM <: DomainMessage](target: SimActor[TARGET_DM])(msg: TARGET_DM)
+    (using Timeout): Unit = clock.request(target.commandNow(root, msg))
 
   def rootCheck(using to: Timeout): Task[OAMMessage] =
     import AskPattern._

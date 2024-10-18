@@ -21,7 +21,7 @@ object Distributor:
     val scan: (at: Tick, fromStation: Id, fromSource: Id, load: M) => UnitResult,
     sink: Sink.API.Upstream[M]
   ) extends Sink.API.Upstream[M]:
-    override val id: Id = s"$stationId::Scanner[$sId]"
+    override lazy val id: Id = s"$stationId::Scanner[$sId]"
     override def canAccept(at: Tick, from: Id, load: M): UnitResult = sink.canAccept(at, from, load)
 
     override def acceptMaterialRequest(at: Tick, fromStation: Id, fromSource: Id, load: M): UnitResult =
@@ -69,7 +69,7 @@ class Distributor[M <: Material](
   targets: Map[Id, Sink.API.Upstream[M]],
   router: Distributor.Router[M])
 extends Sink.API.Upstream[M] with LogEnabled:
-  override val id: Id = s"$stationId:Distributor[$dId]"
+  override lazy val id: Id = s"$stationId:Distributor[$dId]"
   private val routing: Map[Id, Sink.API.Upstream[M]] = targets.map( (id, s) => id -> s).toMap
 
   override def canAccept(at: Tick, from: Id, load: M): UnitResult =
