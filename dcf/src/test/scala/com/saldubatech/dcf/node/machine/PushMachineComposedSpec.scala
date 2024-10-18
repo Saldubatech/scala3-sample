@@ -73,17 +73,23 @@ class PushMachineComposedSpec extends BaseSpec:
       val unloadingDuration = (at: Tick, wip: Wip2[M]) => 100L
       val mockUnloadingActionPhysicsStub = MockActionPhysicsStub[M](engine)
       val unloadingPhysics = Action.Physics[M]("loadingPhysics", mockUnloadingActionPhysicsStub, unloadingDuration)
-      val unloadingBuilder = actionBuilder[M]("unloading", engine, serverPool, wipSlots, unloadingPhysics)
+      val unloadingMockChron = MockChron(engine)
+      val unloadingChron = Action.ChronProxy(unloadingMockChron, (at: Tick) => 1L)
+      val unloadingBuilder = actionBuilder[M]("unloading", engine, serverPool, wipSlots, unloadingPhysics, unloadingChron)
 
       val processingDuration = (at: Tick, wip: Wip2[M]) => 10L
       val mockProcessingActionPhysicsStub = MockActionPhysicsStub[M](engine)
       val processingPhysics = Action.Physics[M]("loadingPhysics", mockProcessingActionPhysicsStub, processingDuration)
-      val processingBuilder = actionBuilder[M]("processing", engine, serverPool, wipSlots, processingPhysics)
+      val processingMockChron = MockChron(engine)
+      val processingChron = Action.ChronProxy(unloadingMockChron, (at: Tick) => 1L)
+      val processingBuilder = actionBuilder[M]("processing", engine, serverPool, wipSlots, processingPhysics, processingChron)
 
       val loadingDuration = (at: Tick, wip: Wip2[M]) => 1L
       val mockLoadActionPhysicsStub = MockActionPhysicsStub[M](engine)
       val loadingPhysics = Action.Physics[M]("loadingPhysics", mockLoadActionPhysicsStub, loadingDuration)
-      val loadingBuilder = actionBuilder[M]("loading", engine, serverPool, wipSlots, loadingPhysics)
+      val loadingMockChron = MockChron(engine)
+      val loadingChron = Action.ChronProxy(unloadingMockChron, (at: Tick) => 1L)
+      val loadingBuilder = actionBuilder[M]("loading", engine, serverPool, wipSlots, loadingPhysics, loadingChron)
 
       val machineBuilder = PushMachineComposed.Builder[M](loadingBuilder, processingBuilder, unloadingBuilder)
       val underTest: PushMachineComposedImpl[M] = machineBuilder.build("machine", "UnderTest", ibInduct, obDischarge).asInstanceOf[PushMachineComposedImpl[M]]
@@ -92,6 +98,11 @@ class PushMachineComposedSpec extends BaseSpec:
       mockUnloadingActionPhysicsStub.underTest = underTest.unloadingAction
       mockProcessingActionPhysicsStub.underTest = underTest.processingAction
       mockLoadActionPhysicsStub.underTest = underTest.loadingAction
+
+      // Binding Mock Chron
+      unloadingMockChron.underTest = underTest.unloadingAction
+      processingMockChron.underTest = underTest.loadingAction
+      loadingMockChron.underTest = underTest.processingAction
 
       // >>>>>>>>>>>>>>>>>> END Build the Machine <<<<<<<<<<<<<<<<<<<<<<<
 

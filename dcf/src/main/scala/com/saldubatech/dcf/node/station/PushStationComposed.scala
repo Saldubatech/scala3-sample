@@ -13,12 +13,12 @@ import com.saldubatech.dcf.material.Material
 
 import com.saldubatech.dcf.node.components.transport.{Induct, Transport, Discharge, Link}
 import com.saldubatech.dcf.node.components.transport.bindings.{Induct as InductBinding, Discharge as DischargeBinding, DLink as LinkBinding}
-import com.saldubatech.dcf.node.components.buffers.{RandomAccess, RandomIndexed}
+import com.saldubatech.dcf.node.components.buffers.{RandomAccess, RandomIndexed, BoundedIndexed}
 import com.saldubatech.dcf.node.components.action.{Action, Wip, UnitResourcePool, ResourceType, Task}
 import com.saldubatech.dcf.node.components.action.bindings.{Action as ActionBinding}
 import com.saldubatech.dcf.node.machine.{PushMachineComposed, PushMachineComposedImpl}
 
-import com.saldubatech.dcf.node.station.configurations.{Inbound, Outbound, ProcessConfiguration2}
+import com.saldubatech.dcf.node.station.configurations.{Inbound, Outbound, ProcessConfiguration}
 
 import scala.reflect.{Typeable, ClassTag}
 import scala.util.chaining.scalaUtilChainingOps
@@ -28,6 +28,7 @@ object PushStationComposed:
     InductBinding.API.Signals.Upstream |
     InductBinding.API.Signals.Physics |
     ActionBinding.API.Signals.Physics |
+    ActionBinding.API.Signals.Chron |
     DischargeBinding.API.Signals.Downstream |
     DischargeBinding.API.Signals.Physics |
     LinkBinding.API.Signals.Upstream |
@@ -43,7 +44,7 @@ object PushStationComposed:
     machineId: Id,
     inbound: Transport[M, Induct.Environment.Listener, ?],
     outbound: Transport[M, ?, Discharge.Environment.Listener],
-    process: ProcessConfiguration2[M],
+    process: ProcessConfiguration[M],
     cards: List[Id]
   ) extends DomainProcessor[PROTOCOL]:
     // Inbound
@@ -60,44 +61,45 @@ object PushStationComposed:
     val wipSlots = UnitResourcePool[ResourceType.WipSlot]("wipSlots", process.maxWip)
     val retryDelay = () => Some(13L)
 
+    val loadingActionId = s"$stationId::$machineId::${PushMachineComposed.Builder.loadingPrefix}"
     val loadingTaskBuffer = RandomAccess[Task[M]](s"${PushMachineComposed.Builder.loadingPrefix}Tasks") // Unbound b/c limit given by WipSlots
-    val loadingInboundBuffer = RandomIndexed[Material](s"${PushMachineComposed.Builder.loadingPrefix}InboundBuffer")
+    val loadingUnboundInboundBuffer = RandomIndexed[Material](s"${PushMachineComposed.Builder.loadingPrefix}InboundBuffer")
+    val loadingInboundBuffer = BoundedIndexed(loadingUnboundInboundBuffer, process.inboundBuffer)()
     val loadingPhysics = Action.Physics[M](
       s"${PushMachineComposed.Builder.loadingPrefix}Physics",
-      ActionBinding.API.ClientStubs.Physics(host, s"$stationId::$machineId::${PushMachineComposed.Builder.loadingPrefix}"),
+      ActionBinding.API.ClientStubs.Physics(host, loadingActionId),
       process.loadingSuccessDuration,
       process.loadingFailDuration,
       process.loadingFailureRate
       )
-    private val loadingBuilder = Action.Builder[M](
-      serverPool, wipSlots, loadingTaskBuffer, loadingInboundBuffer, loadingPhysics, process.loadingRetryDelay
-    )
+    val loadingChron = Action.ChronProxy(ActionBinding.API.ClientStubs.Chron(host, loadingActionId), process.loadingRetry)
+    private val loadingBuilder = Action.Builder[M](serverPool, wipSlots, loadingTaskBuffer, loadingInboundBuffer, loadingPhysics, loadingChron)
 
+    val processingActionId = s"$stationId::$machineId::${PushMachineComposed.Builder.processingPrefix}"
     val processingTaskBuffer = RandomAccess[Task[M]](s"${PushMachineComposed.Builder.processingPrefix}Tasks") // Unbound b/c limit given by WipSlots
     val processingInboundBuffer = RandomIndexed[Material](s"${PushMachineComposed.Builder.processingPrefix}InboundBuffer")
     val processingPhysics = Action.Physics[M](
       s"${PushMachineComposed.Builder.processingPrefix}Physics",
-      ActionBinding.API.ClientStubs.Physics(host, s"$stationId::$machineId::${PushMachineComposed.Builder.processingPrefix}"),
+      ActionBinding.API.ClientStubs.Physics(host, processingActionId),
       process.processingSuccessDuration,
       process.processingFailDuration,
       process.processingFailureRate
       )
-    private val processingBuilder = Action.Builder[M](
-      serverPool, wipSlots, processingTaskBuffer, processingInboundBuffer, processingPhysics, process.loadingRetryDelay
-    )
+    val processingChron = Action.ChronProxy(ActionBinding.API.ClientStubs.Chron(host, processingActionId), process.processingRetry)
+    private val processingBuilder = Action.Builder[M](serverPool, wipSlots, processingTaskBuffer, processingInboundBuffer, processingPhysics, processingChron)
 
+    val unloadingActionId = s"$stationId::$machineId::${PushMachineComposed.Builder.unloadingPrefix}"
     val unloadingTaskBuffer = RandomAccess[Task[M]](s"${PushMachineComposed.Builder.unloadingPrefix}Tasks") // Unbound b/c limit given by WipSlots
     val unloadingInboundBuffer = RandomIndexed[Material](s"${PushMachineComposed.Builder.unloadingPrefix}InboundBuffer")
     val unloadingPhysics = Action.Physics[M](
       s"${PushMachineComposed.Builder.unloadingPrefix}Physics",
-      ActionBinding.API.ClientStubs.Physics(host, s"$stationId::$machineId::${PushMachineComposed.Builder.unloadingPrefix}"),
+      ActionBinding.API.ClientStubs.Physics(host, unloadingActionId),
       process.unloadingSuccessDuration,
       process.unloadingFailDuration,
       process.unloadingFailureRate
       )
-    private val unloadingBuilder = Action.Builder[M](
-      serverPool, wipSlots, unloadingTaskBuffer, unloadingInboundBuffer, unloadingPhysics, process.loadingRetryDelay
-    )
+    val unloadingChron = Action.ChronProxy(ActionBinding.API.ClientStubs.Chron(host, unloadingActionId), process.unloadingRetry)
+    private val unloadingBuilder = Action.Builder[M](serverPool, wipSlots, unloadingTaskBuffer, unloadingInboundBuffer, unloadingPhysics, unloadingChron)
 
     private val machineBuilder = PushMachineComposed.Builder[M](
       loadingBuilder, processingBuilder, unloadingBuilder
@@ -119,10 +121,15 @@ object PushStationComposed:
       discharge.addCards(0, cards) // This should probably go outside of the construction of the station.
       val inductUpstreamAdaptor = InductBinding.API.ServerAdaptors.upstream[M](induct)
       val inductPhysicsAdaptor = InductBinding.API.ServerAdaptors.physics(induct)
-      val machinePhysicsAdaptor = (at: Tick) =>
+      val actionPhysicsAdaptor = (at: Tick) =>
         ActionBinding.API.ServerAdaptors.physics(machine.loadingAction)(at) orElse
         ActionBinding.API.ServerAdaptors.physics(machine.processingAction)(at) orElse
         ActionBinding.API.ServerAdaptors.physics(machine.unloadingAction)(at)
+
+      val actionChronAdaptor = (at: Tick) =>
+        ActionBinding.API.ServerAdaptors.chron(machine.loadingAction)(at) orElse
+        ActionBinding.API.ServerAdaptors.chron(machine.processingAction)(at) orElse
+        ActionBinding.API.ServerAdaptors.chron(machine.unloadingAction)(at)
 
       val linkUpstreamAdaptor = LinkBinding.API.ServerAdaptors.upstream[M](outboundLink)
       val linkPhysicsAdaptor = LinkBinding.API.ServerAdaptors.physics(outboundLink)
@@ -133,7 +140,8 @@ object PushStationComposed:
         case inductUpstreamSignal: InductBinding.API.Signals.Upstream => inductUpstreamAdaptor(at)(inductUpstreamSignal)
         case inductPhysicsSignal: InductBinding.API.Signals.Physics => inductPhysicsAdaptor(at)(inductPhysicsSignal)
 
-        case actionPhysicsSignal: ActionBinding.API.Signals.Physics => machinePhysicsAdaptor(at)(actionPhysicsSignal)
+        case actionPhysicsSignal: ActionBinding.API.Signals.Physics => actionPhysicsAdaptor(at)(actionPhysicsSignal)
+        case actionChronSignal: ActionBinding.API.Signals.Chron => actionChronAdaptor(at)(actionChronSignal)
 
         case dischargeDownstreamSignal: DischargeBinding.API.Signals.Downstream => dischargeDownstreamAdaptor(at)(dischargeDownstreamSignal)
         case dischargePhysicsSignal: DischargeBinding.API.Signals.Physics => dPhysicsAdaptor(at)(dischargePhysicsSignal)
@@ -163,7 +171,7 @@ class PushStationComposed[M <: Material : Typeable : ClassTag]
   val stationId : Id,
   inbound: => Transport[M, Induct.Environment.Listener, ?],
   outbound: => Transport[M, ?, Discharge.Environment.Listener],
-  process: ProcessConfiguration2[M],
+  process: ProcessConfiguration[M],
   cards: List[Id],
   clock: Clock
 )

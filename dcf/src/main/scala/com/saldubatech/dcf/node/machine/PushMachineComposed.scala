@@ -8,6 +8,7 @@ import com.saldubatech.dcf.material.Material
 import com.saldubatech.dcf.node.components.{SubjectMixIn, Component, Sink}
 import com.saldubatech.dcf.node.components.transport.{Induct, Discharge}
 import com.saldubatech.dcf.node.components.Subject
+import com.saldubatech.dcf.node.components.buffers.SequentialBuffer
 import com.saldubatech.dcf.node.components.action.{Action, Task, Wip as Wip2}
 
 import scala.reflect.{Typeable, ClassTag}
@@ -85,20 +86,37 @@ with SubjectMixIn[PushMachineComposed.Environment.Listener]:
 
   private val deliverer = inbound.delivery(loadingAction)
 
+  private val untaskedMaterialQueue = SequentialBuffer.FIFO[Material]("UnTaskedMaterials")
+
+  private def tryLoadingTasks(at: Tick): Unit =
+    if untaskedMaterialQueue.contents(at).nonEmpty then
+      untaskedMaterialQueue.consumeWhileSuccess(at){
+        (t, m) =>
+          loadingAction.request(t, Task.NoOp[M](m.id)).unit
+      }
+
+  private def tryDeliveries(at: Tick): Unit =
+    val pending = inbound.contents(at)
+    if pending.nonEmpty then pending.takeWhile( l => deliverer.deliver(at, l.id).isSuccess)
+
   private val inductWatcher = new Induct.Environment.Listener {
     override lazy val id: Id = s"${machineSelf.id}::InductWatcher"
 
     def loadArrival(at: Tick, fromStation: Id, atStation: Id, atInduct: Id, load: Material): Unit =
       machineSelf.doNotify(_.materialArrival(at, stationId, id, atInduct, load))
-      deliverer.deliver(at, load.id)
+      tryDeliveries(at)
+      tryLoadingTasks(at)
 
     def loadDelivered(at: Tick, fromStation: Id, atStation: Id, fromInduct: Id, toSink: Id, load: Material): Unit =
       // When the load is delivered by the induct, create the task for the loading action.
-      loadingAction.request(at, Task.NoOp[M](load.id))
+      untaskedMaterialQueue.provision(at, load)
+      tryDeliveries(at)
+      tryLoadingTasks(at)
   }.tap{inbound.listen}
 
   private val loadingWatcher = new Action.Environment.NoOpListener {
     override lazy val id: Id = s"$machineSelf::LoadingAction"
+
     override def taskRequested(at: Tick, atStation: Id, atAction: Id, wip: Wip2.New[Material]): Unit =
       machineSelf.doNotify(_.jobArrival(at, atStation, machineSelf.id, wip.task))
       loadingAction.start(at, wip.id)
@@ -106,6 +124,8 @@ with SubjectMixIn[PushMachineComposed.Environment.Listener]:
     override def taskCompleted(at: Tick, atStation: Id, atAction: Id, completed: Wip2.Complete[Material, Material]): Unit =
       machineSelf.doNotify(_.jobLoaded(at, atStation, machineSelf.id, completed))
       processingAction.request(at, Task.NoOp[M](completed.product.id))
+      tryDeliveries(at)
+      tryLoadingTasks(at)
 
     override def taskFailed(at: Tick, atStation: Id, atAction: Id, failed: Wip2.Failed[Material]): Unit =
       // TBD
@@ -124,11 +144,14 @@ with SubjectMixIn[PushMachineComposed.Environment.Listener]:
     override def taskCompleted(at: Tick, atStation: Id, atAction: Id, completed: Wip2.Complete[Material, Material]): Unit =
       machineSelf.doNotify(_.jobComplete(at, atStation, machineSelf.id, completed))
       unloadingAction.request(at, Task.NoOp[M](completed.product.id))
+      tryDeliveries(at)
+      tryLoadingTasks(at)
 
     override def taskFailed(at: Tick, atStation: Id, atAction: Id, failed: Wip2.Failed[Material]): Unit =
       machineSelf.doNotify(_.jobFailed(at, atStation, machineSelf.id, failed))
       // TBD
       ???
+
   }.tap{processingAction.listen}
 
   private val unloadingWatcher = new Action.Environment.NoOpListener {
@@ -138,6 +161,8 @@ with SubjectMixIn[PushMachineComposed.Environment.Listener]:
 
     override def taskCompleted(at: Tick, atStation: Id, atAction: Id, completed: Wip2.Complete[Material, Material]): Unit =
       doNotify(_.jobUnloaded(at, atStation, machineSelf.id, completed))
+      tryDeliveries(at)
+      tryLoadingTasks(at)
 
   }.tap{unloadingAction.listen}
 
@@ -147,7 +172,10 @@ with SubjectMixIn[PushMachineComposed.Environment.Listener]:
       // Nothing to do. The link will take it over the outbound transport
       doNotify(_.productDischarged(at, stationId, machineSelf.id, discharge, load))
     def busyNotification(at: Tick, stId: Id, discharge: Id): Unit = unloadingAction.outboundCongestion(at)
-    def availableNotification(at: Tick, stationId: Id, discharge: Id): Unit = unloadingAction.outboundRelief(at)
+    def availableNotification(at: Tick, stationId: Id, discharge: Id): Unit =
+      unloadingAction.outboundRelief(at)
+      tryDeliveries(at)
+      tryLoadingTasks(at)
   }.tap(outbound.listen)
 
 end PushMachineComposedImpl // class

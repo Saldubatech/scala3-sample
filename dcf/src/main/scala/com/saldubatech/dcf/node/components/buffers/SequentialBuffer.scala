@@ -21,16 +21,23 @@ abstract class SequentialBuffer[M](bId: Id) extends Buffer.Unbound[M]:
   override lazy val id: Id = bId
   protected val _contents: collection.mutable.AbstractBuffer[M]
 
+  private val stateHolder: State.Holder[SequentialBuffer[M]] = State.UnlockedHolder[SequentialBuffer[M]](0, id, this)
+  override def state(at: Tick): State = stateHolder.state(at)
+
+
   override protected[buffers] def doRemove(at: Tick, m: M): Unit =
     _contents.subtractOne(m)
     if _contents.isEmpty then stateHolder.releaseAll(at)
     else stateHolder.release(at)
 
-  override def provision(at: Tick, m: M): AppResult[M] =
-    stateHolder.acquire(at).map{ _ =>
-      _contents += m
-      m
-    }
+  override def provision(at: Tick, m: M): AppResult[M] = capacitatedProvision(at, m, None)
+
+  override protected[buffers] def capacitatedProvision(at: Tick, m: M, c: Option[Int] = None): AppResult[M] =
+    (
+      c match
+        case Some(_c) if _contents.size < _c => stateHolder.acquireAll(at)
+        case _ => stateHolder.acquire(at)
+    ).map{ _ => _contents += m; m }
 
   override def contents(at: Tick): Iterable[M] = _contents
 
@@ -69,9 +76,7 @@ abstract class SequentialBuffer[M](bId: Id) extends Buffer.Unbound[M]:
 
   override def consumeSome(at: Tick, some: Iterable[M]): AppResult[Iterable[M]] =
     var check = some.toList
-    consumeWhileSuccess(
-      at,
-      {
+    consumeWhileSuccess(at, (t, e) => () ){
         (t, e) =>
           check match
             case Nil => AppFail.fail(s"No more elements to check at $id")
@@ -79,11 +84,9 @@ abstract class SequentialBuffer[M](bId: Id) extends Buffer.Unbound[M]:
               check = t
               AppSuccess.unit
             case _ => AppFail.fail(s"Element $e not found in $id at $at")
-      },
-      (t, e) => ()
-      )
+      }
 
-  override def consumeWhileSuccess(at: Tick, f: (at: Tick, e: M) => UnitResult, onSuccess: (at: Tick, e: M) => Unit): AppResult[Iterable[M]] =
+  override def consumeWhileSuccess(at: Tick, onSuccess: (at: Tick, e: M) => Unit = (at, e) => ())(f: (at: Tick, e: M) => UnitResult): AppResult[Iterable[M]] =
     _consumeWhileSuccess(at, f, onSuccess)
 
   private def _consumeWhileSuccess(at: Tick, f: (at: Tick, e: M) => UnitResult, onSuccess: (at: Tick, e: M) => Unit): AppResult[List[M]] =

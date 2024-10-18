@@ -34,9 +34,9 @@ trait Buffer[M] extends Identified:
 
   def provision(at: Tick, m: M): AppResult[M]
 
-  protected val stateHolder: State.Holder[Buffer[M]] = State.UnlockedHolder(0, id, this, None)
+  protected[buffers] def capacitatedProvision(at: Tick, m: M, c: Option[Int] = None): AppResult[M]
 
-  final def state(at: Tick): State = stateHolder.state(at)
+  def state(at: Tick): State
 
   def contents(at: Tick): Iterable[M]
   def contents(at: Tick, m: M): Iterable[M]
@@ -47,10 +47,7 @@ trait Buffer[M] extends Identified:
   def consumeAvailable(at: Tick): AppResult[Iterable[M]]
   def consume(at: Tick, m: M): AppResult[M]
 
-  def consumeWhileSuccess(
-    at: Tick,
-    f: (at: Tick, e: M) => UnitResult,
-    onSuccess: (at: Tick, e: M) => Unit): AppResult[Iterable[M]]
+  def consumeWhileSuccess(at: Tick, onSuccess: (at: Tick, e: M) => Unit)(f: (at: Tick, e: M) => UnitResult): AppResult[Iterable[M]]
 
   protected[buffers] def doRemove(at: Tick, m: M): Unit
 

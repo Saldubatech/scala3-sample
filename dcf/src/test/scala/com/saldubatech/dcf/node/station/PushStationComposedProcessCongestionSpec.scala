@@ -27,12 +27,17 @@ import zio.test.{ZIOSpecDefault, assertTrue, assertCompletes}
 import org.apache.pekko.actor.testkit.typed.scaladsl.{ActorTestKit, FishingOutcomes}
 import com.saldubatech.dcf.node.ProbeInboundMaterial
 
-object PushStationComposedSpec extends ZIOSpecDefault with LogEnabled with Matchers:
+object PushStationComposedProcessCongestionSpec extends ZIOSpecDefault with LogEnabled with Matchers:
 
   case class Consumed(at: Tick, fromStation: Id, fromSource: Id, atStation: Id, atSink: Id, load: ProbeInboundMaterial)
 
+  val stationMaxServers: Int = 1
+  val stationMaxWip: Int = 100
+  val stationInboundBuffer: Int = 100
   val pushStationCards = (1 to 100).map{ _ => Id}.toList
-  val nProbes: Int = 10
+
+  val expectedBatchSize = stationMaxServers
+  val nProbes: Int = expectedBatchSize*2
 
   val sourceCards = (1 to nProbes+100).map{ _ => Id}.toList // No Constraint, simplify debugging
 
@@ -86,7 +91,7 @@ object PushStationComposedSpec extends ZIOSpecDefault with LogEnabled with Match
         transportId,
         iPhysics,
         Some(tCapacity),
-        RandomIndexed[Transfer[ProbeInboundMaterial]]("ArrivalBuffer"),
+        RandomIndexed[Transfer[ProbeInboundMaterial]]("IB_ArrivalBuffer"),
         tPhysics,
         dPhysics,
         inductUpstreamInjector,
@@ -118,7 +123,7 @@ object PushStationComposedSpec extends ZIOSpecDefault with LogEnabled with Match
         transportId,
         iPhysics,
         Some(tCapacity),
-        RandomIndexed[Transfer[ProbeInboundMaterial]]("ArrivalBuffer"),
+        RandomIndexed[Transfer[ProbeInboundMaterial]]("OB_ArrivalBuffer"),
         tPhysics,
         dPhysics,
         inductUpstreamInjector,
@@ -136,7 +141,7 @@ object PushStationComposedSpec extends ZIOSpecDefault with LogEnabled with Match
       }
 
   val loadingDelay: Duration = 2
-  val processDelay: Duration = 3
+  val processDelay: Duration = 30000
   val unloadingDelay: Duration = 4
 
   lazy val sink = SinkStation[ProbeInboundMaterial](
@@ -149,13 +154,16 @@ object PushStationComposedSpec extends ZIOSpecDefault with LogEnabled with Match
     clock=clock
     )
   val process = ProcessConfiguration[ProbeInboundMaterial](
-    maxConcurrentJobs=100,
-    maxWip=100,
-    inboundBuffer=10000,
+    maxConcurrentJobs=stationMaxServers,
+    maxWip=stationMaxWip,
+    inboundBuffer=2,
     producer,
     (at, wip) => loadingDelay,
     (at, wip) => processDelay,
-    (at, wip) => processDelay
+    (at, wip) => unloadingDelay,
+    loadingRetry = (at) => 17L,
+    processingRetry = (at) => 19L,
+    unloadingRetry = (at) => 23L
   )
   lazy val underTest: PushStationComposed[ProbeInboundMaterial] = PushStationComposed[ProbeInboundMaterial](
     pushStation,
@@ -163,8 +171,7 @@ object PushStationComposedSpec extends ZIOSpecDefault with LogEnabled with Match
     OutboundTransport.transport,
     process,
     pushStationCards,
-    clock
-    )
+    clock    )
   lazy val source = SourceStation[ProbeInboundMaterial](
     sourceStation,
     Outbound(
@@ -199,23 +206,35 @@ object PushStationComposedSpec extends ZIOSpecDefault with LogEnabled with Match
         } yield
           rootRs shouldBe OAM.AOK
           simSupervisor.directRootSend(source)(0, SourceBinding.API.Signals.Go(Id, Id, s"${source.stationId}::Source[source]"))(using 1.second)
-          var found = 0
 
+          var found = 0
           val r = termProbe.fishForMessage(5.second){
             c =>
               found += 1
-              log.info(s"Found $found out of ${probeSeq.size}")
+              log.info(s"Found $found out of ${expectedBatchSize}")
               c match
                 case Consumed(_, "PUSH_STATION", "PUSH_STATION::Discharge[outboundTransport]", "SINK_STATION", "SINK_STATION::LoadSink[sink]", _) =>
-                  if found == probeSeq.size then FishingOutcomes.complete else FishingOutcomes.continue
+                  if found == expectedBatchSize then FishingOutcomes.complete else FishingOutcomes.continue
                 case other => FishingOutcomes.fail(s"Found $other")
           }
-          assert(r.size == probeSeq.size)
-          termProbe.expectNoMessage(300.millis)
+          assert(r.size == expectedBatchSize)
+
+          found = 0
+          val r2 = termProbe.fishForMessage(10.second){
+            c =>
+              found += 1
+              c match
+                case Consumed(t, "PUSH_STATION", "PUSH_STATION::Discharge[outboundTransport]", "SINK_STATION", "SINK_STATION::LoadSink[sink]", _) if t > 25000 =>
+                  if found == expectedBatchSize then FishingOutcomes.complete else FishingOutcomes.continue
+                case other => FishingOutcomes.fail(s">>>> Found $other")
+          }
+          assert(r2.size == expectedBatchSize)
+          assert(r2.size + r.size == nProbes)
+          termProbe.expectNoMessage(5000.millis)
           fixture.shutdownTestKit()
           assertCompletes
       }
     )
   }
 
-end PushStationComposedSpec // class
+end PushStationComposedProcessCongestionSpec // object

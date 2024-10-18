@@ -182,13 +182,12 @@ with SubjectMixIn[LISTENER]:
   private lazy val readyQueue = SequentialBuffer.FIFO[(Id, M)](s"$id[readyQueue]")
 
   private def _attemptDischarges(at: Tick): Unit =
-    readyQueue.consumeWhileSuccess(at,
-    { (t, r) => downstream.loadArriving(t, r._1, r._2) },
-    { (t, r) =>
-        _delivered.provision(t, r._2) // to wait for acknowledgement
-        doNotify(_.loadDischarged(t, stationId, id, r._2))
-    }
-    )
+    if readyQueue.contents(at).nonEmpty then
+      readyQueue.consumeWhileSuccess(at,
+      { (t, r) =>
+          _delivered.provision(t, r._2) // to wait for acknowledgement
+          doNotify(_.loadDischarged(t, stationId, id, r._2))
+      }){ (t, r) => downstream.loadArriving(t, r._1, r._2) }
 end DischargeMixIn // trait
 
 

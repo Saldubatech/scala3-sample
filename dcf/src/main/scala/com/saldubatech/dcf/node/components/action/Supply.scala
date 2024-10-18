@@ -16,6 +16,7 @@ object Supply:
     def isAllocated(at: Tick): Boolean
   trait Allocation[+M : ClassTag, R <: Requirement[M, R]]:
     val forRequirement: R
+    def fulfillment: Option[M]
     def consume(at: Tick): AppResult[M]
     def release(at: Tick): UnitResult
   end Allocation // trait
@@ -77,13 +78,18 @@ extends Supply[M]:
 
   override class Allocation private[MaterialSupplyFromBuffer] (candidate: M, override val forRequirement: Requirement) extends Supply.Allocation[M, Requirement]:
     private var _resultCache: Option[AppResult[M]] = None
+    override def fulfillment: Option[M] = _resultCache.flatMap{
+      r => r.fold(err => None, m => Some(m))
+    }
     override def consume(at: Tick): AppResult[M] =
       _resultCache match
         case Some(r) => r // idempotence
         case None =>
           val rs = reserved.remove(candidate.id) match
             case None => AppFail.fail(s"No reservation recorded for $candidate in ${selfSupply.id}")
-            case Some(a) => buffer.consume(at, a)
+            case Some(a) =>
+              val r = selfSupply.buffer.consume(at, a)
+              r
           rs.tap{ r => _resultCache = Some(r)}
 
     override def release(at: Tick): UnitResult =

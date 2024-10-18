@@ -4,16 +4,23 @@ import com.saldubatech.lang.{Id, Identified}
 import com.saldubatech.ddes.types.Tick
 import com.saldubatech.lang.types.*
 
+import com.saldubatech.dcf.node.State
+
 class RandomAccess[M](bId: Id = "RandomAccessBuffer")
 extends Buffer.Unbound[M]:
   override lazy val id: Id = bId
   private val _contents = collection.mutable.ListBuffer.empty[M]
 
-  override def provision(at: Tick, m: M): AppResult[M] =
-    stateHolder.acquire(at).map{ _ =>
-      _contents += m
-      m
-    }
+  private val stateHolder: State.Holder[RandomAccess[M]] = State.UnlockedHolder[RandomAccess[M]](0, id, this)
+  override def state(at: Tick): State = stateHolder.state(at)
+
+  override def provision(at: Tick, m: M): AppResult[M] = capacitatedProvision(at, m, None)
+  override protected[buffers] def capacitatedProvision(at: Tick, m: M, c: Option[Int] = None): AppResult[M] =
+    (
+      c match
+        case Some(_c) if _contents.size < _c => stateHolder.acquireAll(at)
+        case _ => stateHolder.acquire(at)
+    ).map{ _ => _contents += m; m }
 
   override def contents(at: Tick): Iterable[M] = _contents
   override def contents(at: Tick, m: M): Iterable[M] = _contents.filter{ _ == m }
@@ -59,11 +66,7 @@ extends Buffer.Unbound[M]:
       case Some(candidate) => _doConsume(at, candidate)
       case None => AppFail.fail(s"Element $m not available in $id at $at")
 
-  override def consumeWhileSuccess(
-    at: Tick,
-    f: (at: Tick, e: M) => UnitResult,
-    onSuccess: (at: Tick, e: M) => Unit
-    ): AppResult[Iterable[M]] =
+  override def consumeWhileSuccess(at: Tick, onSuccess: (at: Tick, e: M) => Unit)(f: (at: Tick, e: M) => UnitResult): AppResult[Iterable[M]] =
       val rs = for {
           candidate <- _contents.toList // make shallow copy to avoid concurrent mod exceptions
         } yield
@@ -73,7 +76,7 @@ extends Buffer.Unbound[M]:
           } yield
             onSuccess(at, candidate)
             candidate
-      rs.collectAny
+      rs.collectAtLeastOne
 
 end RandomAccess // class
 

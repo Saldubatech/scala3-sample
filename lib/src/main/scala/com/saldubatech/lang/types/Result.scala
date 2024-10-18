@@ -115,6 +115,13 @@ extension[R] (elements: Iterable[AppResult[R]] )
           case other => AppFail(CollectedError("Multiple Errors", List(other, err)))
     }
 
+extension[R] (elements: Iterable[AppResult[R]] )
+  def collectAtLeastOne: AppResult[Iterable[R]] =
+    for {
+      l <- elements.collectAny
+      atLeastOne <- if l.isEmpty then AppFail.fail(s"No valid results") else AppSuccess(l)
+    } yield atLeastOne
+
 
 
 // Specialized ZIO Effects with the "S" to signify "Salduba"

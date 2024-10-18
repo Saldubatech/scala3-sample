@@ -158,14 +158,12 @@ with SubjectMixIn[LISTENER]:
   override def delivery(binding: Sink.API.Upstream[M]): Deliverer = new Deliverer() {
     override def deliver(at: Tick, loadId: Id): UnitResult =
       for {
-        arrival <- arrivalStore.consume(at, loadId)
+        arrival <- fromOption(arrivalStore.available(at, loadId).headOption)
         o <- origin
-        rs <-
-          binding.acceptMaterialRequest(at, o.stationId, o.id, arrival.material)
-            .tapError{ _ => arrivalStore.provision(at, arrival) }
+        rs <- binding.acceptMaterialRequest(at, o.stationId, o.id, arrival.material)
+        c <- arrivalStore.consume(at, loadId)
       } yield
-        doNotify( l =>
-          l.loadDelivered(at, o.stationId, stationId, id, binding.id, arrival.material))
+        doNotify( l => l.loadDelivered(at, o.stationId, stationId, id, binding.id, arrival.material))
         rs
   }
 

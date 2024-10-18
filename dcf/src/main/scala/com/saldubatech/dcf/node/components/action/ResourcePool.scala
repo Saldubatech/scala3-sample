@@ -14,6 +14,7 @@ import scala.reflect.{Typeable, ClassTag, TypeTest}
 
 object ResourcePool:
   trait Requirement[SELF <: Requirement[SELF]]:
+    val pool: Id
     def isAvailable(at: Tick): Boolean
     def fulfill(at: Tick): AppResult[Resource[SELF]]
     def isFulfilled(at: Tick): Boolean
@@ -58,15 +59,16 @@ class UnitResourcePool[R <: Identified : ClassTag](pId: Id, capacity: Eaches) ex
 
   override class Requirement(val at: Tick) extends ResourcePool.Requirement[Requirement] with Identified:
     override lazy val id: Id = Id
+    val pool: Id = selfPool.id
     private var _resource: AppResult[Resource] = AppFail.fail(s"No Resource Acquired for Requirement[$id] in ${selfPool.id}")
 
-    override def isAvailable(at: Tick) = !selfPool.isBusy(at)
+    override def isAvailable(at: Tick) = isFulfilled(at) || !selfPool.isBusy(at)
     override def isFulfilled(at: Tick) = _resource.isSuccess
 
     override def fulfill(at: Tick): AppResult[Resource] =
       if isFulfilled(at) then _resource // Idempotence
       else if isAvailable(at) then selfPool._acquire(at, this).tap{ _resource = _ }
-      else AppFail.fail(s"Requirement Already Fulfilled")
+      else AppFail.fail(s"Requirement $id Cannot be Fulfilled")
   end Requirement // class
 
   override class Resource(val at: Tick, override val forRequirement: Requirement, lId: Id = Id) extends ResourcePool.Resource[Requirement]:

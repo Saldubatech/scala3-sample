@@ -4,6 +4,10 @@ import com.saldubatech.lang.{Id, Identified}
 import com.saldubatech.ddes.types.Tick
 import com.saldubatech.lang.types.*
 
+import com.saldubatech.dcf.node.State
+
+import scala.util.chaining.scalaUtilChainingOps
+
 class RandomIndexed[M <: Identified](bId: Id = "RandomIndexedBuffer")
 extends Buffer.Unbound[M] with Buffer.Indexed[M]:
   override lazy val id: Id = bId
@@ -11,6 +15,10 @@ extends Buffer.Unbound[M] with Buffer.Indexed[M]:
   private val _arrivalOrder = collection.mutable.ListBuffer.empty[M]
 
   override def toString: String = s"RandomIndexed[$id]: {${_arrivalOrder.mkString(", ")}}"
+
+  private val stateHolder: State.Holder[RandomIndexed[M]] = State.UnlockedHolder[RandomIndexed[M]](0, id, this)
+  override def state(at: Tick): State = stateHolder.state(at)
+
 
   override protected[buffers] def doRemove(at: Tick, m: M): Unit =
     _remove(m)
@@ -59,11 +67,16 @@ extends Buffer.Unbound[M] with Buffer.Indexed[M]:
       case Some((idx, c)) =>
         _remove(c)
         (if _contents.isEmpty then stateHolder.releaseAll(at) else stateHolder.release(at))
-        .tapError{ err => _insert(idx, candidate) }
-        .map{ _ => candidate }
+          .tapError{ err => _insert(idx, candidate) }.map{ _ => candidate }
 
-  override def provision(at: Tick, m: M): AppResult[M] =
-        stateHolder.provision(at).map{ _ => _add(m) }
+  override def provision(at: Tick, m: M): AppResult[M] = capacitatedProvision(at, m, None)
+
+  override protected[buffers] def capacitatedProvision(at: Tick, m: M, c: Option[Int] = None): AppResult[M] =
+    (
+      c match
+        case Some(_c) if _contents.size < _c => stateHolder.acquireAll(at)
+        case _ => stateHolder.acquire(at)
+    ).map{ _ => _add(m) }
 
   override def contents(at: Tick): Iterable[M] = _arrivalOrder
   override def contents(at: Tick, m: M): Iterable[M] = _arrivalOrder.filter{ _ == m }
@@ -88,11 +101,7 @@ extends Buffer.Unbound[M] with Buffer.Indexed[M]:
       case Some(candidate) => _doConsume(at, candidate)
       case None => AppFail.fail(s"Element $m not available in $id at $at")
 
-  override def consumeWhileSuccess(
-    at: Tick,
-    f: (at: Tick, e: M) => UnitResult,
-    onSuccess: (at: Tick, e: M) => Unit
-    ): AppResult[Iterable[M]] =
+  override def consumeWhileSuccess(at: Tick, onSuccess: (at: Tick, e: M) => Unit)(f: (at: Tick, e: M) => UnitResult): AppResult[Iterable[M]] =
     val rs = for {
       (id, e) <- _contents.toList // make shallow copy to avoid concurrent mod exceptions
     } yield
@@ -102,7 +111,7 @@ extends Buffer.Unbound[M] with Buffer.Indexed[M]:
       } yield
         onSuccess(at, e)
         e
-    rs.collectAny
+    rs.collectAtLeastOne
 
 
   override def contents(at: Tick, eId: Id): Iterable[M] = _contents.get(eId)

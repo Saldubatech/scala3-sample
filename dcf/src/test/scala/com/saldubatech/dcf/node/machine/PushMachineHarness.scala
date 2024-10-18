@@ -64,6 +64,11 @@ object PushMachineHarness:
       cachedPhysics.map{ i => engine.add(at){ () => i.inductionFinalize(at, card, loadId) } }
   }
 
+  class MockChron(engine: MockAsyncCallback) extends Action.API.Chron {
+    var underTest: Action.API.Chron = null
+    override def tryStart(at: Tick): Unit = engine.add(at){ () => AppSuccess(underTest.tryStart(at)) }
+    override def trySend(at: Tick): Unit = engine.add(at){ () => AppSuccess(underTest.trySend(at)) }
+  }
   class MockActionPhysicsStub[M <: Material](engine: MockAsyncCallback) extends Action.API.Physics {
     var underTest: Action[M] = null
     def finalize(at: Tick, wipId: Id): UnitResult = AppSuccess(engine.add(at)( () => underTest.finalize(at, wipId)))
@@ -75,18 +80,18 @@ object PushMachineHarness:
     engine: MockAsyncCallback,
     serverPool: UnitResourcePool[ResourceType.Processor],
     wipSlots: UnitResourcePool[ResourceType.WipSlot],
-    loadingPhysics: Action.Physics[M]
+    actionPhysics: Action.Environment.Physics[M],
+    chron: Action.API.Chron
     ): Action.Builder[M] =
       val taskBuffer = RandomAccess[Task[M]](s"${prefix}Tasks")
       val inboundBuffer = RandomIndexed[Material](s"${prefix}InboundBuffer")
-      val retryDelay = () => Some(13L)
       Action.Builder[M](
         serverPool,
         wipSlots,
         taskBuffer,
         inboundBuffer,
-        loadingPhysics,
-        retryDelay
+        actionPhysics,
+        chron
       )
 
 

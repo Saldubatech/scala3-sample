@@ -9,7 +9,7 @@ import com.saldubatech.dcf.node.components.{Component, Sink, SubjectMixIn}
 import com.saldubatech.dcf.node.components.buffers.{Buffer, RandomIndexed, RandomAccess}
 import com.saldubatech.util.{LogEnabled, stack}
 
-import scala.reflect.ClassTag
+import scala.util.chaining.scalaUtilChainingOps
 
 object Action:
   sealed trait Status
@@ -46,6 +46,10 @@ object Action:
       def fail(at: Tick, wipId: Id, cause: Option[AppError]): UnitResult
     end Physics // trait
 
+    trait Chron:
+      def tryStart(at: Tick): Unit
+      def trySend(at: Tick): Unit
+    end Chron // object
 
     type Management = Component.API.Management[Environment.Listener]
   end API // object
@@ -74,6 +78,13 @@ object Action:
 
   end Environment // object
 
+  class ChronProxy(host: API.Chron, retryDelay: (at: Tick) => Duration = _ => 1L) extends API.Chron:
+    override def tryStart(at: Tick): Unit = host.tryStart(at+retryDelay(at))
+    override def trySend(at: Tick): Unit = host.trySend(at+retryDelay(at))
+  end ChronProxy
+
+
+
   class Physics[M <: Material](
     pId: Id,
     host: API.Physics,
@@ -93,7 +104,7 @@ object Action:
     requestedTaskBuffer: Buffer[Task[OB]],
     inboundBuffer: Buffer[Material] & Buffer.Indexed[Material],
     physics: Action.Environment.Physics[OB],
-    retryDelay: () => Option[Duration] = () => None
+    retryProxy: Action.API.Chron
   ):
     def build(
       aId: Id,
@@ -102,7 +113,7 @@ object Action:
       outbound: Sink.API.Upstream[OB]
     ): Action[OB] =
       ActionImpl(
-        serverPool, wipSlots, requestedTaskBuffer, inboundBuffer, physics, retryDelay
+        serverPool, wipSlots, requestedTaskBuffer, inboundBuffer, physics, retryProxy
         )(aId, componentId, stationId, outbound)
 
   class CongestionMarker(lId: Id, onRelief: Option[Tick => Unit]) extends Identified:
@@ -133,6 +144,7 @@ with Action.API.Control[OB]
 with Action.API.Management
 with Action.API.Upstream
 with Action.API.Physics
+with Action.API.Chron
 
 end Action // trait
 
@@ -144,7 +156,7 @@ class ActionImpl[OB <: Material]
   requestedTaskBuffer: Buffer[Task[OB]],
   inboundBuffer: Buffer[Material] & Buffer.Indexed[Material],
   physics: Action.Environment.Physics[OB],
-  retryDelay: () => Option[Duration] = () => None
+  retryProxy: Action.API.Chron
 )(
   aId: Id,
   componentId: Id,
@@ -164,21 +176,22 @@ with LogEnabled:
 
   override def canAccept(at: Tick, from: Id, load: Material): UnitResult =
     trySend(at) // first try to flush out pending deliveries to release resources
+    tryStart(at) // then try to flush out pending tasks to start
     inboundBuffer.canProvision(at, load).unit
 
   override def acceptMaterialRequest(at: Tick, fromStation: Id, fromSource: Id, load: Material): UnitResult =
     for {
       allowed <- canAccept(at, fromStation, load)
       rs <- inboundBuffer.provision(at, load)
-    } yield doNotify(
-      l => l.loadAccepted(at, stationId, id, load))
+    } yield doNotify( l => l.loadAccepted(at, stationId, id, load) )
 
   override def acceptedMaterials(at: Tick): AppResult[Iterable[Material]] = AppSuccess(inboundBuffer.contents(at))
 
   private val _availableMaterials: Supply[Material] = MaterialSupplyFromBuffer[Material]("InboundMaterials")(inboundBuffer)
 
   private val newTasks = RandomIndexed[Wip.New[OB]]("NewWIP")
-  private val inProgressTasks = RandomIndexed[Wip.InProgress[OB]]("InProgressWIP")
+  private val tasksToStart = RandomIndexed[Wip.New[OB]]("TasksToStart")
+  private val inProgressTasks = RandomIndexed[Wip.InProgress[OB]]("InProgressWIP") // Should be UNBOUNDED. Already bounded by WipSlots
   private val outboundBuffer = RandomAccess[Wip.Complete[OB, OB]]("OutboundBuffer") // unbounded b/c total capacity is controlled by _wipSlots
   override def wip(at: Tick): AppResult[Iterable[Wip[OB]]] =
     AppSuccess(newTasks.contents(at) ++ inProgressTasks.contents(at) ++ outboundBuffer.contents(at))
@@ -196,7 +209,7 @@ with LogEnabled:
     for {
       allowed <- canRequest(at, task)
       requirements <- task.requestResourceRequirements(at, Seq(wipSlots))
-      resources <- requirements.map{ rq => rq.fulfill(at) }.collectAll // will work b/c availability checked in canRequest
+      resources <- requirements.map{ rq => rq.fulfill(at) }.collectAll
       wip <- newTasks.provision(at, Wip.New(task, at, resources))
     } yield
       doNotify( l => l.taskRequested(at, stationId, id, wip) )
@@ -204,65 +217,88 @@ with LogEnabled:
 
   override def canStart(at: Tick, wipId: Id): AppResult[Wip.New[OB]] =
     trySend(at) // first try to flush out pending deliveries to release resources
-    newTasks.contents(at, wipId).headOption.map {
+    tasksToStart.contents(at, wipId).headOption.map {
       wip =>
         for {
-          requirements <-
-            wip.task.startResourceRequirements(at, Seq(serverPool))
+          requirements <- wip.task.startResourceRequirements(at, Seq(serverPool))
           materials <- wip.task.materialsRequirements(at, Seq(_availableMaterials))
           allAvailable <-
-            if requirements.forall{ r => r.isAvailable(at) } && materials.forall{ m => m.isAvailable(at) } then AppSuccess(wip)
+            if requirements.forall{ r => r.isAvailable(at) }
+              && materials.forall{ m => m.isAvailable(at) } then AppSuccess(wip)
             else AppFail.fail(s"Not all resources or materials available")
         } yield allAvailable
     }.getOrElse(AppFail.fail(s"Wip[$wipId] not available to start in $id"))
 
+  override def tryStart(at: Tick): Unit =
+    if !tasksToStart.contents(at).isEmpty then
+      (tasksToStart.consumeWhileSuccess(at, (t: Tick, r: Wip.New[OB]) => () ){
+        (t, r) =>
+          (
+          for {
+            wipNew <- canStart(at, r.id)
+            resourceRequirements <- wipNew.task.startResourceRequirements(at, Seq(serverPool))
+            resources <- resourceRequirements.map{ rq => rq.fulfill(at)}.collectAll
+            materialRequirements <- wipNew.task.materialsRequirements(at, Seq(_availableMaterials))
+            materials <- materialRequirements.map{ m => m.allocate(at) }.collectAll
+
+            addInProgressWip <- inProgressTasks.provision(at, wipNew.inProgress(at, resources, materials))
+
+            rs <- physics.command(at, addInProgressWip)
+
+          } yield doNotify(_.taskStarted(at, stationId, id, addInProgressWip))
+          )
+      })
+    if tasksToStart.contents(at).nonEmpty then retryProxy.tryStart(at)
+
   override def start(at: Tick, wipId: Id): UnitResult =
     if inProgressTasks.contents(at, wipId).nonEmpty then AppSuccess.unit // idempotence
-    else for {
-      wipNew <- canStart(at, wipId)
-      resourceRequirements <- wipNew.task.startResourceRequirements(at, Seq(serverPool))
-      resources <- resourceRequirements.map{ rq => rq.fulfill(at)}.collectAll // should work b/c of `canStart`
-      materialRequirements <- wipNew.task.materialsRequirements(at, Seq(_availableMaterials))
-      materials <- materialRequirements.map{ m => m.allocate(at) }.collectAll
-      removedNewWip <- newTasks.consume(at, wipId)
-      addInProgressWip <- inProgressTasks.provision(at, removedNewWip.inProgress(at, resources, materials))
-      rs <- physics.command(at, addInProgressWip)
-    } yield doNotify(_.taskStarted(at, stationId, id, addInProgressWip))
+    else
+      for {
+        wipNew <- newTasks.consume(at, wipId)
+        provisioned <- tasksToStart.provision(at, wipNew)
+      } yield tryStart(at)
 
-  private def trySend(at: Tick): Unit =
-    _outboundCongestion.guard{
-      () =>
-        outboundBuffer.consumeWhileSuccess(at,
-            { (t, r) =>
-              outbound.acceptMaterialRequest(t, stationId, id, r.product).tapError( err => _outboundCongestion.congested(t) )
-            },
-            {
-              (t, r) =>
-                r.entryResources.foreach( rs => rs.release(t))
-        //        outboundBuffer.consume(at, r) Done by the "consumeWhileSuccess"
-                doNotify( _.taskCompleted(t, stationId, id, r))
+  override def trySend(at: Tick): Unit =
+    if outboundBuffer.contents(at).nonEmpty then
+      _outboundCongestion.guard{
+        () =>
+          outboundBuffer.consumeWhileSuccess(at,
+          {
+            (t, r) =>
+              r.entryResources.map( rs => rs.release(t)).collectAll
+              r.materialAllocations.map{ a => a.consume(at)}.collectAll
+      //        outboundBuffer.consume(at, r) Done by the "consumeWhileSuccess"
+              doNotify( _.taskCompleted(t, stationId, id, r))
+            }
+          ){ (t, r) =>
+                outbound.acceptMaterialRequest(t, stationId, id, r.product).tapError( err =>
+                  _outboundCongestion.congested(t)
+                )
               }
-            )
-    }
-    if !outboundBuffer.state(at).isIdle then retryDelay().map{ d => trySend(at+d) }
+      }
+    if !outboundBuffer.state(at).isIdle then retryProxy.trySend(at)
 
   override def finalize(at: Tick, wipId: Id): UnitResult =
     trySend(at) // first try to flush out pending deliveries to release resources
-    inProgressTasks.contents(at, wipId).map{ // only one at most
+    inProgressTasks.contents(at, wipId).map{ // Only one at most. Consume materials, release resources and remove from Wip.
       wip =>
         val completed = for {
           // consume the materials
           materials <- wip.materialAllocations.map{ allocation => allocation.consume(at) }.collectAll
           // perform the transformation
           product <- wip.task.produce(at, materials, wip.entryResources, wip.startResources)
-          // release resources
+          // release resources acquired at start
           workingResources <- wip.startResources.map{ resource => resource.release(at) }.collectAll
           // remove from In Progress
           wipRemoved <- inProgressTasks.consume(at, wip.id)
           toSend <- outboundBuffer.provision(at, wipRemoved.complete(at, product, materials))
-        } yield trySend(at)
+        } yield ()
+        // Now see if resources have been released and try pending.
+        trySend(at)
+        tryStart(at)
         completed
     }.headOption.getOrElse(AppFail.fail(s"Wip[$wipId] not available to finalize in $id"))
+    .tapError( err => if !outboundBuffer.state(at).isIdle then retryProxy.trySend(at) )
 
   override def fail(at: Tick, wipId: Id, cause: Option[AppError]): UnitResult =
     trySend(at) // first try to flush out pending deliveries to release resources

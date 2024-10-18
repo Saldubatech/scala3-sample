@@ -27,12 +27,14 @@ import zio.test.{ZIOSpecDefault, assertTrue, assertCompletes}
 import org.apache.pekko.actor.testkit.typed.scaladsl.{ActorTestKit, FishingOutcomes}
 import com.saldubatech.dcf.node.ProbeInboundMaterial
 
-object PushStationComposedSpec extends ZIOSpecDefault with LogEnabled with Matchers:
+object PushStationComposedWipCongestionSpec extends ZIOSpecDefault with LogEnabled with Matchers:
 
   case class Consumed(at: Tick, fromStation: Id, fromSource: Id, atStation: Id, atSink: Id, load: ProbeInboundMaterial)
 
+  val stationMaxServers: Int = 100
+  val stationMaxWip: Int = 2
   val pushStationCards = (1 to 100).map{ _ => Id}.toList
-  val nProbes: Int = 10
+  val nProbes: Int = stationMaxWip*2
 
   val sourceCards = (1 to nProbes+100).map{ _ => Id}.toList // No Constraint, simplify debugging
 
@@ -135,7 +137,7 @@ object PushStationComposedSpec extends ZIOSpecDefault with LogEnabled with Match
         case other => AppFail.fail(s"Available Material not of type ProbeInboundMaterial")
       }
 
-  val loadingDelay: Duration = 2
+  val loadingDelay: Duration = 20000
   val processDelay: Duration = 3
   val unloadingDelay: Duration = 4
 
@@ -149,13 +151,16 @@ object PushStationComposedSpec extends ZIOSpecDefault with LogEnabled with Match
     clock=clock
     )
   val process = ProcessConfiguration[ProbeInboundMaterial](
-    maxConcurrentJobs=100,
-    maxWip=100,
+    maxConcurrentJobs=stationMaxServers,
+    maxWip=stationMaxWip,
     inboundBuffer=10000,
     producer,
     (at, wip) => loadingDelay,
     (at, wip) => processDelay,
-    (at, wip) => processDelay
+    (at, wip) => unloadingDelay,
+    loadingRetry = (at) => 17L,
+    processingRetry = (at) => 19L,
+    unloadingRetry = (at) => 23L
   )
   lazy val underTest: PushStationComposed[ProbeInboundMaterial] = PushStationComposed[ProbeInboundMaterial](
     pushStation,
@@ -199,18 +204,35 @@ object PushStationComposedSpec extends ZIOSpecDefault with LogEnabled with Match
         } yield
           rootRs shouldBe OAM.AOK
           simSupervisor.directRootSend(source)(0, SourceBinding.API.Signals.Go(Id, Id, s"${source.stationId}::Source[source]"))(using 1.second)
-          var found = 0
 
+          var found = 0
           val r = termProbe.fishForMessage(5.second){
             c =>
               found += 1
-              log.info(s"Found $found out of ${probeSeq.size}")
+              log.info(s"Found $found out of ${stationMaxWip}")
               c match
                 case Consumed(_, "PUSH_STATION", "PUSH_STATION::Discharge[outboundTransport]", "SINK_STATION", "SINK_STATION::LoadSink[sink]", _) =>
-                  if found == probeSeq.size then FishingOutcomes.complete else FishingOutcomes.continue
+                  if found == stationMaxWip then FishingOutcomes.complete else FishingOutcomes.continue
                 case other => FishingOutcomes.fail(s"Found $other")
           }
-          assert(r.size == probeSeq.size)
+          assert(r.size == stationMaxWip)
+
+//          termProbe.expectNoMessage(1000.millis)
+          // simSupervisor.directRootSendNow(sink)(
+          //   InductBinding.API.Signals.Restore(Id, Id, s"${sink.stationId}::Induct[${OutboundTransport.transportId}]", Some(2))
+          // )(using 1.second)
+
+          found = 0
+          val r2 = termProbe.fishForMessage(10.second){
+            c =>
+              found += 1
+              c match
+                case Consumed(t, "PUSH_STATION", "PUSH_STATION::Discharge[outboundTransport]", "SINK_STATION", "SINK_STATION::LoadSink[sink]", _) if t > 25000 =>
+                  if found == stationMaxWip then FishingOutcomes.complete else FishingOutcomes.continue
+                case other => FishingOutcomes.fail(s"Found $other")
+          }
+          assert(r2.size == stationMaxWip)
+          assert(r2.size + r.size == nProbes)
           termProbe.expectNoMessage(300.millis)
           fixture.shutdownTestKit()
           assertCompletes
@@ -218,4 +240,4 @@ object PushStationComposedSpec extends ZIOSpecDefault with LogEnabled with Match
     )
   }
 
-end PushStationComposedSpec // class
+end PushStationComposedWipCongestionSpec // object

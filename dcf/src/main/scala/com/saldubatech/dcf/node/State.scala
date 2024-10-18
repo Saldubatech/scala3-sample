@@ -2,6 +2,7 @@ package com.saldubatech.dcf.node
 
 import com.saldubatech.lang.types._
 import com.saldubatech.lang.Id
+import com.saldubatech.util.stack
 import com.saldubatech.ddes.types.Tick
 
 import scala.util.chaining.scalaUtilChainingOps
@@ -69,12 +70,13 @@ object State:
     def state(at: Tick) = history.head.current
 
     private def update(at: Tick, f: State => AppResult[State]): AppResult[StateTransition] =
-      f(state(at)).map{ r =>
-        if r != state then
-          StateTransition(at, r, state(at)).tap{ tr =>
-            transitionCallback.map{ cb => cb(at, tr)}
+      val current = state(at)
+      f(current).map{ r =>
+        if r == current then NoOp(at, r)
+        else
+          StateTransition(at, r, current).tap{ tr =>
+            transitionCallback.map{ cb => cb(at, tr) }
           }.tap{ st => history = st :: history }
-        else NoOp(at, r)
       }
 
     def isIdle(at: Tick): Boolean = state(at).isIdle
@@ -126,7 +128,6 @@ object State:
     def acquireAll(at: Tick): AppResult[StateTransition] = update(at, _.acquireAll)
     def release(at: Tick): AppResult[StateTransition] = update(at, _.release)
     def releaseAll(at: Tick): AppResult[StateTransition] = update(at, _.releaseAll)
-    def provision(at: Tick): AppResult[StateTransition] = update(at, _.provision)
 
 
     // admin transitions
@@ -195,13 +196,6 @@ case class State(
       s.administrative match
         case State.Administrative.SHUTTING_DOWN => AppSuccess(s.copy(usage=State.Usage.IDLE, administrative=State.Administrative.LOCKED))
         case _ => AppSuccess(this.copy(usage=State.Usage.IDLE))
-    )
-  def provision: AppResult[State] =
-    guard(
-      s =>
-        s.usage match
-          case State.Usage.BUSY => AppSuccess(s.copy(usage=State.Usage.IN_USE))
-          case _ => AppSuccess(s)
     )
 
   // admin transitions

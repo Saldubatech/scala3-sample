@@ -12,21 +12,23 @@ class Bounded[M](
 )
 extends Buffer.Bound[M]:
   override lazy val id: Id = bId
-  export base.{contents, available, consume, consumeWhileSuccess, consumeAvailable, consumeOne, consumeSome}
+  export base.{contents, available, consumeWhileSuccess, consumeAvailable, consumeOne, consumeSome, state}
+
+  override def consume(at: Tick, m: M): AppResult[M] =
+    base.consume(at, m)
 
   override def canProvision(at: Tick, m: M): AppResult[M] =
     // alternative, !stateHolder.isBusy(at)
     if contents(at).size < capacity then AppSuccess(m)
     else AppFail.fail(s"$id is Full")
 
-  override def provision(at: Tick, m: M): AppResult[M] =
-    canProvision(at, m).flatMap{ _m =>
-      base.provision(at, _m)
-      (if contents(at).size == capacity then stateHolder.acquireAll(at)
-      else stateHolder.acquire(at)).tapError{ err =>
-        doRemove(at, _m)
-      }.map{ _ => _m }
-    }
+  override def provision(at: Tick, m: M): AppResult[M] = capacitatedProvision(at, m, Some(capacity))
+
+  protected[buffers] def capacitatedProvision(at: Tick, m: M, c: Option[Int] = None): AppResult[M] =
+    for {
+      allow <- canProvision(at, m)
+      provisioned <- base.capacitatedProvision(at, m, c)
+    } yield provisioned
 
   override protected[buffers] def doRemove(at: Tick, m: M): Unit =
     base.doRemove(at: Tick, m: M)

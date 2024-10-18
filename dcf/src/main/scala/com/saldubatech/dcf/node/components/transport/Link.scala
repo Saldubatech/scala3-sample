@@ -127,16 +127,14 @@ extends Link[M]:
 
   /* See Discharge._attemptDischarges. Opportunity to consolidate */
   private def _attemptDeliveries(at: Tick): Unit =
-    readyToDeliver.consumeWhileSuccess(at,
-    {
-      (t, r) =>
-        for {
-          o <- _origin
-          ack <- o.acknowledge(at, r.load.id)
-          arrival <- downstream.loadArriving(t, r.card, r.load)
-        } yield arrival
-    },
-    { (t, r) => _delivered.provision(t, r.load) }
-      )
+    if readyToDeliver.contents(at).nonEmpty then
+      readyToDeliver.consumeWhileSuccess(at, (t, r) => _delivered.provision(t, r.load)){
+        (t, r) =>
+          for {
+            o <- _origin
+            ack <- o.acknowledge(at, r.load.id)
+            arrival <- downstream.loadArriving(t, r.card, r.load)
+          } yield arrival
+      }
 
 end LinkMixIn // trait

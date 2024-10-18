@@ -14,7 +14,7 @@ import com.saldubatech.dcf.node.components.transport.bindings.{Induct as InductB
 import com.saldubatech.dcf.node.machine.bindings.{Source as SourceBinding}
 import com.saldubatech.dcf.node.components.buffers.RandomIndexed
 
-import com.saldubatech.dcf.node.station.configurations.{Inbound, Outbound, ProcessConfiguration2}
+import com.saldubatech.dcf.node.station.configurations.{Inbound, Outbound, ProcessConfiguration}
 
 import org.apache.pekko.actor.typed.scaladsl.{ActorContext}
 import org.apache.pekko.actor.typed.{ActorRef, ActorSystem}
@@ -148,9 +148,10 @@ object PushStationComposedCardCongestionSpec extends ZIOSpecDefault with LogEnab
     Some(consumer.consume),
     clock=clock
     )
-  val process = ProcessConfiguration2[ProbeInboundMaterial](
+  val process = ProcessConfiguration[ProbeInboundMaterial](
     maxConcurrentJobs=100,
     maxWip=100,
+    inboundBuffer=10000,
     producer,
     (at, wip) => loadingDelay,
     (at, wip) => processDelay,

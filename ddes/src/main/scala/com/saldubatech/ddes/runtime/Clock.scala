@@ -79,9 +79,9 @@ class Clock(
     sLog.whenInfoEnabled{
       val msg = cmd.signal.toString()
       if cmd.origin == cmd.destination then
-        sLog.debug(s"\"${cmd.origin}\" -> \"${cmd.destination}\": [$now] ${msg.take(50)}...${msg.drop(msg.size-10)}")
+        sLog.debug(s"\"${cmd.origin}\" -> \"${cmd.destination}\": [$now] ${msg.take(50)} ...\\t${msg.drop(msg.size-10)}")
       else
-        sLog.info(s"\"${cmd.origin}\" -> \"${cmd.destination}\": [$now] ${cmd.signal.toString().take(50)}...${cmd.signal.toString().drop(msg.size-10)}")
+        sLog.info(s"\"${cmd.origin}\" -> \"${cmd.destination}\": [$now] ${cmd.signal.toString().take(50)} ...\\t${cmd.signal.toString().drop(msg.size-10)}")
     }
     openAction(cmd.send(now))
 
