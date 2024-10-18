@@ -6,11 +6,12 @@ import com.saldubatech.dcf.material.{Material, Wip}
 import com.saldubatech.ddes.types.Tick
 import com.saldubatech.lang.types.{AppResult, UnitResult, AppSuccess, AppFail, AppError, collectAll}
 import com.saldubatech.dcf.job.{JobSpec, SimpleJobSpec}
+import com.saldubatech.dcf.node.components.buffers.RandomIndexed
 
 import com.saldubatech.dcf.node.{ProbeInboundMaterial, ProbeOutboundMaterial}
 
 import com.saldubatech.dcf.node.components.{Sink, Harness as ComponentsHarness}
-import com.saldubatech.dcf.node.components.transport.{Transport, TransportImpl, Discharge, Induct, Link}
+import com.saldubatech.dcf.node.components.transport.{Transport, TransportImpl, Discharge, Induct, Link, Transfer}
 
 import com.saldubatech.test.ddes.MockAsyncCallback
 import com.saldubatech.dcf.node.components.transport.{Harness as TransportHarness}
@@ -33,7 +34,7 @@ object LoadSinkSpec:
         called += c
       }
 
-    override val id: Id = "MockListener"
+    override lazy val id: Id = "MockListener"
     override def loadDeparted(at: Tick, fromStation: Id, fromSink: Id, load: Material): Unit =
       call("loadDeparted", at, fromStation, fromSink, load)
   }
@@ -64,7 +65,7 @@ object LoadSinkSpec:
       s"T_IB",
       ibIndcPhysics,
       Some(obTranCapacity),
-      Induct.Component.FIFOArrivalBuffer[M](),
+      RandomIndexed[Transfer[M]]("ArrivalBuffer"),
       ibTranPhysics,
       ibDistPhysics,
       inductUpstreamInjector,
@@ -94,7 +95,7 @@ object LoadSinkSpec:
     }
     for {
       inductAndSink <-
-        val rs = LoadSinkImpl[M, LoadSink.Environment.Listener]("underTest", "InStation", Some(consumer.consume))
+        val rs = LoadSinkImpl[M, LoadSink.Environment.Listener]("underTest", "InStation", Some(consumer.consume), None)
         ibTransport.induct("TestHarness", ibInductAPIPhysics).map{ i =>
           rs.listening(i)
           i -> rs

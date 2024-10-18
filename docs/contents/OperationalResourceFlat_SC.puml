@@ -1,0 +1,321 @@
+@startuml OperationalResourceFlat_SC
+title
+= Flat Operational Resource States
+end title
+
+state Enabled {
+  state Unlocked {
+    state EUI
+    state EUU
+    state EUB
+  }
+  state Locked {
+    state ESU
+    state ESB
+    state ELI
+    [*] -> ELI
+  }
+  [*] --> Locked
+}
+state Disabled {
+  state DUI
+  state DLI
+}
+
+
+[*] --> Enabled
+
+/'
+EUI	EUI	"release
+releaseAll
+unlock
+repair"
+'/
+EUI	--> EUU:	acquire
+EUI	--> EUB:	acquireAll
+EUI	--> ELI: lock
+EUI --> ELI: forceLock
+EUI	----> DUI:	fault
+EUU -->	EUI:	releaseAll
+/'
+EUU	--> EUU:	"release
+acquire
+unlock
+repair"
+'/
+EUU	--> EUB: acquireAll
+EUU	--> ESU:	lock
+EUU	--> ELI:	forceLock
+EUU	----> DUI:	fault
+EUB	--> EUI:	releaseAll
+EUB	--> EUU:	release
+/'
+EUB	-> EUB:	unlock
+EUB --> EUB: repair
+'/
+EUB	--> ESB:	lock
+EUB	--> ELI:	forceLock
+EUB	----> DUI:	fault
+ESU	--> EUU:	unlock
+/'
+ESU	-> ESU:	"release
+repair
+lock"
+'/
+ESU	--> ELI:	releaseAll
+ESU --> ELI: forceLock
+ESU	--> DLI:	fault
+ESB	--> EUB:	unlock
+ESB	--> ESU:	release
+/'
+ESB	-> ESB:	"lock
+repair"
+'/
+ESB	--> ELI:	releaseAll
+ESB --> ELI: forceLock
+ESB	--> DLI:	fault
+ELI	--> EUI:	unlock
+/'
+ELI	ELI	"lock
+forceLock
+release
+releaseAll
+repair"
+'/
+ELI	--> DLI:	fault
+DUI	--> EUI:	repair
+/'
+DUI	----> DUI:	"unlock
+fault"
+'/
+DUI	--> DLI:	lock
+DUI	--> DLI:	forceLock
+DLI	--> ELI:	repair
+DLI	--> DUI:	unlock
+'DLI	--> DLI:	fault
+
+@enduml
+
+@startuml OperationalResourceFlat_SC_by_admin
+title
+= Flat Operational Resource States
+end title
+
+state Enabled {
+  state Unlocked {
+    state EUI
+    state EUU
+    state EUB
+    [*] -> EUI
+  }
+  state Locked {
+    state ESU
+    state ESB
+    state ELI
+    [*] -> ELI
+    [H] -> ESB: [BUSY]
+    [H] -> ESU: [USE]
+    [H] -> ELI: [IDLE]
+  }
+  Locked -> Unlocked: unlock
+  Locked <- Unlocked: lock
+  Unlocked --> ELI: forceLock
+
+  [*] --> Locked
+}
+state Disabled {
+  state DUI
+  state DLI
+  [H] -> DUI: [Unlocked]
+  [H] -> DLI: [Locked]
+}
+
+Enabled -> Disabled: fault
+Enabled <- Disabled: repair
+
+
+[*] --> Enabled
+
+/'
+EUI	EUI	"release
+releaseAll
+unlock
+repair"
+'/
+EUI	--> EUU:	acquire
+EUI	--> EUB:	acquireAll
+' EUI	--> ELI: lock
+' EUI --> ELI: forceLock
+' EUI	----> DUI:	fault
+EUU -->	EUI:	releaseAll
+/'
+EUU	--> EUU:	"release
+acquire
+unlock
+repair"
+'/
+EUU	--> EUB: acquireAll
+' EUU	--> ESU:	lock
+' EUU	--> ELI:	forceLock
+' EUU	----> DUI:	fault
+EUB	--> EUI:	releaseAll
+EUB	--> EUU:	release
+/'
+EUB	-> EUB:	unlock
+EUB --> EUB: repair
+'/
+' EUB	--> ESB:	lock
+' EUB	--> ELI:	forceLock
+' EUB	----> DUI:	fault
+' ESU	--> EUU:	unlock
+/'
+ESU	-> ESU:	"release
+repair
+lock"
+'/
+ESU	--> ELI:	releaseAll
+' ESU --> ELI: forceLock
+' ESU	--> DLI:	fault
+' ESB	--> EUB:	unlock
+ESB	--> ESU:	release
+/'
+ESB	-> ESB:	"lock
+repair"
+'/
+ESB	--> ELI:	releaseAll
+' ESB --> ELI: forceLock
+' ESB	--> DLI:	fault
+' ELI	--> EUI:	unlock
+/'
+ELI	ELI	"lock
+forceLock
+release
+releaseAll
+repair"
+'/
+' ELI	--> DLI:	fault
+' DUI	--> EUI:	repair
+/'
+DUI	----> DUI:	"unlock
+fault"
+'/
+DUI	--> DLI:	lock
+' DLI	--> ELI:	repair
+DLI	--> DUI:	unlock
+'DLI	--> DLI:	fault
+
+@enduml
+
+
+@startuml OperationalResourceFlat_SC_by_usage
+title
+= Flat Operational Resource States Simplified
+end title
+
+state Enabled {
+  state IDLE {
+    state EUI
+    state ELI
+    [*] -> ELI
+  }
+  state USE {
+    state EUU
+    state ESU
+  }
+  state BUSY {
+    state EUB
+    state ESB
+  }
+  [*] -> IDLE
+
+  ' IDLE --> USE: acquire
+  ' IDLE --> BUSY: acquireAll
+  ' IDLE <-- USE: releaseAll
+  ' IDLE <-- BUSY: releaseAll
+
+  ' USE --> BUSY: acquireAll
+  ' USE <-- BUSY: release
+}
+state Disabled {
+  state DUI
+  state DLI
+  [H] --> DUI: [Unlocked]
+  [H] --> DLI: [Locked]
+}
+
+
+[*] -> Enabled
+Enabled --> Disabled: fault
+Enabled <-- Disabled: repair
+
+/'
+EUI	EUI	"release
+releaseAll
+unlock
+repair"
+'/
+' EUI	--> EUU:	acquire
+' EUI	--> EUB:	acquireAll
+EUI	-> ELI: lock
+EUI -> ELI: forceLock
+'EUI	----> DUI:	fault
+' EUU -->	EUI:	releaseAll
+/'
+EUU	--> EUU:	"release
+acquire
+unlock
+repair"
+'/
+' EUU	--> EUB: acquireAll
+EUU	-> ESU:	lock
+EUU	--> ELI:	forceLock
+' EUU	----> DUI:	fault
+' EUB	--> EUI:	releaseAll
+' EUB	--> EUU:	release
+/'
+EUB	-> EUB:	unlock
+EUB --> EUB: repair
+'/
+EUB	-> ESB:	lock
+EUB	-> ELI:	forceLock
+' EUB	----> DUI:	fault
+ESU	-> EUU:	unlock
+/'
+ESU	-> ESU:	"release
+repair
+lock"
+'/
+' ESU	--> ELI:	releaseAll
+ESU --> ELI: forceLock
+' ESU	--> DLI:	fault
+ESB	-> EUB:	unlock
+' ESB	--> ESU:	release
+/'
+ESB	-> ESB:	"lock
+repair"
+'/
+' ESB	--> ELI:	releaseAll
+ESB --> ELI: forceLock
+' ESB	--> DLI:	fault
+ELI	-> EUI:	unlock
+/'
+ELI	ELI	"lock
+forceLock
+release
+releaseAll
+repair"
+'/
+' ELI	--> DLI:	fault
+' DUI	--> EUI:	repair
+/'
+DUI	----> DUI:	"unlock
+fault"
+'/
+DUI	-> DLI:	lock
+DUI	-> DLI:	forceLock
+
+' DLI	--> ELI:	repair
+DLI	-> DUI:	unlock
+'DLI	--> DLI:	fault
+
+@enduml

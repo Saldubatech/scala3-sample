@@ -31,7 +31,8 @@ object LoadSink:
     end Signals
 
     object ClientStubs:
-      class Listener(override val id: Id, host: ActorSubject) extends LoadSinkMachine.Environment.Listener:
+      class Listener(lId: Id, host: ActorSubject) extends LoadSinkMachine.Environment.Listener:
+        override lazy val id: Id = lId
         def loadDeparted(at: Tick, fromStation: Id, fromSink: Id, load: Material): Unit =
           host.eventNotify(CompleteJob(
             at,

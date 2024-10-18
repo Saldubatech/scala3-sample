@@ -54,25 +54,36 @@ object Harness:
 
   end MockLinkPhysics // class
 
-  class MockInductEnvironmentUpstream
+  class MockDischargeDownstream
   (
     val dId: Id,
     override val stationId: Id
-  ) extends Induct.Environment.Upstream with Discharge.Identity:
+  ) extends Discharge.API.Downstream with Discharge.Identity:
     val availableCards = collection.mutable.Queue.empty[Id]
     def initialize(cards: List[Id]): Unit =
       availableCards.enqueueAll(cards)
 
-    override val id = s"$stationId::MockDischarge[$dId]"
+    override lazy val id = s"$stationId::MockDischarge[$dId]"
 
     override def restore(at: Tick, cards: List[Id]): UnitResult =
       availableCards.enqueueAll(cards)
       AppSuccess.unit
 
     def acknowledge(at: Tick, loadId: Id): UnitResult = AppSuccess.unit
+  end MockDischargeDownstream // class
 
-
-  end MockInductEnvironmentUpstream // class
+  class MockLinkDownstream
+  (
+    engine: MockAsyncCallback,
+    lId: Id
+  ) extends Link.API.Downstream with Link.Identity:
+    override lazy val id: Id = lId
+    var _count: Int = 0
+    def count = _count
+    def acknowledge(at: Tick, loadId: Id): UnitResult =
+      _count += 1
+      AppSuccess(engine.add(at){ () => AppSuccess.unit })
+  end MockLinkDownstream // class
 
   class MockInductPhysics[M <: Material]
   (
@@ -94,7 +105,7 @@ object Harness:
     sId: Id,
     override val stationId: Id
   ) extends Sink.API.Upstream[M]:
-    override val id = s"$stationId::MockSink[$sId]"
+    override lazy val id = s"$stationId::MockSink[$sId]"
     val received = collection.mutable.ListBuffer.empty[(Tick, Id, Id, M)]
 
     def entry(at: Tick, fromStation: Id, fromSource: Id, load: M): (Tick, Id, Id, M) = (at, fromStation, fromSource, load)
@@ -108,12 +119,13 @@ object Harness:
 
   class MockAckStub[M <: Material]
   (
-    override val id: Id,
+    mId: Id,
     override val stationId: Id,
     host: Discharge[M, ?],
     engine: MockAsyncCallback
   )
   extends Discharge.API.Downstream with Discharge.Identity:
+    override lazy val id: Id = mId
     override def restore(at: Tick, cards: List[Id]): UnitResult =
       AppSuccess(engine.add(at)(() => host.restore(at, cards)))
 
@@ -144,13 +156,13 @@ class TestDischarge[M <: Material, LISTENER <: Discharge.Environment.Listener : 
   extends DischargeMixIn[M, LISTENER]:
     self =>
     // Members declared in com.saldubatech.lang.Identified
-    override val id: Id = s"$stationId::Discharge[$dId]"
+    override lazy val id: Id = s"$stationId::Discharge[$dId]"
 
     // Members declared in com.saldubatech.dcf.node.components.transport.DischargeMixIn
     val downstreamAcknowledgeEndpoint: Discharge.API.Downstream & Discharge.Identity =
       new Discharge.API.Downstream with Discharge.Identity {
         override val stationId: Id = stationId
-        override val id: Id = s"$stationId::Ack[$dId]"
+        override lazy val id: Id = s"$stationId::Ack[$dId]"
 
         override def restore(at: Tick, cards: List[Id]): UnitResult =
           engine.add(at){ () => self.addCards(at, cards) }

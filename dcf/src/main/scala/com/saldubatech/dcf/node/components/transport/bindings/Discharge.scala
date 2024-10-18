@@ -15,7 +15,7 @@ object Discharge:
   object API:
     object Signals:
       sealed trait Downstream extends DomainMessage
-      case class Restore(override val id: Id, override val job: Id, cards: List[Id]) extends Downstream
+      case class Restore(override val id: Id, override val job: Id, forDischargeId: Id, cards: List[Id]) extends Downstream
       case class Acknowledge(override val id: Id, override val job: Id, loadId: Id) extends Downstream
 
       sealed trait Physics extends DomainMessage
@@ -26,11 +26,12 @@ object Discharge:
 
 
     object ClientStubs:
-      class Downstream(from: => SimActor[?], target: => SimActor[Signals.Downstream], override val stationId: Id, override val id: Id)
+      class Downstream(from: => SimActor[?], target: => SimActor[Signals.Downstream], override val stationId: Id, dId: Id)
       extends DischargeComponent.API.Downstream
       with DischargeComponent.Identity:
+        override lazy val id: Id = dId
         def restore(at: Tick, cards: List[Id]): UnitResult =
-          AppSuccess(from.env.schedule(target)(at, Signals.Restore(Id, Id, cards)))
+          AppSuccess(from.env.schedule(target)(at, Signals.Restore(Id, Id, id, cards)))
 
         def acknowledge(at: Tick, loadId: Id): UnitResult =
           AppSuccess(from.env.schedule(target)(at, Signals.Acknowledge(Id, Id, loadId)))
@@ -44,8 +45,8 @@ object Discharge:
     end ClientStubs
 
     object ServerAdaptors:
-      def downstream(target: DischargeComponent.API.Downstream): Tick => PartialFunction[Signals.Downstream, UnitResult] = (at: Tick) => {
-        case Signals.Restore(id, job, cards) => target.restore(at, cards)
+      def downstream(target: DischargeComponent.API.Downstream, forDischargeId: Id): Tick => PartialFunction[Signals.Downstream, UnitResult] = (at: Tick) => {
+        case Signals.Restore(id, job, dischargeId, cards) if dischargeId == forDischargeId => target.restore(at, cards)
         case Signals.Acknowledge(id, job, loadId) => target.acknowledge(at, loadId)
       }
 

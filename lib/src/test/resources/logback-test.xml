@@ -12,6 +12,7 @@
   <logger name="slick.interop.zio" level="warn"/>
   <logger name="com.saldubatech" level="warn"/>
   <logger name="com.saldubatech" level="INFO"/>
+  <logger name="com.saldubatech.test.FixtureSpec" level="TRACE"/>
   <logger name="com.saldubatech.util.ErrorLog$" level="ERROR"/>
   <logger name="com.saldubatech.util.WarnLog$" level="WARN"/>
   <logger name="com.saldubatech.util.InfoLog$" level="INFO"/>

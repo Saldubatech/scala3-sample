@@ -33,12 +33,12 @@ object Harness:
     : Trigger[SOURCED] = Trigger(id, job, supply, startDelay)
 
   val sentCommands = collection.mutable.ListBuffer.empty[CommandProbe]
-  case class CommandProbe(override val issuedAt: Tick, override val forEpoch: Tick, override val id: Id)
+  case class CommandProbe(override val issuedAt: Tick, override val forEpoch: Option[Tick], override val id: Id)
   (check: ActorRef[String]) extends Command with LogEnabled:
     override val destination: String = check.path.name
     override val origin: String = "MockSender"
     override val signal: DomainMessage = SimpleMessage(Id, Id, s"Sent Command")
-    override def send: Id =
+    override def send(now: Tick): Id =
       log.debug(s"Sent Command $this")
       sentCommands += this
       check ! s"Got $this"
@@ -66,9 +66,9 @@ class ClockSpec extends BaseSpec:
       val underTest = Clock(None, monitor=Some(monitor.ref))
       val clockRef = fixture.spawn(underTest.start())
       val receiver = fixture.createTestProbe[String]("Receiver")
-      val commandProbe = CommandProbe(0, 10, Id)(receiver.ref)
-      val commandProbeLater = CommandProbe(10, 15, Id)(receiver.ref)
-      val commandProbeNow = CommandProbe(5, 10, Id)(receiver.ref)
+      val commandProbe = CommandProbe(0, Some(10), Id)(receiver.ref)
+      val commandProbeLater = CommandProbe(10, Some(15), Id)(receiver.ref)
+      val commandProbeNow = CommandProbe(5, Some(10), Id)(receiver.ref)
       "send the first command right away" in {
         clockRef ! commandProbe
         receiver.expectMessage(s"Got $commandProbe")

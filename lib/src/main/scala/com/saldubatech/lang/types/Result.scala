@@ -92,7 +92,7 @@ implicit def fromOption[A](optA: Option[A]): AppResult[A] =
   optA.fold(AppFail.fail(s"No value in Option"))((inA: A) => AppSuccess(inA))
 
 extension [R](elements: Iterable[AppResult[R]])
-  def collectAll: AppResult[List[R]] =
+  def collectAll: AppResult[Iterable[R]] =
     elements.foldLeft(AppSuccess[List[R]](List.empty)) {
       case (Right(acc), Right(element)) => AppSuccess(element :: acc)
       case (Right(acc), Left(err)) => AppFail(err)
@@ -104,7 +104,7 @@ extension [R](elements: Iterable[AppResult[R]])
     }
 
 extension[R] (elements: Iterable[AppResult[R]] )
-  def collectAny: AppResult[List[R]] =
+  def collectAny: AppResult[Iterable[R]] =
     elements.foldLeft(AppSuccess[List[R]](List.empty)) {
       case (Right(acc), Right(element)) => AppSuccess(element :: acc)
       case (Right(acc), Left(err)) => AppSuccess(acc)
@@ -114,6 +114,13 @@ extension[R] (elements: Iterable[AppResult[R]] )
           case ce: CollectedError => AppFail(CollectedError("Multiple Errors", ce.causes :+ err))
           case other => AppFail(CollectedError("Multiple Errors", List(other, err)))
     }
+
+extension[R] (elements: Iterable[AppResult[R]] )
+  def collectAtLeastOne: AppResult[Iterable[R]] =
+    for {
+      l <- elements.collectAny
+      atLeastOne <- if l.isEmpty then AppFail.fail(s"No valid results") else AppSuccess(l)
+    } yield atLeastOne
 
 
 
