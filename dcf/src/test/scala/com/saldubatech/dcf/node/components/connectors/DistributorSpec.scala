@@ -1,18 +1,15 @@
 package com.saldubatech.dcf.node.components.connectors
 
-import com.saldubatech.test.BaseSpec
-import com.saldubatech.lang.Id
-import com.saldubatech.dcf.material.{Material, Wip}
-import com.saldubatech.ddes.types.Tick
-import com.saldubatech.lang.types.{AppResult, UnitResult, AppSuccess, AppFail, AppError, collectAll}
 import com.saldubatech.dcf.job.{JobSpec, SimpleJobSpec}
-
-import com.saldubatech.dcf.node.{ProbeInboundMaterial, ProbeOutboundMaterial}
-
-import com.saldubatech.dcf.node.components.{Sink}
-
-import org.scalatest.matchers.should.Matchers._
+import com.saldubatech.dcf.material.{Material, Wip}
 import com.saldubatech.dcf.node.components.Harness.MockSink
+import com.saldubatech.dcf.node.components.Sink
+import com.saldubatech.dcf.node.{ProbeInboundMaterial, ProbeOutboundMaterial}
+import com.saldubatech.ddes.types.Tick
+import com.saldubatech.lang.Id
+import com.saldubatech.lang.types.*
+import com.saldubatech.test.BaseSpec
+import org.scalatest.matchers.should.Matchers.*
 
 object DistributorSpec:
   val outputArity: Int = 22
@@ -21,7 +18,7 @@ object DistributorSpec:
 end DistributorSpec // object
 
 class DistributorSpec extends BaseSpec:
-  import DistributorSpec._
+  import DistributorSpec.*
 
   "A Distributor" when {
     val downstream: Map[String, MockSink[ProbeInboundMaterial, Sink.Environment.Listener]] = (0 to outputArity - 1).map{

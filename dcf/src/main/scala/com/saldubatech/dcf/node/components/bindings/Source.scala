@@ -1,11 +1,11 @@
 package com.saldubatech.dcf.node.components.bindings
 
-import com.saldubatech.lang.{Id, Identified}
-import com.saldubatech.lang.types._
-import com.saldubatech.ddes.types.{Tick, DomainMessage, Duration}
-import com.saldubatech.ddes.elements.SimActor
 import com.saldubatech.dcf.material.{Material, Wip}
 import com.saldubatech.dcf.node.components.Source as SourceComponent
+import com.saldubatech.ddes.elements.SimActor
+import com.saldubatech.ddes.types.{DomainMessage, Duration, Tick}
+import com.saldubatech.lang.types.*
+import com.saldubatech.lang.{Id, Identified}
 
 import scala.reflect.Typeable
 

@@ -1,14 +1,6 @@
 package com.saldubatech.dcf.job
 
 import com.saldubatech.lang.Id
-import com.saldubatech.ddes.types.Tick
-import com.saldubatech.dcf.material.Material
-
-enum JobProcessingState:
-  case UNKNOWN
-  case LOADED
-  case IN_PROGRESS
-  case COMPLETE
 
 trait JobSpec:
   val id: Id

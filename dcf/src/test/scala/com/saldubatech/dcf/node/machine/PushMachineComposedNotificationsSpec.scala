@@ -1,27 +1,22 @@
 package com.saldubatech.dcf.node.machine
 
-import com.saldubatech.lang.Id
-import com.saldubatech.dcf.material.{Material, Wip, WipPool, MaterialPool}
-import com.saldubatech.ddes.types.{Tick, Duration}
-import com.saldubatech.lang.types.{AppResult, UnitResult, AppSuccess, AppFail, AppError, collectAll}
 import com.saldubatech.dcf.job.{JobSpec, SimpleJobSpec}
-
-import com.saldubatech.dcf.node.components.{Sink, Harness as ComponentsHarness}
-import com.saldubatech.dcf.node.components.transport.{Transport, TransportImpl, Discharge, Induct, Link, Transfer}
+import com.saldubatech.dcf.material.{Material, MaterialPool, Wip, WipPool}
+import com.saldubatech.dcf.node.components.action.{Action, Task, UnacknowledgingAction, Wip as Wip2}
 import com.saldubatech.dcf.node.components.buffers.{RandomAccess, RandomIndexed}
-import com.saldubatech.dcf.node.components.action.{Action, UnacknowledgingAction, Task, Wip as Wip2}
-import com.saldubatech.dcf.node.components.resources.UnitResourcePool
-import com.saldubatech.dcf.node.components.resources.ResourceType
-
-import scala.reflect.{Typeable, ClassTag}
-
+import com.saldubatech.dcf.node.components.resources.{ResourceType, UnitResourcePool}
+import com.saldubatech.dcf.node.components.transport.{Discharge, Induct, Link, Transfer, Transport, TransportImpl, Harness as TransportHarness}
+import com.saldubatech.dcf.node.components.Harness as ComponentHarness
+import com.saldubatech.dcf.node.components.{Sink, Harness as ComponentsHarness}
 import com.saldubatech.dcf.node.{ProbeInboundMaterial, ProbeOutboundMaterial}
-import com.saldubatech.test.ddes.MockAsyncCallback
-import com.saldubatech.dcf.node.components.{Harness as ComponentHarness}
-import com.saldubatech.dcf.node.components.transport.{Harness as TransportHarness}
+import com.saldubatech.ddes.types.{Duration, Tick}
+import com.saldubatech.lang.Id
+import com.saldubatech.lang.types.*
 import com.saldubatech.test.BaseSpec
+import com.saldubatech.test.ddes.MockAsyncCallback
+import org.scalatest.matchers.should.Matchers.*
 
-import org.scalatest.matchers.should.Matchers._
+import scala.reflect.{ClassTag, Typeable}
 
 object PushMachineComposedNotificationsSpec:
 
@@ -55,8 +50,8 @@ end PushMachineComposedNotificationsSpec // object
 
 class PushMachineComposedNotificationsSpec extends BaseSpec:
 //  import Harness._
-  import PushMachineHarness._
-  import PushMachineComposedNotificationsSpec._
+  import PushMachineComposedNotificationsSpec.*
+  import PushMachineHarness.*
 
 
   "A PushMachine Machine" when {

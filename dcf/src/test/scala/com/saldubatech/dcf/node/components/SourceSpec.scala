@@ -1,16 +1,14 @@
 package com.saldubatech.dcf.node.components
 
-import com.saldubatech.test.BaseSpec
-import com.saldubatech.lang.Id
-import com.saldubatech.dcf.material.{Material, Wip}
-import com.saldubatech.ddes.types.{Tick, Duration}
-import com.saldubatech.lang.types.{AppResult, UnitResult, AppSuccess, AppFail, AppError, collectAll}
 import com.saldubatech.dcf.job.{JobSpec, SimpleJobSpec}
-
-import com.saldubatech.dcf.node.{ProbeInboundMaterial}
+import com.saldubatech.dcf.material.{Material, Wip}
+import com.saldubatech.dcf.node.ProbeInboundMaterial
+import com.saldubatech.ddes.types.{Duration, Tick}
+import com.saldubatech.lang.Id
+import com.saldubatech.lang.types.*
+import com.saldubatech.test.BaseSpec
 import com.saldubatech.test.ddes.MockAsyncCallback
-
-import org.scalatest.matchers.should.Matchers._
+import org.scalatest.matchers.should.Matchers.*
 
 class SourceNotificationSpec extends BaseSpec {
 

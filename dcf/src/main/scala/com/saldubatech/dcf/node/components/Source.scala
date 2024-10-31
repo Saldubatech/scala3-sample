@@ -1,12 +1,11 @@
 package com.saldubatech.dcf.node.components
 
-import com.saldubatech.dcf.node.components.transport.bindings.Induct.API.ClientStubs.Physics
-
-import com.saldubatech.lang.{Id, Identified}
-import com.saldubatech.lang.types._
-import com.saldubatech.ddes.types.{Tick, Duration}
 import com.saldubatech.dcf.material.Material
 import com.saldubatech.dcf.node.components.buffers.SequentialBuffer
+import com.saldubatech.dcf.node.components.transport.bindings.Induct.API.ClientStubs.Physics
+import com.saldubatech.ddes.types.{Duration, Tick}
+import com.saldubatech.lang.types.*
+import com.saldubatech.lang.{Id, Identified}
 
 object Source:
   type Identity = Component.Identity

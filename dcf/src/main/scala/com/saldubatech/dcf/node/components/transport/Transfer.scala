@@ -1,8 +1,8 @@
 package com.saldubatech.dcf.node.components.transport
 
-import com.saldubatech.lang.{Id, Identified}
-import com.saldubatech.ddes.types.Tick
 import com.saldubatech.dcf.material.Material
+import com.saldubatech.ddes.types.Tick
+import com.saldubatech.lang.{Id, Identified}
 
 /**
   * Indexed by the material.id as it should be guaranteed to be unique in the whole system and only "in one place at a time"

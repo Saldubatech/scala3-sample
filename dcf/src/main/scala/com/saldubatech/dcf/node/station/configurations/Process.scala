@@ -1,10 +1,10 @@
 package com.saldubatech.dcf.node.station.configurations
 
+import com.saldubatech.dcf.material.{Material, MaterialPool, Wip, WipPool}
+import com.saldubatech.dcf.node.components.action.Wip as Wip2
+import com.saldubatech.ddes.types.{Duration, Tick}
+import com.saldubatech.lang.types.*
 import com.saldubatech.lang.{Id, Identified}
-import com.saldubatech.lang.types._
-import com.saldubatech.ddes.types.{Tick, Duration}
-import com.saldubatech.dcf.material.{Material, Wip, MaterialPool, WipPool}
-import com.saldubatech.dcf.node.components.action.{Wip as Wip2}
 
 class ProcessConfiguration[M <: Material]
 (

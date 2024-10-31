@@ -1,17 +1,16 @@
 package com.saldubatech.dcf.node.machine
 
-import com.saldubatech.lang.{Id, Identified}
-import com.saldubatech.lang.types._
-import com.saldubatech.util.LogEnabled
-import com.saldubatech.ddes.types.Tick
 import com.saldubatech.dcf.material.Material
-import com.saldubatech.dcf.node.components.{SubjectMixIn, Component, Sink}
-import com.saldubatech.dcf.node.components.transport.{Induct, Discharge}
-import com.saldubatech.dcf.node.components.Subject
+import com.saldubatech.dcf.node.components.action.{Action, Task, UnacknowledgingAction, Wip as Wip2}
 import com.saldubatech.dcf.node.components.buffers.SequentialBuffer
-import com.saldubatech.dcf.node.components.action.{Action, UnacknowledgingAction, Task, Wip as Wip2}
+import com.saldubatech.dcf.node.components.transport.{Discharge, Induct}
+import com.saldubatech.dcf.node.components.{Component, Sink, Subject, SubjectMixIn}
+import com.saldubatech.ddes.types.Tick
+import com.saldubatech.lang.types.*
+import com.saldubatech.lang.{Id, Identified}
+import com.saldubatech.util.LogEnabled
 
-import scala.reflect.{Typeable, ClassTag}
+import scala.reflect.{ClassTag, Typeable}
 import scala.util.chaining.scalaUtilChainingOps
 
 object PushMachineComposed:

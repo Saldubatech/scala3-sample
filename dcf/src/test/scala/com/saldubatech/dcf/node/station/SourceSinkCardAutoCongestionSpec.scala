@@ -1,29 +1,26 @@
 package com.saldubatech.dcf.node.station
 
-import com.saldubatech.lang.Id
-import com.saldubatech.lang.types._
-import com.saldubatech.util.LogEnabled
-import com.saldubatech.ddes.types.{Tick, Duration, DomainMessage}
-import com.saldubatech.ddes.runtime.{Clock, OAM}
-import com.saldubatech.ddes.elements.{SimulationComponent, SimActor}
-import com.saldubatech.ddes.system.SimulationSupervisor
-import com.saldubatech.dcf.node.components.transport.{Transport, TransportImpl, Induct, Discharge, Link, Transfer}
-import com.saldubatech.dcf.node.components.transport.bindings.{Induct as InductBinding, Discharge as DischargeBinding, DLink as LinkBinding}
-import com.saldubatech.dcf.node.machine.bindings.{Source as SourceBinding}
-import com.saldubatech.dcf.node.components.buffers.RandomIndexed
-
-import com.saldubatech.dcf.node.station.configurations.{Inbound, Outbound}
-
-import org.apache.pekko.actor.typed.scaladsl.{ActorContext}
-import org.apache.pekko.actor.typed.{ActorRef, ActorSystem}
-
-import scala.concurrent.duration._
-
-import com.saldubatech.test.BaseSpec
-import org.scalatest.matchers.should.Matchers
-import zio.test.{ZIOSpecDefault, assertTrue, assertCompletes}
-import org.apache.pekko.actor.testkit.typed.scaladsl.{ActorTestKit, FishingOutcomes}
 import com.saldubatech.dcf.node.ProbeInboundMaterial
+import com.saldubatech.dcf.node.components.buffers.RandomIndexed
+import com.saldubatech.dcf.node.components.transport.bindings.{DLink as LinkBinding, Discharge as DischargeBinding, Induct as InductBinding}
+import com.saldubatech.dcf.node.components.transport.*
+import com.saldubatech.dcf.node.machine.bindings.Source as SourceBinding
+import com.saldubatech.dcf.node.station.configurations.{Inbound, Outbound}
+import com.saldubatech.ddes.elements.{SimActor, SimulationComponent}
+import com.saldubatech.ddes.runtime.{Clock, OAM}
+import com.saldubatech.ddes.system.SimulationSupervisor
+import com.saldubatech.ddes.types.{DomainMessage, Duration, Tick}
+import com.saldubatech.lang.Id
+import com.saldubatech.lang.types.*
+import com.saldubatech.test.BaseSpec
+import com.saldubatech.util.LogEnabled
+import org.apache.pekko.actor.testkit.typed.scaladsl.{ActorTestKit, FishingOutcomes}
+import org.apache.pekko.actor.typed.scaladsl.ActorContext
+import org.apache.pekko.actor.typed.{ActorRef, ActorSystem}
+import org.scalatest.matchers.should.Matchers
+import zio.test.{ZIOSpecDefault, assertCompletes, assertTrue}
+
+import scala.concurrent.duration.*
 
 object SourceSinkCardAutoCongestionSpec extends ZIOSpecDefault with LogEnabled with Matchers:
 

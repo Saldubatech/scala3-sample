@@ -1,15 +1,12 @@
 package com.saldubatech.dcf.node.machine.bindings
 
-import com.saldubatech.lang.{Id, Identified}
-import com.saldubatech.lang.types._
-import com.saldubatech.ddes.types.{Tick, DomainMessage, Duration}
-import com.saldubatech.ddes.elements.SimActor
-import com.saldubatech.sandbox.observers.{Subject as ActorSubject, NewJob}
 import com.saldubatech.dcf.material.Material
-import com.saldubatech.dcf.node.components.{Subject, SubjectMixIn, Component}
-import com.saldubatech.dcf.node.components.transport.{Discharge as DischargeComponent}
-
 import com.saldubatech.dcf.node.machine.SourceMachine
+import com.saldubatech.ddes.elements.SimActor
+import com.saldubatech.ddes.types.{DomainMessage, Tick}
+import com.saldubatech.lang.Id
+import com.saldubatech.lang.types.*
+import com.saldubatech.sandbox.observers.{NewJob, Subject as ActorSubject}
 
 
 object Source:
@@ -45,11 +42,11 @@ object Source:
           host.eventNotify(NewJob(at, Id, atStation)) // (at, newJobId, atStation)
 
         override def loadInjected(at: Tick, stationId: Id, machine: Id, viaDischargeId: Id, load: Material): Unit = ()
-        override def completeNotification(at: Tick, stationId: Id, machine: Id): Unit = ()
+        override def completeNotification(at: Tick, stationId: Id, machine: Id): Unit =
+//          host.eventNotify(Departure(at, ob.job, stationId))
+          ()
+          
       end Listener // class
-
     end ClientStubs
-
   end Environment
-
 end Source // object

@@ -1,16 +1,15 @@
 package com.saldubatech.dcf.node.machine.bindings
 
 
-import com.saldubatech.lang.{Id, Identified}
-import com.saldubatech.lang.types._
-import com.saldubatech.ddes.types.{Tick, DomainMessage, Duration}
-import com.saldubatech.ddes.elements.SimActor
-import com.saldubatech.sandbox.observers.{Subject as ActorSubject, CompleteJob}
 import com.saldubatech.dcf.material.Material
-import com.saldubatech.dcf.node.components.{Subject, SubjectMixIn, Component}
-import com.saldubatech.dcf.node.components.transport.{Discharge as DischargeComponent}
-
-import com.saldubatech.dcf.node.machine.{LoadSink as LoadSinkMachine}
+import com.saldubatech.dcf.node.components.transport.Discharge as DischargeComponent
+import com.saldubatech.dcf.node.components.{Component, Subject, SubjectMixIn}
+import com.saldubatech.dcf.node.machine.LoadSink as LoadSinkMachine
+import com.saldubatech.ddes.elements.SimActor
+import com.saldubatech.ddes.types.{DomainMessage, Duration, Tick}
+import com.saldubatech.lang.types.*
+import com.saldubatech.lang.{Id, Identified}
+import com.saldubatech.sandbox.observers.{CompleteJob, Subject as ActorSubject}
 
 
 object LoadSink:

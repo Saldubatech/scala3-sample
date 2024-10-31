@@ -1,8 +1,8 @@
 package com.saldubatech.dcf.node.components
 
-import com.saldubatech.lang.types.{AppFail, AppResult, AppSuccess, UnitResult, CollectedError, AppError}
 import com.saldubatech.ddes.types.Tick
-import com.saldubatech.lang.{Identified, Id}
+import com.saldubatech.lang.types.*
+import com.saldubatech.lang.{Id, Identified}
 
 import scala.reflect.Typeable
 

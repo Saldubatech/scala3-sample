@@ -1,12 +1,12 @@
 package com.saldubatech.dcf.node.components.transport
 
-import com.saldubatech.lang.{Id, Identified}
-import com.saldubatech.lang.types._
-import com.saldubatech.math.randomvariables.Distributions.probability
-import com.saldubatech.ddes.types.{Tick, Duration}
 import com.saldubatech.dcf.material.Material
-import com.saldubatech.dcf.node.components.{Sink, Component}
 import com.saldubatech.dcf.node.components.buffers.{RandomIndexed, SequentialBuffer}
+import com.saldubatech.dcf.node.components.{Component, Sink}
+import com.saldubatech.ddes.types.{Duration, Tick}
+import com.saldubatech.lang.types.*
+import com.saldubatech.lang.{Id, Identified}
+import com.saldubatech.math.randomvariables.Distributions.probability
 
 
 object Link:

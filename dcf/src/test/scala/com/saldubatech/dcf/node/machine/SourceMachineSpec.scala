@@ -1,21 +1,17 @@
 package com.saldubatech.dcf.node.machine
 
-import com.saldubatech.test.BaseSpec
-import com.saldubatech.lang.Id
-import com.saldubatech.dcf.material.{Material, Wip}
-import com.saldubatech.ddes.types.Tick
-import com.saldubatech.lang.types.{AppResult, UnitResult, AppSuccess, AppFail, AppError, collectAll}
 import com.saldubatech.dcf.job.{JobSpec, SimpleJobSpec}
+import com.saldubatech.dcf.material.{Material, Wip}
 import com.saldubatech.dcf.node.components.buffers.RandomIndexed
-
-import com.saldubatech.dcf.node.{ProbeInboundMaterial, ProbeOutboundMaterial}
-
+import com.saldubatech.dcf.node.components.transport.{Discharge, Induct, Link, Transfer, Transport, TransportImpl, Harness as TransportHarness}
 import com.saldubatech.dcf.node.components.{Sink, Source, SourceImpl, Harness as ComponentsHarness}
-import com.saldubatech.dcf.node.components.transport.{Transport, TransportImpl, Discharge, Induct, Link, Transfer}
-
+import com.saldubatech.dcf.node.{ProbeInboundMaterial, ProbeOutboundMaterial}
+import com.saldubatech.ddes.types.Tick
+import com.saldubatech.lang.Id
+import com.saldubatech.lang.types.*
+import com.saldubatech.test.BaseSpec
 import com.saldubatech.test.ddes.MockAsyncCallback
-import com.saldubatech.dcf.node.components.transport.{Harness as TransportHarness}
-import org.scalatest.matchers.should.Matchers._
+import org.scalatest.matchers.should.Matchers.*
 
 import scala.reflect.Typeable
 import scala.util.chaining.scalaUtilChainingOps
@@ -127,7 +123,7 @@ end SourceMachineSpec // object
 
 class SourceMachineSpec extends BaseSpec:
 //  import Harness._
-  import SourceMachineSpec._
+  import SourceMachineSpec.*
 
 
   "A Load Source" when {

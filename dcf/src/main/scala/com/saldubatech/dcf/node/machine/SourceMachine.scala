@@ -1,12 +1,12 @@
 package com.saldubatech.dcf.node.machine
 
-import com.saldubatech.lang.{Id, Identified}
-import com.saldubatech.lang.types._
-import com.saldubatech.util.LogEnabled
-import com.saldubatech.ddes.types.{Tick, Duration}
 import com.saldubatech.dcf.material.Material
-import com.saldubatech.dcf.node.components.{SubjectMixIn, Component, Source, SourceImpl}
-import com.saldubatech.dcf.node.components.transport.{Transport, Discharge}
+import com.saldubatech.dcf.node.components.transport.{Discharge, Transport}
+import com.saldubatech.dcf.node.components.{Component, Source, SourceImpl, SubjectMixIn}
+import com.saldubatech.ddes.types.{Duration, Tick}
+import com.saldubatech.lang.types.*
+import com.saldubatech.lang.{Id, Identified}
+import com.saldubatech.util.LogEnabled
 
 import scala.reflect.Typeable
 import scala.util.chaining.scalaUtilChainingOps

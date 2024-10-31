@@ -1,15 +1,15 @@
 package com.saldubatech.dcf.node.components.transport
 
-import com.saldubatech.lang.{Id, Identified}
-import com.saldubatech.lang.types._
-import com.saldubatech.ddes.types.{Tick, DomainMessage}
-import com.saldubatech.ddes.elements.SimActor
 import com.saldubatech.dcf.material.Material
-import com.saldubatech.dcf.node.components.{Subject, SubjectMixIn, Component, Sink}
-import com.saldubatech.dcf.node.components.buffers.{Buffer}
+import com.saldubatech.dcf.node.components.buffers.Buffer
+import com.saldubatech.dcf.node.components.{Component, Sink, Subject, SubjectMixIn}
+import com.saldubatech.ddes.elements.SimActor
+import com.saldubatech.ddes.types.{DomainMessage, Tick}
+import com.saldubatech.lang.types.*
+import com.saldubatech.lang.{Id, Identified}
 
 import scala.reflect.Typeable
-import scala.util.chaining._
+import scala.util.chaining.*
 
 object Transport:
 

@@ -1,18 +1,14 @@
 package com.saldubatech.dcf.node.components.action
 
-import com.saldubatech.lang.{Id, Identified}
-import com.saldubatech.lang.types._
-import com.saldubatech.ddes.types.Tick
 import com.saldubatech.dcf.material.Material
-import com.saldubatech.dcf.node.components.Component
+import com.saldubatech.dcf.node.components.resources.{ResourcePool, ResourceType, UnitResourcePool}
+import com.saldubatech.ddes.types.Tick
+import com.saldubatech.lang.types.*
+import com.saldubatech.lang.{Id, Identified}
 
-import scala.reflect.{Typeable}
-import scala.reflect.ClassTag
-import alleycats.std.all
-import com.saldubatech.dcf.node.components.resources.{ResourcePool, UnitResourcePool, ResourceType}
+import scala.reflect.{ClassTag, Typeable}
 
 trait Task[+OB <: Material] extends Identified:
-  import Task._
   override lazy val id: Id = Id
 
   def requestResourceRequirements(at: Tick, availablePools: Iterable[ResourcePool[?]]): AppResult[Iterable[ResourcePool.Requirement[?]]]
@@ -42,7 +38,6 @@ object Task:
           case None => AppFail.fail(s"No Material Available for $materialIdRequired")
 
     private def unitResourceRequirements[R <: ResourceType : ClassTag, RP <: UnitResourcePool[R]](at: Tick, availablePools: Iterable[ResourcePool[?]]): AppResult[ResourcePool[R]#Requirement] =
-      import ResourcePool.given
       val maybeRequirement: Option[ResourcePool[R]#Requirement] = for {
         pool: UnitResourcePool[R] <- availablePools.collect {
           case rp: RP => rp

@@ -1,14 +1,10 @@
 package com.saldubatech.dcf.node.station.configurations
 
-import com.saldubatech.lang.Id
-
-import com.saldubatech.ddes.types.{Tick, Duration}
-import com.saldubatech.ddes.elements.SimActor
-
 import com.saldubatech.dcf.material.Material
-
-import com.saldubatech.dcf.node.components.transport.Induct
-import com.saldubatech.dcf.node.components.transport.Transport
+import com.saldubatech.dcf.node.components.transport.{Induct, Transport}
+import com.saldubatech.ddes.elements.SimActor
+import com.saldubatech.ddes.types.{Duration, Tick}
+import com.saldubatech.lang.Id
 
 import scala.reflect.Typeable
 

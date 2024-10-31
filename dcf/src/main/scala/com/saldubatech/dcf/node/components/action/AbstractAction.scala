@@ -1,17 +1,16 @@
 package com.saldubatech.dcf.node.components.action
 
-import com.saldubatech.lang.{Id, Identified}
-import com.saldubatech.lang.types._
-import com.saldubatech.math.randomvariables.Distributions.probability
-import com.saldubatech.ddes.types.{Tick, Duration}
-import com.saldubatech.dcf.material.{Material, Eaches}
+import com.saldubatech.dcf.material.{Eaches, Material}
+import com.saldubatech.dcf.node.components.buffers.{Buffer, RandomAccess, RandomIndexed}
+import com.saldubatech.dcf.node.components.resources.{ResourceType, UnitResourcePool}
 import com.saldubatech.dcf.node.components.{Component, Sink, SubjectMixIn}
-import com.saldubatech.dcf.node.components.buffers.{Buffer, RandomIndexed, RandomAccess}
+import com.saldubatech.ddes.types.{Duration, Tick}
+import com.saldubatech.lang.types.*
+import com.saldubatech.lang.{Id, Identified}
+import com.saldubatech.math.randomvariables.Distributions.probability
 import com.saldubatech.util.{LogEnabled, stack}
 
 import scala.util.chaining.scalaUtilChainingOps
-import com.saldubatech.dcf.node.components.resources.UnitResourcePool
-import com.saldubatech.dcf.node.components.resources.ResourceType
 
 object Action:
   sealed trait Status
@@ -149,7 +148,7 @@ abstract class AbstractAction[OB <: Material]
 ) extends Action[OB]
 with SubjectMixIn[Action.Environment.Listener]
 with LogEnabled:
-  import Action._
+  import Action.*
 
   protected def postSendHouseKeeping(at: Tick, wip: Wip.Complete[OB, OB]): UnitResult
   protected def prepareToAccept(at: Tick, load: Material): UnitResult

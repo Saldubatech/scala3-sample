@@ -1,10 +1,9 @@
 package com.saldubatech.dcf.node
 
-import com.saldubatech.lang.Id
 import com.saldubatech.dcf.material.Material
 import com.saldubatech.ddes.types.Tick
-import com.saldubatech.lang.types.{AppResult, UnitResult, AppSuccess, AppFail}
-import com.saldubatech.lang.types.AppError
+import com.saldubatech.lang.Id
+import com.saldubatech.lang.types.*
 
 case class ProbeInboundMaterial(mId: Id, idx: Int) extends Material:
   override lazy val id: Id = mId

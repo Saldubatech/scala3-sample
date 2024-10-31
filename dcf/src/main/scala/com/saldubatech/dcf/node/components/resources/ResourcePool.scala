@@ -1,14 +1,13 @@
 package com.saldubatech.dcf.node.components.resources
 
-import com.saldubatech.lang.{Id, Identified}
-import com.saldubatech.lang.types._
-import com.saldubatech.ddes.types.Tick
-import com.saldubatech.dcf.material.{Material, Eaches}
+import com.saldubatech.dcf.material.{Eaches, Material}
 import com.saldubatech.dcf.node.State
+import com.saldubatech.ddes.types.Tick
+import com.saldubatech.lang.types.*
+import com.saldubatech.lang.{Id, Identified}
 
-
+import scala.reflect.{ClassTag, TypeTest, Typeable}
 import scala.util.chaining.scalaUtilChainingOps
-import scala.reflect.{Typeable, ClassTag, TypeTest}
 
 
 object ResourcePool:
