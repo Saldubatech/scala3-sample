@@ -1,8 +1,7 @@
 package com.saldubatech.dcf.node.components
 
-import com.saldubatech.dcf.job.JobSpec
-import com.saldubatech.dcf.material.{Material, Wip}
-import com.saldubatech.ddes.types.{Duration, Tick}
+import com.saldubatech.dcf.material.Material
+import com.saldubatech.ddes.types.Tick
 import com.saldubatech.lang.Id
 import com.saldubatech.lang.types.*
 import com.saldubatech.test.ddes.MockAsyncCallback

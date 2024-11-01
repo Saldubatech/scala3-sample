@@ -1,11 +1,7 @@
 package com.saldubatech.dcf.node.components
 
-import com.saldubatech.dcf.job.{JobSpec, SimpleJobSpec}
-import com.saldubatech.dcf.material.{Material, Wip}
 import com.saldubatech.dcf.node.ProbeInboundMaterial
-import com.saldubatech.ddes.types.{Duration, Tick}
-import com.saldubatech.lang.Id
-import com.saldubatech.lang.types.*
+import com.saldubatech.ddes.types.Tick
 import com.saldubatech.test.BaseSpec
 import com.saldubatech.test.ddes.MockAsyncCallback
 import org.scalatest.matchers.should.Matchers.*

@@ -2,8 +2,8 @@ package com.saldubatech.dcf.node.station
 
 import com.saldubatech.dcf.node.ProbeInboundMaterial
 import com.saldubatech.dcf.node.components.buffers.RandomIndexed
-import com.saldubatech.dcf.node.components.transport.bindings.{DLink as LinkBinding, Discharge as DischargeBinding, Induct as InductBinding}
 import com.saldubatech.dcf.node.components.transport.*
+import com.saldubatech.dcf.node.components.transport.bindings.{Discharge as DischargeBinding, DLink as LinkBinding, Induct as InductBinding}
 import com.saldubatech.dcf.node.machine.bindings.Source as SourceBinding
 import com.saldubatech.dcf.node.station.configurations.{Inbound, Outbound}
 import com.saldubatech.ddes.elements.{SimActor, SimulationComponent}
@@ -15,10 +15,10 @@ import com.saldubatech.lang.types.*
 import com.saldubatech.test.BaseSpec
 import com.saldubatech.util.LogEnabled
 import org.apache.pekko.actor.testkit.typed.scaladsl.{ActorTestKit, FishingOutcomes}
-import org.apache.pekko.actor.typed.scaladsl.ActorContext
 import org.apache.pekko.actor.typed.{ActorRef, ActorSystem}
+import org.apache.pekko.actor.typed.scaladsl.ActorContext
 import org.scalatest.matchers.should.Matchers
-import zio.test.{ZIOSpecDefault, assertCompletes, assertTrue}
+import zio.test.{assertCompletes, assertTrue, ZIOSpecDefault}
 
 import scala.concurrent.duration.*
 

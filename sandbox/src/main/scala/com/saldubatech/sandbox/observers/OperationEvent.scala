@@ -195,7 +195,7 @@ object CompleteJob:
 
   def withId(id: Id, at: Tick, job: Id, station: Id): CompleteJob = CompleteJob(id, at, job, station, station, Epoch.now)
 
-// The From Station is the one from which the job last departed
+// The "From" Station is the one from which the job last departed
 case class Arrival private
 (
   override val id: Id,

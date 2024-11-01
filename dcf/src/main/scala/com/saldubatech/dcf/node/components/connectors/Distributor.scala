@@ -1,9 +1,8 @@
 package com.saldubatech.dcf.node.components.connectors
 
-import com.saldubatech.dcf.job.SimpleJobSpec
 import com.saldubatech.dcf.material.Material
 import com.saldubatech.dcf.node.components.Sink
-import com.saldubatech.ddes.types.{DomainMessage, Tick}
+import com.saldubatech.ddes.types.Tick
 import com.saldubatech.lang.Id
 import com.saldubatech.lang.types.*
 import com.saldubatech.util.LogEnabled

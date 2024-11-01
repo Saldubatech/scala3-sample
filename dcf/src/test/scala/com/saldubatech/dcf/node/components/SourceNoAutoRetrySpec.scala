@@ -1,11 +1,9 @@
 package com.saldubatech.dcf.node.components
 
-import com.saldubatech.dcf.job.{JobSpec, SimpleJobSpec}
-import com.saldubatech.dcf.material.{Material, Wip}
+import com.saldubatech.dcf.material.Material
 import com.saldubatech.dcf.node.ProbeInboundMaterial
-import com.saldubatech.ddes.types.{Duration, Tick}
+import com.saldubatech.ddes.types.Tick
 import com.saldubatech.lang.Id
-import com.saldubatech.lang.types.*
 import com.saldubatech.test.BaseSpec
 import com.saldubatech.test.ddes.MockAsyncCallback
 import org.scalatest.matchers.should.Matchers.*
@@ -37,7 +35,7 @@ class SourceNoAutoRetrySpec extends BaseSpec {
       val arrivals = collection.mutable.ListBuffer.empty[(Tick, Id, Id, Material)]
       val deliveries = collection.mutable.ListBuffer.empty[(Tick, Id, Id, Material)]
       val congestions = collection.mutable.ListBuffer.empty[(Tick, Id, Id, List[Material])]
-      var complete: (Tick, Id, Id) = null
+      var complete: (Tick, Id, Id) = _
 
       override def loadArrival(at: Tick, atStation: Id, atSource: Id, load: Material): Unit =
         arrivals += ((at, atStation, atSource, load))

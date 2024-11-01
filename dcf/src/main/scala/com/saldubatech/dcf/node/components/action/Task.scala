@@ -39,9 +39,7 @@ object Task:
 
     private def unitResourceRequirements[R <: ResourceType : ClassTag, RP <: UnitResourcePool[R]](at: Tick, availablePools: Iterable[ResourcePool[?]]): AppResult[ResourcePool[R]#Requirement] =
       val maybeRequirement: Option[ResourcePool[R]#Requirement] = for {
-        pool: UnitResourcePool[R] <- availablePools.collect {
-          case rp: RP => rp
-        }.headOption
+        pool: UnitResourcePool[R] <- availablePools.collectFirst { case rp: RP => rp }
       } yield pool.Requirement(at)
       maybeRequirement match
         case None => AppFail.fail(s"No Resource available")

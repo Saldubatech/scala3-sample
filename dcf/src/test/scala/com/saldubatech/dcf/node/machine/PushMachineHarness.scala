@@ -1,14 +1,11 @@
 package com.saldubatech.dcf.node.machine
 
-import com.saldubatech.dcf.job.{JobSpec, SimpleJobSpec}
-import com.saldubatech.dcf.material.{Material, MaterialPool, Wip, WipPool}
-import com.saldubatech.dcf.node.components.action.{Action, Task, UnacknowledgingAction, Wip as Wip2}
+import com.saldubatech.dcf.material.Material
+import com.saldubatech.dcf.node.ProbeInboundMaterial
+import com.saldubatech.dcf.node.components.action.{Action, Task, UnacknowledgingAction}
 import com.saldubatech.dcf.node.components.buffers.{RandomAccess, RandomIndexed}
 import com.saldubatech.dcf.node.components.resources.{ResourceType, UnitResourcePool}
-import com.saldubatech.dcf.node.components.transport.{Discharge, Induct, Link, Transfer, Transport, TransportImpl, Harness as TransportHarness}
-import com.saldubatech.dcf.node.components.Harness as ComponentHarness
-import com.saldubatech.dcf.node.components.{Sink, Harness as ComponentsHarness}
-import com.saldubatech.dcf.node.{ProbeInboundMaterial, ProbeOutboundMaterial}
+import com.saldubatech.dcf.node.components.transport.{Discharge, Induct, Link, Transfer, TransportImpl, Harness as TransportHarness}
 import com.saldubatech.ddes.types.{Duration, Tick}
 import com.saldubatech.lang.Id
 import com.saldubatech.lang.types.*

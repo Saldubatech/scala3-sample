@@ -1,11 +1,10 @@
 package com.saldubatech.dcf.node.components.connectors
 
-import com.saldubatech.dcf.job.{JobSpec, SimpleJobSpec}
-import com.saldubatech.dcf.material.{Material, Wip}
+import com.saldubatech.dcf.material.Material
+import com.saldubatech.dcf.node.ProbeInboundMaterial
+import com.saldubatech.dcf.node.components.{Component, Sink, SubjectMixIn}
 import com.saldubatech.dcf.node.components.Harness.MockSink
 import com.saldubatech.dcf.node.components.buffers.RandomIndexed
-import com.saldubatech.dcf.node.components.{Component, Sink, SubjectMixIn}
-import com.saldubatech.dcf.node.{ProbeInboundMaterial, ProbeOutboundMaterial}
 import com.saldubatech.ddes.types.Tick
 import com.saldubatech.lang.Id
 import com.saldubatech.lang.types.*
