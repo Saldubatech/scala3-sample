@@ -1,7 +1,7 @@
 package com.saldubatech.dcf.node.station.configurations
 
+import com.saldubatech.dcf.job.Wip as Wip2
 import com.saldubatech.dcf.material.Material
-import com.saldubatech.dcf.node.components.action.Wip as Wip2
 import com.saldubatech.ddes.types.{Duration, Tick}
 import com.saldubatech.lang.types.*
 

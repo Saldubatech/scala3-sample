@@ -1,6 +1,7 @@
 package com.saldubatech.dcf.node.components.action
 
-import com.saldubatech.dcf.material.{Eaches, Material}
+import com.saldubatech.dcf.job.{Task, Wip}
+import com.saldubatech.dcf.material.{Eaches, Material, MaterialSupplyFromBuffer, Supply}
 import com.saldubatech.dcf.node.components.buffers.{Buffer, RandomAccess, RandomIndexed}
 import com.saldubatech.dcf.node.components.resources.{ResourceType, UnitResourcePool}
 import com.saldubatech.dcf.node.components.{Component, Sink, SubjectMixIn}
@@ -8,7 +9,7 @@ import com.saldubatech.ddes.types.{Duration, Tick}
 import com.saldubatech.lang.types.*
 import com.saldubatech.lang.{Id, Identified}
 import com.saldubatech.math.randomvariables.Distributions.probability
-import com.saldubatech.util.{LogEnabled, stack}
+import com.saldubatech.util.{stack, LogEnabled}
 
 import scala.util.chaining.scalaUtilChainingOps
 
@@ -218,7 +219,7 @@ with LogEnabled:
     }.getOrElse(AppFail.fail(s"Wip[$wipId] not available to start in $id"))
 
   override def tryStart(at: Tick): Unit =
-    if !tasksToStart.contents(at).isEmpty then
+    if tasksToStart.contents(at).nonEmpty then
       (tasksToStart.consumeWhileSuccess(at, (t: Tick, r: Wip.New[OB]) => () ){
         (t, r) =>
           (
@@ -229,7 +230,7 @@ with LogEnabled:
             materialRequirements <- wipNew.task.materialsRequirements(at, Seq(_availableMaterials))
             materials <- materialRequirements.map{ m => m.allocate(at) }.collectAll
 
-            addInProgressWip <- inProgressTasks.provision(at, wipNew.inProgress(at, resources, materials))
+            addInProgressWip <- inProgressTasks.provision(at, wipNew.start(at, resources, materials))
 
             rs <- physics.command(at, addInProgressWip)
 

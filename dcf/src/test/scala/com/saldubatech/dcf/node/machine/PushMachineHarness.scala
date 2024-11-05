@@ -1,8 +1,9 @@
 package com.saldubatech.dcf.node.machine
 
+import com.saldubatech.dcf.job.Task
 import com.saldubatech.dcf.material.Material
 import com.saldubatech.dcf.node.ProbeInboundMaterial
-import com.saldubatech.dcf.node.components.action.{Action, Task, UnacknowledgingAction}
+import com.saldubatech.dcf.node.components.action.{Action, UnacknowledgingAction}
 import com.saldubatech.dcf.node.components.buffers.{RandomAccess, RandomIndexed}
 import com.saldubatech.dcf.node.components.resources.{ResourceType, UnitResourcePool}
 import com.saldubatech.dcf.node.components.transport.{Discharge, Induct, Link, Transfer, TransportImpl, Harness as TransportHarness}

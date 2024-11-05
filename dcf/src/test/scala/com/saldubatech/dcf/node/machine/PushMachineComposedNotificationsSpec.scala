@@ -1,9 +1,10 @@
 package com.saldubatech.dcf.node.machine
 
+import com.saldubatech.dcf.job.{Task, Wip as Wip2}
 import com.saldubatech.dcf.material.Material
 import com.saldubatech.dcf.node.ProbeInboundMaterial
 import com.saldubatech.dcf.node.components.{Sink, Harness as ComponentHarness}
-import com.saldubatech.dcf.node.components.action.{Action, Task, Wip as Wip2}
+import com.saldubatech.dcf.node.components.action.Action
 import com.saldubatech.dcf.node.components.resources.{ResourceType, UnitResourcePool}
 import com.saldubatech.dcf.node.components.transport.{Discharge, Induct, Link, Harness as TransportHarness}
 import com.saldubatech.ddes.types.Tick

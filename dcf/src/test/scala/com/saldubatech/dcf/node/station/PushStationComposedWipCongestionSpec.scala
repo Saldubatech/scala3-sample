@@ -1,8 +1,8 @@
 package com.saldubatech.dcf.node.station
 
+import com.saldubatech.dcf.job.Wip
 import com.saldubatech.dcf.material.Material
 import com.saldubatech.dcf.node.ProbeInboundMaterial
-import com.saldubatech.dcf.node.components.action.Wip
 import com.saldubatech.dcf.node.components.buffers.RandomIndexed
 import com.saldubatech.dcf.node.components.transport.*
 import com.saldubatech.dcf.node.components.transport.bindings.{Discharge as DischargeBinding, DLink as LinkBinding, Induct as InductBinding}

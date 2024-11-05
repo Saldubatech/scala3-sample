@@ -1,7 +1,8 @@
 package com.saldubatech.dcf.node.machine
 
+import com.saldubatech.dcf.job.{Task, Wip as Wip2}
 import com.saldubatech.dcf.material.Material
-import com.saldubatech.dcf.node.components.action.{Action, Task, UnacknowledgingAction, Wip as Wip2}
+import com.saldubatech.dcf.node.components.action.{Action, UnacknowledgingAction}
 import com.saldubatech.dcf.node.components.buffers.SequentialBuffer
 import com.saldubatech.dcf.node.components.transport.{Discharge, Induct}
 import com.saldubatech.dcf.node.components.{Component, Sink, Subject, SubjectMixIn}

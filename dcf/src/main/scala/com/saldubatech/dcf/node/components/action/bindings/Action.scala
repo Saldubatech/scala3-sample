@@ -1,7 +1,8 @@
 package com.saldubatech.dcf.node.components.action.bindings
 
+import com.saldubatech.dcf.job.Wip
 import com.saldubatech.dcf.material.Material
-import com.saldubatech.dcf.node.components.action.{Wip, Action as ActionComponent}
+import com.saldubatech.dcf.node.components.action.Action as ActionComponent
 import com.saldubatech.ddes.elements.SimActor
 import com.saldubatech.ddes.types.{DomainMessage, Duration, Tick}
 import com.saldubatech.lang.types.*

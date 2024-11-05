@@ -1,16 +1,21 @@
 package com.saldubatech.dcf.node.machine
 
 import com.saldubatech.dcf.material.Material
-import com.saldubatech.dcf.node.components.transport.{Discharge, Transport}
-import com.saldubatech.dcf.node.components.{Component, Source, SourceImpl, SubjectMixIn}
-import com.saldubatech.ddes.types.{Duration, Tick}
+import com.saldubatech.dcf.node.components.transport.Discharge
+import com.saldubatech.dcf.node.components.transport.Transport
+import com.saldubatech.dcf.node.components.Component
+import com.saldubatech.dcf.node.components.Source
+import com.saldubatech.dcf.node.components.SourceImpl
+import com.saldubatech.dcf.node.components.SubjectMixIn
+import com.saldubatech.ddes.types.Duration
+import com.saldubatech.ddes.types.Tick
 import com.saldubatech.lang.types.*
-import com.saldubatech.lang.{Id, Identified}
+import com.saldubatech.lang.Id
+import com.saldubatech.lang.Identified
 import com.saldubatech.util.LogEnabled
 
 import scala.reflect.Typeable
 import scala.util.chaining.scalaUtilChainingOps
-
 
 object SourceMachine:
   type Identity = Component.Identity
@@ -21,37 +26,34 @@ object SourceMachine:
     trait Control:
       def go(at: Tick): UnitResult
     end Control
+
   end API // object
 
   object Environment:
+
     trait Listener extends Identified:
+      def startNotification(at: Tick, stationId: Id, sourceId: Id): Unit
       def loadArrival(at: Tick, stationId: Id, fromSource: Id, load: Material): Unit
       def loadInjected(at: Tick, stationId: Id, machine: Id, viaDischargeId: Id, load: Material): Unit
       def completeNotification(at: Tick, stationId: Id, machine: Id): Unit
 
     end Listener
+
   end Environment // object
 
 end SourceMachine // object
 
-
-trait SourceMachine[M <: Material]
-extends SourceMachine.Identity
-with SourceMachine.API.Control
-with SourceMachine.API.Management
+trait SourceMachine[M <: Material] extends SourceMachine.Identity with SourceMachine.API.Control with SourceMachine.API.Management
 
 end SourceMachine // trait
 
-
-class SourceMachineImpl[M <: Material]
-(
-  mId: Id,
-  override val stationId: Id,
-  sourcePhysics: Source.Physics[M],
-  outbound: Discharge.API.Upstream[M] & Discharge.API.Management[Discharge.Environment.Listener]
-)
-extends SourceMachine[M]
-with SubjectMixIn[SourceMachine.Environment.Listener]:
+class SourceMachineImpl[M <: Material](
+    mId: Id,
+    override val stationId: Id,
+    sourcePhysics: Source.Physics[M],
+    outbound: Discharge.API.Upstream[M] & Discharge.API.Management[Discharge.Environment.Listener]
+) extends SourceMachine[M]
+    with SubjectMixIn[SourceMachine.Environment.Listener]:
   selfMachine =>
   override lazy val id: Id = s"$stationId::Source[$mId]"
 
@@ -59,21 +61,23 @@ with SubjectMixIn[SourceMachine.Environment.Listener]:
 
   override def go(at: Tick): UnitResult = source.go(at)
 
-  private val sourceWatcher = new Source.Environment.Listener {
-    override lazy val id: Id = selfMachine.id
-    override def loadArrival(at: Tick, atStation: Id, atSource: Id, load: Material): Unit = doNotify(_.loadArrival(at, atStation, id, load))
-    override def loadDelivered(at: Tick, atStation: Id, atSource: Id, load: Material): Unit = ()
+  private val sourceWatcher = new Source.Environment.Listener:
+    override lazy val id: Id                                        = selfMachine.id
+    override def start(at: Tick, atStation: Id, atSource: Id): Unit = ()
+    override def loadArrival(at: Tick, atStation: Id, atSource: Id, load: Material): Unit =
+      doNotify(_.loadArrival(at, atStation, id, load))
+    override def loadDelivered(at: Tick, atStation: Id, atSource: Id, load: Material): Unit      = ()
     override def congestion(at: Tick, atStation: Id, atSource: Id, backup: List[Material]): Unit = ()
-    override def complete(at: Tick, atStation: Id, atSource: Id): Unit = doNotify(_.completeNotification(at, atStation, id))
-  }.tap(source.listen)
+    override def complete(at: Tick, atStation: Id, atSource: Id): Unit                           = doNotify(_.completeNotification(at, atStation, id))
+  .tap(source.listen)
 
-  private val dischargeWatcher = new Discharge.Environment.Listener {
+  private val dischargeWatcher = new Discharge.Environment.Listener:
     override lazy val id: Id = selfMachine.id
     def loadDischarged(at: Tick, stId: Id, discharge: Id, load: Material): Unit =
       // Nothing to do. The link will take it over the outbound transport
       doNotify(_.loadInjected(at, stationId, id, discharge, load))
-    def busyNotification(at: Tick, stId: Id, discharge: Id): Unit = source.pause(at) // this will happen when we run out of cards.
+    def busyNotification(at: Tick, stId: Id, discharge: Id): Unit           = source.pause(at) // this will happen when we run out of cards.
     def availableNotification(at: Tick, stationId: Id, discharge: Id): Unit = source.resume(at)
-  }.tap(outbound.listen)
+  .tap(outbound.listen)
 
 end SourceMachineImpl // class

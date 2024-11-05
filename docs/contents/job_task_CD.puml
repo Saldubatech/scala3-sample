@@ -6,8 +6,7 @@ end title
 hide empty members
 
 
-
-class JobSpec {
+class WorkOrder {
   +id: ID
 }
 
@@ -42,7 +41,7 @@ class Wip {
 Job *-[#blue]-> Task: composed\nof
 Job <.. Task: [implementation]
 
-Job -l-> JobSpec: Defined by
+Job -l-> WorkOrder: Defined by
 
 Task "0..1" -[#blue]> "1" Wip
 Task <.. Wip: [implementation]
@@ -63,11 +62,11 @@ state Failed
 
 [*] -> New
 
-New --> InProgress
+New --> InProgress: start
 
-InProgress --> Complete
+InProgress --> Complete: complete
 
-InProgress -> Failed
+InProgress -> Failed: fail
 Complete -> [*]
 Failed --> [*]
 
@@ -81,20 +80,24 @@ end title
 
 state Pending
 state InProgress {
+  state steps<<history>>
   state Inbound
   state Active
   state Outbound
-  [*] -> Inbound: Arrive
-  Inbound --> Active: Start
-  Active --> Outbound: End
-  Outbound -> [*] : Depart
+  state scrap<<end>>
+  [*] -> Inbound: Arrive(station)
+  Inbound --> Active: Activate
+  Active --> Outbound: Finish
+  Active -> scrap: TaskFail
+  Outbound -> [*] : Depart: TaskComplete
 }
 state Complete
-
-[*] -> Pending : New
-Pending --> InProgress: Accept
+state Scrapped<<end>>
+[*] -> Pending : Release
+Pending --> InProgress: Start
 InProgress <-- InProgress: TaskComplete[Not Last]
 InProgress --> Complete: TaskComplete[Last]
+InProgress -> Scrapped
 Complete -> [*]: Deliver
 
 hide empty description
