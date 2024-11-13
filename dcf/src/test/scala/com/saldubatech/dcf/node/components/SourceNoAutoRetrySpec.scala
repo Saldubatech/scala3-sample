@@ -1,46 +1,44 @@
 package com.saldubatech.dcf.node.components
 
-import com.saldubatech.test.BaseSpec
+import com.saldubatech.dcf.material.Material
+import com.saldubatech.dcf.node.ProbeInboundMaterial
+import com.saldubatech.ddes.types.Tick
 import com.saldubatech.lang.Id
-import com.saldubatech.dcf.material.{Material, Wip}
-import com.saldubatech.ddes.types.{Tick, Duration}
-import com.saldubatech.lang.types.{AppResult, UnitResult, AppSuccess, AppFail, AppError, collectAll}
-import com.saldubatech.dcf.job.{JobSpec, SimpleJobSpec}
-
-import com.saldubatech.dcf.node.{ProbeInboundMaterial}
+import com.saldubatech.test.BaseSpec
 import com.saldubatech.test.ddes.MockAsyncCallback
+import org.scalatest.matchers.should.Matchers.*
 
-import org.scalatest.matchers.should.Matchers._
-
-class SourceNoAutoRetrySpec extends BaseSpec {
-
+class SourceNoAutoRetrySpec extends BaseSpec:
 
   "A Source" when {
-    val engine = MockAsyncCallback()
+    val engine  = MockAsyncCallback()
     val nProbes = 4
-    val plannedArrivals = (1 to nProbes).map{ idx =>
-      idx*100L -> ProbeInboundMaterial(s"<$idx>", idx) }
-    val arrivalsIt = plannedArrivals.iterator
+    val plannedArrivals = (1 to nProbes).map { idx =>
+      idx * 100L -> ProbeInboundMaterial(s"<$idx>", idx)
+    }
+    val arrivalsIt       = plannedArrivals.iterator
     val arrivalGenerator = (currentTime: Tick) => arrivalsIt.nextOption()
-    val mockPhysicsStub = Harness.MockSourcePhysicsStub[ProbeInboundMaterial](engine)
-    val physics = Source.Physics(mockPhysicsStub, arrivalGenerator)
-    val mockSink = Harness.MockCongestedSink[ProbeInboundMaterial, Sink.Environment.Listener]("sink", "Downstream", 2)
+    val mockPhysicsStub  = Harness.MockSourcePhysicsStub[ProbeInboundMaterial](engine)
+    val physics          = Source.Physics(mockPhysicsStub, arrivalGenerator)
+    val mockSink         = Harness.MockCongestedSink[ProbeInboundMaterial, Sink.Environment.Listener]("sink", "Downstream", 2)
     val underTest = SourceImpl[ProbeInboundMaterial](
       sId = "source",
       stationId = "station",
       physics = physics,
       outbound = mockSink,
       autoRetry = false,
-      retryDelay = () => 10L,
+      retryDelay = () => 10L
     )
     mockPhysicsStub.underTest = underTest
-    class MockListener extends Source.Environment.Listener {
-      override lazy val id: Id = "MockListener"
-      val arrivals = collection.mutable.ListBuffer.empty[(Tick, Id, Id, Material)]
-      val deliveries = collection.mutable.ListBuffer.empty[(Tick, Id, Id, Material)]
-      val congestions = collection.mutable.ListBuffer.empty[(Tick, Id, Id, List[Material])]
-      var complete: (Tick, Id, Id) = null
+    class MockListener extends Source.Environment.Listener:
+      override lazy val id: Id     = "MockListener"
+      var started: (Tick, Id, Id)  = _
+      val arrivals                 = collection.mutable.ListBuffer.empty[(Tick, Id, Id, Material)]
+      val deliveries               = collection.mutable.ListBuffer.empty[(Tick, Id, Id, Material)]
+      val congestions              = collection.mutable.ListBuffer.empty[(Tick, Id, Id, List[Material])]
+      var complete: (Tick, Id, Id) = _
 
+      override def start(at: Tick, atStation: Id, atSource: Id): Unit = started = (at, atStation, atSource)
       override def loadArrival(at: Tick, atStation: Id, atSource: Id, load: Material): Unit =
         arrivals += ((at, atStation, atSource, load))
       override def loadDelivered(at: Tick, atStation: Id, atSource: Id, load: Material): Unit =
@@ -48,15 +46,14 @@ class SourceNoAutoRetrySpec extends BaseSpec {
       override def congestion(at: Tick, atStation: Id, atSource: Id, backup: List[Material]): Unit =
         congestions += ((at, atStation, atSource, backup))
 
-      override def complete(at: Tick, atStation: Id, atSource: Id): Unit =
-        complete = (at, atStation, atSource)
-    }
+      override def complete(at: Tick, atStation: Id, atSource: Id): Unit = complete = (at, atStation, atSource)
     val listener = new MockListener()
     underTest.listen(listener)
     "just created with a defined arrival sequence" should {
       "complete the first arrival as sent to the outbound sink" in {
         underTest.go(0) shouldBe Symbol("isRight")
         engine.runOne() shouldBe Symbol("isRight")
+        listener.started shouldBe (0, "station", "station::Source[source]")
         listener.arrivals.size shouldBe 1
         listener.deliveries.size shouldBe 0
         listener.congestions.size shouldBe 0
@@ -119,7 +116,3 @@ class SourceNoAutoRetrySpec extends BaseSpec {
       }
     }
   }
-}
-
-
-

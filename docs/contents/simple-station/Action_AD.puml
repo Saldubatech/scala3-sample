@@ -1,0 +1,75 @@
+@startuml (id=PushStation_WIP_AD)
+
+title
+= Action Activity Diagram
+end title
+
+|Control|
+|Upstream|
+|Action|
+|DownStream|
+|Upstream|
+start
+:deliver;
+fork
+  -[#lightGreen]->
+  #lightGreen:loadDelivered;<<output>>
+  |Control|
+  :loadDelivered;<<input>>
+  |Action|
+  :request;
+  -[#lightGreen]->
+  #lightGreen:taskRequested;<<output>>
+  |Control|
+  :taskRequested;<<input>>
+  fork
+    |Control|
+    -[#lightGreen]->
+    #lightGreen:jobArrival;<<output>>
+    end
+  fork again
+     :!start;<<output>>
+     |Action|
+     :start;
+     fork
+       -[#lightGreen]->
+       #lightGreen:taskStarted;<<output>>
+       |Control|
+       :taskStarted;<<input>>
+       end
+     fork again
+       |Action|
+       :finalize;
+       fork
+          |Action|
+          -[#lightGreen]->
+          #lightGreen:taskCompleted;<<output>>
+          |Control|
+          :taskCompleted;<<input>>
+          end
+       fork again
+          |Downstream|
+          :acceptMaterialRequest;
+          end
+       |Control|
+       :.;
+       end merge
+       kill
+     end merge
+     kill
+  end merge
+  kill
+fork again
+  |Upstream|
+  :accept;
+  |Action|
+  :acceptMaterialRequest;
+  -[#lightGreen]->
+  #lightGreen:loadAccepted;
+  |Control|
+  :loadAccepted;<<input>>
+  end
+end merge
+
+stop
+@enduml

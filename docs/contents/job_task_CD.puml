@@ -1,0 +1,105 @@
+@startuml
+title
+= Job and Task Model
+end title
+
+hide empty members
+
+
+class WorkOrder {
+  +id: ID
+}
+
+class Job {
+  +id: ID
+}
+
+class Task {
+  +id: ID
+  +stationId: ID
+  +elementId: ID
+  +materialRequirements: Iterable<Supply.Requirement<Material, ?>>
+  +entryResourceRequirements: Iterable <ResourcePool.Requirement<?>>
+  +startResourceRequirements: Iterable <ResourcePool.Requirement<?>>
+  +produce(at, materials, entryResources, startResource): OB <: Material
+}
+
+class Wip {
+  +id: ID
+  +arrived: Tick
+  +entryResources: Iterable[ResourcePool.Resource<?>
+  --
+  +started; Tick
+  +startResources: Iterable<Supply.Allocation<Material, ?>>
+  +materialAllocations: Iterable[Supply.Allocation[Material, ?]]
+  --
+  +completed: Tick
+  +product: P <: Material
+  materials: Iterable<Material>
+}
+
+Job *-[#blue]-> Task: composed\nof
+Job <.. Task: [implementation]
+
+Job -l-> WorkOrder: Defined by
+
+Task "0..1" -[#blue]> "1" Wip
+Task <.. Wip: [implementation]
+
+@enduml
+
+@startuml
+
+title
+= WIP Lifecycle
+end title
+hide empty description
+
+state New<<AtRest>>
+state InProgress<<Processing>>
+state Complete
+state Failed
+
+[*] -> New
+
+New --> InProgress: start
+
+InProgress --> Complete: complete
+
+InProgress -> Failed: fail
+Complete -> [*]
+Failed --> [*]
+
+@enduml
+
+@startuml
+
+title
+= Job Lifecycle
+end title
+
+state Pending
+state InProgress {
+  state steps<<history>>
+  state Inbound
+  state Active
+  state Outbound
+  state scrap<<end>>
+  [*] -> Inbound: Arrive(station)
+  Inbound --> Active: Activate
+  Active --> Outbound: Finish
+  Active -> scrap: TaskFail
+  Outbound -> [*] : Depart: TaskComplete
+}
+state Complete
+state Scrapped<<end>>
+[*] -> Pending : Release
+Pending --> InProgress: Start
+InProgress <-- InProgress: TaskComplete[Not Last]
+InProgress --> Complete: TaskComplete[Last]
+InProgress -> Scrapped
+Complete -> [*]: Deliver
+
+hide empty description
+
+@enduml

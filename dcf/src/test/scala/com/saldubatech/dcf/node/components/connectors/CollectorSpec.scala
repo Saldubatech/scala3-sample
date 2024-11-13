@@ -1,22 +1,17 @@
 package com.saldubatech.dcf.node.components.connectors
 
-import com.saldubatech.test.BaseSpec
-import com.saldubatech.lang.Id
-import com.saldubatech.dcf.material.{Material, Wip}
+import com.saldubatech.dcf.material.Material
+import com.saldubatech.dcf.node.ProbeInboundMaterial
+import com.saldubatech.dcf.node.components.{Component, Sink, SubjectMixIn}
+import com.saldubatech.dcf.node.components.Harness.MockSink
 import com.saldubatech.dcf.node.components.buffers.RandomIndexed
-import com.saldubatech.dcf.node.components.SubjectMixIn
 import com.saldubatech.ddes.types.Tick
-import com.saldubatech.lang.types.{AppResult, UnitResult, AppSuccess, AppFail, AppError, collectAll}
-import com.saldubatech.dcf.job.{JobSpec, SimpleJobSpec}
+import com.saldubatech.lang.Id
+import com.saldubatech.lang.types.*
+import com.saldubatech.test.BaseSpec
+import org.scalatest.matchers.should.Matchers.*
 
 import scala.reflect.Typeable
-
-import com.saldubatech.dcf.node.{ProbeInboundMaterial, ProbeOutboundMaterial}
-
-import com.saldubatech.dcf.node.components.{Sink, Component}
-
-import org.scalatest.matchers.should.Matchers._
-import com.saldubatech.dcf.node.components.Harness.MockSink
 
 object CollectorSpec:
   class ProxySink[M <: Material, LISTENER <: Sink.Environment.Listener : Typeable]
@@ -51,7 +46,7 @@ object CollectorSpec:
 end CollectorSpec // object
 
 class CollectorSpec extends BaseSpec:
-  import CollectorSpec._
+  import CollectorSpec.*
 
   "A Collector" when {
     val aritySpec = 22

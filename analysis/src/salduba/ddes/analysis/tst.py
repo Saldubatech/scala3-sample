@@ -2,7 +2,7 @@ import sqlalchemy
 from sqlalchemy.engine.base import Engine
 
 
-class Tst():
+class Tst:
   pass
 
 

@@ -2,8 +2,8 @@ package com.saldubatech.dcf.node
 
 import com.saldubatech.lang.Id
 import com.saldubatech.lang.types.{AppFail, AppSuccess}
-import org.scalatest.matchers.should.Matchers._
 import com.saldubatech.test.BaseSpec
+import org.scalatest.matchers.should.Matchers.*
 
 
 class StateTest extends BaseSpec {

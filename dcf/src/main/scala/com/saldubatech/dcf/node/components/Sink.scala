@@ -1,10 +1,9 @@
 package com.saldubatech.dcf.node.components
 
-import com.saldubatech.dcf.job.JobSpec
-import com.saldubatech.dcf.material.{Material, Wip, MaterialPool}
+import com.saldubatech.dcf.material.Material
+import com.saldubatech.ddes.types.Tick
 import com.saldubatech.lang.{Id, Identified}
 import com.saldubatech.lang.types.*
-import com.saldubatech.ddes.types.Tick
 
 object Sink:
   type Identity = Component.Identity

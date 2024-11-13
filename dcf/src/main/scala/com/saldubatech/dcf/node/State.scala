@@ -1,9 +1,9 @@
 package com.saldubatech.dcf.node
 
-import com.saldubatech.lang.types._
-import com.saldubatech.lang.Id
-import com.saldubatech.util.stack
 import com.saldubatech.ddes.types.Tick
+import com.saldubatech.lang.Id
+import com.saldubatech.lang.types.*
+import com.saldubatech.util.stack
 
 import scala.util.chaining.scalaUtilChainingOps
 

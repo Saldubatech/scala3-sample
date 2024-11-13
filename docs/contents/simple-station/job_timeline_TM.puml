@@ -1,0 +1,163 @@
+@startuml
+title
+= Push Reactive Job Timeline
+end title
+scale 10 as 10 pixels
+
+concise Order
+concise Facility
+concise Source
+concise Station
+concise Sink
+concise Action
+concise Material
+
+Order is {-}
+
+@0
+Source is Generate
+
+@+70
+Source is {-}
+Source -[#grey]> Order: new Job
+
+Source -[#red]> Material: deliver
+Material is Discharging
+
+@+10
+Order -[#red]> Facility: NewJob
+Facility is Job
+
+@+10
+Facility -[#red]> Source: new Task
+Source is Task
+
+@+70
+Material -[#grey]> Source: departed
+Material is Transporting
+
+@+10
+Source is {hidden}
+Source -[#grey]> Facility: task Complete
+
+@+90
+Material is Inducting
+
+@+80
+Material -[#grey]> Station: arrival
+Material is {-}
+Station is onArrival
+
+@+80
+Station -[#grey]> Facility: arrival
+'Facility is Job
+Station is {-}
+
+@+10
+Facility -[#red]> Station: new Task
+Station is Task
+
+@+10
+Station -[#red]> Action: load
+Action is Loader
+
+@+10
+Material is Loading
+Action -[#red]> Material: start
+
+@+70
+Material -[#grey]> Action:finalize
+Material is {-}
+
+@+10
+Action -[#grey]> Station: loaded
+Action is {hidden}
+
+@+10
+Station -[#red]> Action: process
+Action is Processor
+
+@+10
+Action -[#red]> Material: start
+Material is Processing
+
+@+80
+Material -[#grey]> Action: finalize
+Material is {-}
+
+@+10
+Action is {hidden}
+Action -[#grey]> Station: complete
+
+@+10
+Station -[#red]> Action: unload
+Action is Unloader
+
+@+10
+Action -[#red]> Material: start
+Material is Unloading
+
+@+80
+Material -[#grey]> Action: finalize
+Material is {-}
+
+@+10
+Action is {hidden}
+Action -[#grey]> Station: unloaded
+Action -[#red]> Material: deliver
+
+Material is Discharging
+
+@+100
+Material -[#grey]> Station: departed
+Material is Transporting
+
+@+10
+Station -[#grey]> Facility: TaskComplete
+Station is {hidden}
+
+@+80
+Material is Inducting
+
+@+80
+Material -[#grey]> Sink: arrival
+Material is {-}
+Sink is onArrival
+
+@+80
+Sink -[#grey]> Facility: arrival
+Sink is {-}
+
+@+10
+Facility -[#red]> Sink: newTask
+Sink is Task
+
+@+10
+Sink -[#red]> Action: start
+Action is Ship
+
+@+10
+Action -[#red]> Material: start
+Material is Shipping
+
+@+70
+Material -[#grey]> Action: finalize
+Material is {-}
+
+@+10
+Action is {hidden}
+Action -[#grey]> Sink: shipped
+
+@+10
+Sink is {hidden}
+Sink -[#grey]> Facility: TaskComplete
+
+@+10
+Facility is {hidden}
+Facility -[#grey]> Order: fulfilled
+'Order is {hidden}
+
+@+100
+
+
+@enduml

@@ -1,7 +1,7 @@
 package com.saldubatech.dcf.node.components
 
 import com.saldubatech.lang.{Id, Identified}
-import com.saldubatech.lang.types.{AppFail, AppResult, AppSuccess, UnitResult, CollectedError, AppError}
+import com.saldubatech.lang.types.*
 
 object Component:
   trait Identity extends Identified:

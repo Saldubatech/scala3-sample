@@ -1,23 +1,11 @@
 package com.saldubatech.dcf.node.machine
 
-import com.saldubatech.test.BaseSpec
+import com.saldubatech.dcf.material.Material
+import com.saldubatech.dcf.node.ProbeInboundMaterial
+import com.saldubatech.dcf.node.components.transport.{Discharge, Harness as TransportHarness}
 import com.saldubatech.lang.Id
-import com.saldubatech.dcf.material.{Material, Wip}
-import com.saldubatech.ddes.types.Tick
-import com.saldubatech.lang.types.{AppResult, UnitResult, AppSuccess, AppFail, AppError, collectAll}
-import com.saldubatech.dcf.job.{JobSpec, SimpleJobSpec}
-
-import com.saldubatech.dcf.node.{ProbeInboundMaterial, ProbeOutboundMaterial}
-
-import com.saldubatech.dcf.node.components.{Sink, Harness as ComponentsHarness}
-import com.saldubatech.dcf.node.components.transport.{Transport, TransportImpl, Discharge, Induct, Link}
-
 import com.saldubatech.test.ddes.MockAsyncCallback
-import com.saldubatech.dcf.node.components.transport.{Harness as TransportHarness}
-
-import org.scalatest.matchers.should.Matchers._
-
-import scala.util.chaining.scalaUtilChainingOps
+import org.scalatest.matchers.should.Matchers.*
 
 object Harness:
   val ibDiscDelay = 1L

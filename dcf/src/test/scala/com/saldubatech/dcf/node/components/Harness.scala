@@ -1,12 +1,10 @@
 package com.saldubatech.dcf.node.components
 
-import com.saldubatech.dcf.job.JobSpec
+import com.saldubatech.dcf.material.Material
+import com.saldubatech.ddes.types.Tick
 import com.saldubatech.lang.Id
-import com.saldubatech.dcf.material.{Material, Wip}
-import com.saldubatech.ddes.types.{Tick, Duration}
-import com.saldubatech.lang.types.{AppResult, UnitResult, AppSuccess, AppFail, AppError}
+import com.saldubatech.lang.types.*
 import com.saldubatech.test.ddes.MockAsyncCallback
-
 
 import scala.reflect.Typeable
 

@@ -1,14 +1,13 @@
 package com.saldubatech.dcf.node.components.transport.bindings
 
-import com.saldubatech.lang.{Id, Identified}
-import com.saldubatech.lang.types._
-import com.saldubatech.math.randomvariables.Distributions.probability
-import com.saldubatech.ddes.types.{Tick, Duration, DomainMessage}
-import com.saldubatech.ddes.elements.SimActor
 import com.saldubatech.dcf.material.Material
-import com.saldubatech.dcf.node.components.{Sink, Component}
-import com.saldubatech.dcf.node.components.transport.{Induct as InductComponent, Discharge as DischargeComponent, Link as LinkComponent}
-import com.saldubatech.dcf.node.components.transport.LinkMixIn
+import com.saldubatech.dcf.node.components.{Component, Sink}
+import com.saldubatech.dcf.node.components.transport.{LinkMixIn, Discharge as DischargeComponent, Induct as InductComponent, Link as LinkComponent}
+import com.saldubatech.ddes.elements.SimActor
+import com.saldubatech.ddes.types.{DomainMessage, Duration, Tick}
+import com.saldubatech.lang.{Id, Identified}
+import com.saldubatech.lang.types.*
+import com.saldubatech.math.randomvariables.Distributions.probability
 
 import scala.reflect.Typeable
 

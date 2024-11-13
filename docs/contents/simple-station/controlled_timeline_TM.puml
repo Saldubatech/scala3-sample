@@ -1,0 +1,64 @@
+
+@startuml
+hide time-axis
+scale 10 as 10 pixels
+'mode compact
+!include timeline_defs.ipuml
+
+title
+= Controlled Order Execution Timeline
+end title
+
+@0
+robust "Order Lifecycle" as Order
+Order has Fulfilled,Active,Requested,Idle
+Order is Idle
+concise Inbound
+Inbound is INBOUND
+concise Facility
+concise Sep
+$declareStation("St", "1", lightBlue)
+$declareStation("St", "2", lightGrey)
+
+robust Resources
+Resources is _
+
+concise Outbound
+Outbound is OUTBOUND
+
+@50
+Inbound -> Loading_1@+80: acceptLoad
+Inbound -[#grey]> Order: loadArrival
+'Loading_1 is {-}
+
+Order is {Idle,Requested}
+
+@+10
+Order -[#red]> Facility: WorkOrder
+Facility is Requested
+
+@+100
+Facility -[#grey]> Order: accepted
+Order is {Idle,Active}
+Facility is InProgress
+
+Facility -[#red]> St_1: New Task
+$mechanism("St", "1", "Facility", "Loading_2", -30, 100)
+
+@250
+Facility -[#red]> St_2: New Task
+$mechanism("St", "2", "Facility", "Outbound", 400, 100)
+
+Facility is Shipping
+
+@+100
+Facility -[#grey]> Order: fulfilled
+Order is {Idle,Fulfilled}
+Facility is {hidden}
+
+@+80
+Order is Idle
+Outbound is {hidden}
+Inbound is {hidden}
+
+@enduml
