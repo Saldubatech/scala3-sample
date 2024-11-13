@@ -8,19 +8,18 @@ import com.saldubatech.dcf.node.components.transport.*
 import com.saldubatech.dcf.node.components.transport.bindings.{Discharge as DischargeBinding, DLink as LinkBinding, Induct as InductBinding}
 import com.saldubatech.dcf.node.machine.bindings.Source as SourceBinding
 import com.saldubatech.dcf.node.station.configurations.{Inbound, Outbound, ProcessConfiguration}
-import com.saldubatech.ddes.elements.{SimActor, SimulationComponent}
+import com.saldubatech.ddes.elements.SimulationComponent
 import com.saldubatech.ddes.runtime.{Clock, OAM}
 import com.saldubatech.ddes.system.SimulationSupervisor
-import com.saldubatech.ddes.types.{DomainMessage, Duration, Tick}
+import com.saldubatech.ddes.types.{Duration, Tick}
 import com.saldubatech.lang.Id
 import com.saldubatech.lang.types.*
-import com.saldubatech.test.BaseSpec
 import com.saldubatech.util.LogEnabled
 import org.apache.pekko.actor.testkit.typed.scaladsl.{ActorTestKit, FishingOutcomes}
 import org.apache.pekko.actor.typed.{ActorRef, ActorSystem}
 import org.apache.pekko.actor.typed.scaladsl.ActorContext
 import org.scalatest.matchers.should.Matchers
-import zio.test.{assertCompletes, assertTrue, ZIOSpecDefault}
+import zio.test.{assertCompletes, ZIOSpecDefault}
 
 import scala.concurrent.duration.*
 

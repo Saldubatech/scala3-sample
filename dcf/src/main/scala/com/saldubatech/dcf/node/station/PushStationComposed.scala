@@ -2,16 +2,12 @@ package com.saldubatech.dcf.node.station
 
 import com.saldubatech.dcf.job.{Task, Wip, WipNotification}
 import com.saldubatech.dcf.material.{Material, Supply}
-import com.saldubatech.dcf.node.components.action.bindings.Action as ActionBinding
 import com.saldubatech.dcf.node.components.action.{Action, UnacknowledgingAction}
+import com.saldubatech.dcf.node.components.action.bindings.Action as ActionBinding
 import com.saldubatech.dcf.node.components.buffers.{BoundedIndexed, RandomAccess, RandomIndexed}
 import com.saldubatech.dcf.node.components.resources.{ResourceType, UnitResourcePool}
-import com.saldubatech.dcf.node.components.transport.bindings.{
-  DLink as LinkBinding,
-  Discharge as DischargeBinding,
-  Induct as InductBinding
-}
 import com.saldubatech.dcf.node.components.transport.{Discharge, Induct, Link, Transport}
+import com.saldubatech.dcf.node.components.transport.bindings.{Discharge as DischargeBinding, DLink as LinkBinding, Induct as InductBinding}
 import com.saldubatech.dcf.node.machine.PushMachineComposed
 import com.saldubatech.dcf.node.station.configurations.ProcessConfiguration
 import com.saldubatech.dcf.node.station.observer.{InMemorySubject, Subject}

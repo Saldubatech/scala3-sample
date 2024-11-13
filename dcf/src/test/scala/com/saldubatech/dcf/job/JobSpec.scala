@@ -3,8 +3,6 @@ package com.saldubatech.dcf.job
 import com.saldubatech.lang.Id
 import org.scalatest.wordspec.AnyWordSpec
 
-import scala.collection.mutable
-
 // Assuming Id, WorkOrder, and Tick are simple types, replace with actual definitions if needed
 type Id = Int
 

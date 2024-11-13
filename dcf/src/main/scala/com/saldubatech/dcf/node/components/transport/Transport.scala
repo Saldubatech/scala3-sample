@@ -2,11 +2,8 @@ package com.saldubatech.dcf.node.components.transport
 
 import com.saldubatech.dcf.material.Material
 import com.saldubatech.dcf.node.components.buffers.Buffer
-import com.saldubatech.dcf.node.components.{Component, Sink, Subject, SubjectMixIn}
-import com.saldubatech.ddes.elements.SimActor
-import com.saldubatech.ddes.types.{DomainMessage, Tick}
-import com.saldubatech.lang.types.*
 import com.saldubatech.lang.{Id, Identified}
+import com.saldubatech.lang.types.*
 
 import scala.reflect.Typeable
 import scala.util.chaining.*

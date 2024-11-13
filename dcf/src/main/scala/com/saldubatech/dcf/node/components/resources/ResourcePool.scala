@@ -3,10 +3,10 @@ package com.saldubatech.dcf.node.components.resources
 import com.saldubatech.dcf.material.{Eaches, Material}
 import com.saldubatech.dcf.node.State
 import com.saldubatech.ddes.types.Tick
-import com.saldubatech.lang.types.*
 import com.saldubatech.lang.{Id, Identified}
+import com.saldubatech.lang.types.*
 
-import scala.reflect.{ClassTag, TypeTest, Typeable}
+import scala.reflect.{ClassTag, Typeable, TypeTest}
 import scala.util.chaining.scalaUtilChainingOps
 
 

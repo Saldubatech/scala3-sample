@@ -3,14 +3,7 @@ package com.saldubatech.dcf.node.machine
 import com.saldubatech.dcf.material.Material
 import com.saldubatech.dcf.node.ProbeInboundMaterial
 import com.saldubatech.dcf.node.components.buffers.RandomIndexed
-import com.saldubatech.dcf.node.components.transport.{
-  Discharge,
-  Harness as TransportHarness,
-  Induct,
-  Link,
-  Transfer,
-  TransportImpl
-}
+import com.saldubatech.dcf.node.components.transport.{Discharge, Induct, Link, Transfer, TransportImpl, Harness as TransportHarness}
 import com.saldubatech.ddes.types.Tick
 import com.saldubatech.lang.Id
 import com.saldubatech.lang.types.*

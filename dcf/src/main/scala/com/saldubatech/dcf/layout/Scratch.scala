@@ -1,7 +1,7 @@
 package com.saldubatech.dcf.layout
 
-import com.saldubatech.lang.types.*
 import com.saldubatech.lang.{Id, Identified}
+import com.saldubatech.lang.types.*
 import com.saldubatech.util.LogEnabled
 
 class LayoutBuilder extends Topology:

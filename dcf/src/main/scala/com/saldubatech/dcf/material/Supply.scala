@@ -5,7 +5,7 @@ import com.saldubatech.ddes.types.Tick
 import com.saldubatech.lang.{Id, Identified}
 import com.saldubatech.lang.types.*
 
-import scala.reflect.{ClassTag, Typeable, TypeTest}
+import scala.reflect.{ClassTag, Typeable}
 import scala.util.chaining.scalaUtilChainingOps
 
 object Supply:

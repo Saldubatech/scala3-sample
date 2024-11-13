@@ -1,13 +1,10 @@
 package com.saldubatech.dcf.node.machine.bindings
 
-import com.saldubatech.dcf.material.Material
 import com.saldubatech.dcf.node.machine.SourceMachine
 import com.saldubatech.ddes.elements.SimActor
-import com.saldubatech.ddes.types.DomainMessage
-import com.saldubatech.ddes.types.Tick
+import com.saldubatech.ddes.types.{DomainMessage, Tick}
 import com.saldubatech.lang.Id
 import com.saldubatech.lang.types.*
-import com.saldubatech.dcf.node.station.observer.bindings.Listener as ListenerBinding
 
 object Source:
   object API:

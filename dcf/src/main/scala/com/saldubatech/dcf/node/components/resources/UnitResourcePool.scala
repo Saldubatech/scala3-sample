@@ -1,8 +1,8 @@
 package com.saldubatech.dcf.node.components.resources
 
 import com.saldubatech.ddes.types.Tick
-import com.saldubatech.lang.types.*
 import com.saldubatech.lang.{Id, Identified}
+import com.saldubatech.lang.types.*
 //import com.saldubatech.dcf.resource.{AdministrativeTransitions, UsageState}
 import com.saldubatech.dcf.material.{Eaches, Material}
 import com.saldubatech.dcf.node.State

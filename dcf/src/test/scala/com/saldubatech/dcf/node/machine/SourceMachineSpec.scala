@@ -2,15 +2,9 @@ package com.saldubatech.dcf.node.machine
 
 import com.saldubatech.dcf.material.Material
 import com.saldubatech.dcf.node.ProbeInboundMaterial
-import com.saldubatech.dcf.node.components.Source
-import com.saldubatech.dcf.node.components.Harness as ComponentsHarness
+import com.saldubatech.dcf.node.components.{Source, Harness as ComponentsHarness}
 import com.saldubatech.dcf.node.components.buffers.RandomIndexed
-import com.saldubatech.dcf.node.components.transport.Discharge
-import com.saldubatech.dcf.node.components.transport.Induct
-import com.saldubatech.dcf.node.components.transport.Link
-import com.saldubatech.dcf.node.components.transport.Transfer
-import com.saldubatech.dcf.node.components.transport.TransportImpl
-import com.saldubatech.dcf.node.components.transport.Harness as TransportHarness
+import com.saldubatech.dcf.node.components.transport.{Discharge, Induct, Link, Transfer, TransportImpl, Harness as TransportHarness}
 import com.saldubatech.ddes.types.Tick
 import com.saldubatech.lang.Id
 import com.saldubatech.lang.types.*
@@ -18,8 +12,7 @@ import com.saldubatech.test.BaseSpec
 import com.saldubatech.test.ddes.MockAsyncCallback
 import org.scalatest.matchers.should.Matchers.*
 
-import scala.reflect.Typeable
-import scala.reflect.given
+import scala.reflect.{Typeable, given}
 import scala.util.chaining.scalaUtilChainingOps
 
 object SourceMachineSpec:

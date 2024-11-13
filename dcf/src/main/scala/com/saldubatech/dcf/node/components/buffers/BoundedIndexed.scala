@@ -1,8 +1,8 @@
 package com.saldubatech.dcf.node.components.buffers
 
 import com.saldubatech.ddes.types.Tick
-import com.saldubatech.lang.types.*
 import com.saldubatech.lang.{Id, Identified}
+import com.saldubatech.lang.types.*
 
 class BoundedIndexed[M <: Identified](
   base: Buffer.Unbound[M] & Buffer.Indexed[M],

@@ -1,12 +1,11 @@
 package com.saldubatech.dcf.node.machine
 
 import com.saldubatech.dcf.material.Material
-import com.saldubatech.dcf.node.components.transport.{Induct, Transport}
 import com.saldubatech.dcf.node.components.{Component, Sink, SubjectMixIn}
+import com.saldubatech.dcf.node.components.transport.Induct
 import com.saldubatech.ddes.types.Tick
-import com.saldubatech.lang.types.*
 import com.saldubatech.lang.{Id, Identified}
-import com.saldubatech.util.{stack, LogEnabled}
+import com.saldubatech.lang.types.*
 
 import scala.reflect.Typeable
 import scala.util.chaining.scalaUtilChainingOps

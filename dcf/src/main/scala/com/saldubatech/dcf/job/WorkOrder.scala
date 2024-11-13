@@ -2,8 +2,7 @@ package com.saldubatech.dcf.job
 
 import com.saldubatech.dcf.material.Material
 import com.saldubatech.ddes.types.Tick
-import com.saldubatech.lang.Id
-import com.saldubatech.lang.Identified
+import com.saldubatech.lang.{Id, Identified}
 
 object WorkOrder:
 

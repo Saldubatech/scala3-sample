@@ -1,8 +1,7 @@
 package com.saldubatech.dcf.node.components
 
-import com.saldubatech.ddes.types.Tick
-import com.saldubatech.lang.types.*
 import com.saldubatech.lang.{Id, Identified}
+import com.saldubatech.lang.types.*
 
 import scala.reflect.Typeable
 

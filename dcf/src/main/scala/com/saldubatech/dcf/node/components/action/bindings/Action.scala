@@ -5,8 +5,8 @@ import com.saldubatech.dcf.material.Material
 import com.saldubatech.dcf.node.components.action.Action as ActionComponent
 import com.saldubatech.ddes.elements.SimActor
 import com.saldubatech.ddes.types.{DomainMessage, Duration, Tick}
-import com.saldubatech.lang.types.*
 import com.saldubatech.lang.{Id, Identified}
+import com.saldubatech.lang.types.*
 
 object Action:
   object API:

@@ -1,12 +1,12 @@
 package com.saldubatech.dcf.node.components.transport.bindings
 
 import com.saldubatech.dcf.material.Material
-import com.saldubatech.dcf.node.components.transport.Discharge as DischargeComponent
 import com.saldubatech.dcf.node.components.{Component, Subject, SubjectMixIn}
+import com.saldubatech.dcf.node.components.transport.Discharge as DischargeComponent
 import com.saldubatech.ddes.elements.SimActor
 import com.saldubatech.ddes.types.{DomainMessage, Duration, Tick}
-import com.saldubatech.lang.types.*
 import com.saldubatech.lang.{Id, Identified}
+import com.saldubatech.lang.types.*
 import com.saldubatech.math.randomvariables.Distributions.probability
 
 import scala.reflect.Typeable

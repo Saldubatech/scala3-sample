@@ -2,13 +2,13 @@ package com.saldubatech.dcf.node.machine
 
 import com.saldubatech.dcf.job.{Task, Wip}
 import com.saldubatech.dcf.material.Material
+import com.saldubatech.dcf.node.components.{Component, Subject, SubjectMixIn}
 import com.saldubatech.dcf.node.components.action.{Action, UnacknowledgingAction}
 import com.saldubatech.dcf.node.components.buffers.SequentialBuffer
 import com.saldubatech.dcf.node.components.transport.{Discharge, Induct}
-import com.saldubatech.dcf.node.components.{Component, Sink, Subject, SubjectMixIn}
 import com.saldubatech.ddes.types.Tick
-import com.saldubatech.lang.types.*
 import com.saldubatech.lang.{Id, Identified}
+import com.saldubatech.lang.types.*
 
 import scala.reflect.{ClassTag, Typeable}
 import scala.util.chaining.scalaUtilChainingOps

@@ -5,8 +5,7 @@
 package com.saldubatech.dcf.job
 
 import com.saldubatech.ddes.types.Tick
-import com.saldubatech.lang.Id
-import com.saldubatech.lang.Identified
+import com.saldubatech.lang.{Id, Identified}
 import com.saldubatech.lang.types.datetime.Epoch
 
 object JobNotification:

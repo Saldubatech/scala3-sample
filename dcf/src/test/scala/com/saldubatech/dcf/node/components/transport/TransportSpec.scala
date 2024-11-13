@@ -7,9 +7,8 @@ import com.saldubatech.lang.Id
 import com.saldubatech.lang.types.*
 import com.saldubatech.test.BaseSpec
 import com.saldubatech.test.ddes.MockAsyncCallback
-import org.scalatest.matchers.should.Matchers.*
 import org.scalatest.matchers.should.given
-import org.scalatest.matchers.should.Matchers.given
+import org.scalatest.matchers.should.Matchers.{*, given}
 
 import scala.language.postfixOps
 

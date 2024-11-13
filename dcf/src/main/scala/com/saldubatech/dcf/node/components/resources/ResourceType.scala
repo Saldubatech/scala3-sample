@@ -1,8 +1,8 @@
 package com.saldubatech.dcf.node.components.resources
 
 import com.saldubatech.dcf.material.Eaches
-import com.saldubatech.lang.types.*
 import com.saldubatech.lang.{Id, Identified}
+import com.saldubatech.lang.types.*
 
 
 sealed trait ResourceType extends Any with Identified:

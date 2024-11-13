@@ -1,17 +1,15 @@
 package com.saldubatech.dcf.node.components.action
 
 import com.saldubatech.dcf.job.{Task, Wip}
-import com.saldubatech.dcf.material.{Eaches, Material, MaterialSupplyFromBuffer, Supply}
+import com.saldubatech.dcf.material.{Material, MaterialSupplyFromBuffer, Supply}
+import com.saldubatech.dcf.node.components.{Component, Sink, SubjectMixIn}
 import com.saldubatech.dcf.node.components.buffers.{Buffer, RandomAccess, RandomIndexed}
 import com.saldubatech.dcf.node.components.resources.{ResourceType, UnitResourcePool}
-import com.saldubatech.dcf.node.components.{Component, Sink, SubjectMixIn}
 import com.saldubatech.ddes.types.{Duration, Tick}
-import com.saldubatech.lang.types.*
 import com.saldubatech.lang.{Id, Identified}
+import com.saldubatech.lang.types.*
 import com.saldubatech.math.randomvariables.Distributions.probability
-import com.saldubatech.util.{stack, LogEnabled}
-
-import scala.util.chaining.scalaUtilChainingOps
+import com.saldubatech.util.LogEnabled
 
 object Action:
 
