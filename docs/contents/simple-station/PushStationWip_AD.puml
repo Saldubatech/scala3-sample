@@ -1,0 +1,107 @@
+@startuml (id=PushStation_WIP_AD)
+
+title
+= PushStation WIP Activity Diagram
+end title
+
+|External|
+| Station\nControl|
+|Machine\n Control|
+|Induct|
+|  PushMachine\n[LoadingAction]|
+|PushMachine\n [Processing]|
+|PushMachine\n [Unloading]|
+|External|
+start
+|Induct|
+:loadArriving;
+:inductionFinalize;
+|Machine\n Control|
+#lightGreen:loadArrival<
+|Induct|
+:deliver;
+fork
+  #lightGreen:loadDelivered>
+  |Machine\n Control|
+  :request;
+  |  PushMachine\n[LoadingAction]|
+  :requestTask;
+  #lightGreen:taskRequested>
+  |Machine\n Control|
+  :taskRequested<
+  fork
+    #lightGreen:jobArrival<
+    | Station\nControl|
+    end
+  fork again
+    |  PushMachine\n[LoadingAction]|
+    :start;
+    fork
+      #lightGreen:taskStarted>
+      |Machine\n Control|
+      end
+    |  PushMachine\n[LoadingAction]|
+    fork again
+      :finalize;
+      fork
+        #lightGreen:taskCompleted>
+        |Machine\n Control|
+        :request;
+        |PushMachine\n [Processing]|
+        :requestTask;
+        #lightGreen:taskRequested>
+        |Machine\n Control|
+        :taskRequested<
+        |PushMachine\n [Processing]|
+        :start;
+        fork
+          #lightGreen:taskStarted>
+          |Machine\n Control|
+          :taskStarted<
+          #lightGreen:jobStarted>
+          | Station\nControl|
+          :jobStarted<
+          end
+        fork again
+          |PushMachine\n [Processing]|
+          :finalize;
+          fork
+            #lightGreen:taskCompleted>
+            |Machine\n Control|
+            :taskCompleted<
+            |PushMachine\n [Unloading]|
+            :requestTask;
+            #lightGreen:taskRequested>
+            |Machine\n Control|
+            :taskRequested<
+            |PushMachine\n [Unloading]|
+            :start;
+            end
+          fork again
+            |PushMachine\n [Unloading]|
+            :acceptMaterialRequest;
+            #lightGreen:loadAccepted>
+            |Machine\n Control|
+            end
+          end fork
+        end fork
+      fork again
+        |PushMachine\n [Processing]|
+        :acceptMaterialRequest;
+        #lightGreen:loadAccepted>
+        |Machine\n Control|
+        end
+      end merge
+    end merge
+  end merge
+fork again
+  |  PushMachine\n[LoadingAction]|
+  :acceptMaterialRequest;
+  #lightGreen:loadAccepted>
+  |Machine\n Control|
+  end
+  |External|
+end merge
+|External|
+stop
+@enduml

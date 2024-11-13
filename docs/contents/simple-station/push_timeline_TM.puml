@@ -1,0 +1,61 @@
+@startuml
+hide time-axis
+scale 10 as 10 pixels
+'mode compact
+!include timeline_defs.ipuml
+
+title
+= Push Execution Timeline
+end title
+
+@0
+robust "Order Lifecycle" as Order
+Order has Fulfilled,Active,Requested,Idle
+Order is Idle
+concise Inbound
+Inbound is INBOUND
+concise Facility
+$declareStation("St", "1", lightBlue)
+$declareStation("St", "2", lightGrey)
+
+robust Resources
+Resources is _
+
+concise Outbound
+Outbound is OUTBOUND
+
+
+@0
+Order is {Idle,Requested}
+@+100
+Order is {Idle,Active}
+Inbound -> Facility@+20: loadArrival
+@+20
+'Order -> Facility: WorkOrder
+Facility is InProgress
+Facility -> Loading_1: acceptLoad
+@+20
+Facility -> St_1: New Task
+
+
+Facility -[#red]> St_1: New Task
+$mechanism("St", "1", "Facility", "Loading_2", -20, 100)
+
+@+10
+Facility -[#red]> St_2: New Task
+$mechanism("St", "2", "Facility", "Outbound", 20, 100)
+
+
+Facility is Shipping
+
+@+80
+Facility -> Order: Fulfillment
+Order is {Idle,Fulfilled}
+Facility is {hidden}
+
+@+80
+Order is Idle
+Outbound is {hidden}
+Inbound is {hidden}
+
+@enduml

@@ -1,36 +1,28 @@
 package com.saldubatech.dcf.node.station
 
-import com.saldubatech.dcf.job.Task
-import com.saldubatech.dcf.material.Material
+import com.saldubatech.dcf.job.{Task, Wip, WipNotification}
+import com.saldubatech.dcf.material.{Material, Supply}
 import com.saldubatech.dcf.node.components.action.bindings.Action as ActionBinding
-import com.saldubatech.dcf.node.components.action.Action
-import com.saldubatech.dcf.node.components.action.UnacknowledgingAction
-import com.saldubatech.dcf.node.components.buffers.BoundedIndexed
-import com.saldubatech.dcf.node.components.buffers.RandomAccess
-import com.saldubatech.dcf.node.components.buffers.RandomIndexed
-import com.saldubatech.dcf.node.components.resources.ResourceType
-import com.saldubatech.dcf.node.components.resources.UnitResourcePool
-import com.saldubatech.dcf.node.components.transport.bindings.Discharge as DischargeBinding
-import com.saldubatech.dcf.node.components.transport.bindings.DLink as LinkBinding
-import com.saldubatech.dcf.node.components.transport.bindings.Induct as InductBinding
-import com.saldubatech.dcf.node.components.transport.Discharge
-import com.saldubatech.dcf.node.components.transport.Induct
-import com.saldubatech.dcf.node.components.transport.Link
-import com.saldubatech.dcf.node.components.transport.Transport
+import com.saldubatech.dcf.node.components.action.{Action, UnacknowledgingAction}
+import com.saldubatech.dcf.node.components.buffers.{BoundedIndexed, RandomAccess, RandomIndexed}
+import com.saldubatech.dcf.node.components.resources.{ResourceType, UnitResourcePool}
+import com.saldubatech.dcf.node.components.transport.bindings.{
+  DLink as LinkBinding,
+  Discharge as DischargeBinding,
+  Induct as InductBinding
+}
+import com.saldubatech.dcf.node.components.transport.{Discharge, Induct, Link, Transport}
 import com.saldubatech.dcf.node.machine.PushMachineComposed
 import com.saldubatech.dcf.node.station.configurations.ProcessConfiguration
-import com.saldubatech.ddes.elements.DomainEvent
-import com.saldubatech.ddes.elements.DomainProcessor
-import com.saldubatech.ddes.elements.SimActorBehavior
+import com.saldubatech.dcf.node.station.observer.{InMemorySubject, Subject}
+import com.saldubatech.dcf.node.station.observer.bindings.Subject as SubjectBindings
+import com.saldubatech.ddes.elements.{DomainEvent, DomainProcessor, SimActorBehavior}
 import com.saldubatech.ddes.runtime.Clock
-import com.saldubatech.ddes.types.OAMMessage
-import com.saldubatech.ddes.types.Tick
+import com.saldubatech.ddes.types.{OAMMessage, Tick}
 import com.saldubatech.lang.Id
 import com.saldubatech.lang.types.*
-import com.saldubatech.sandbox.observers.Subject
 
-import scala.reflect.ClassTag
-import scala.reflect.Typeable
+import scala.reflect.{ClassTag, Typeable}
 
 object PushStationComposed:
 
@@ -49,20 +41,88 @@ object PushStationComposed:
       inbound: Transport[M, Induct.Environment.Listener, ?],
       outbound: Transport[M, ?, Discharge.Environment.Listener],
       process: ProcessConfiguration[M],
-      cards: List[Id]
-  ) extends DomainProcessor[PROTOCOL]:
+      cards: List[Id],
+      listener: Subject.API.Control[WipNotification])
+      extends DomainProcessor[PROTOCOL]:
+
+    private val machineListener
+        : PushMachineComposed.Environment.Listener & Induct.Environment.Listener & Discharge.Environment.Listener =
+      new PushMachineComposed.Environment.Listener with Induct.Environment.Listener with Discharge.Environment.Listener:
+        override lazy val id = host.stationId
+        private val wip      = collection.mutable.Map.empty[Id, Wip[Material]]
+
+        // From Induct Listener
+        // Arrival to Induct triggers the task creation
+        override def loadArrival(at: Tick, fromStation: Id, atStation: Id, atInduct: Id, load: Material): Unit =
+          val autoTask = Task.autoTask(load)
+          val newWip   = Wip.New[Material](autoTask, at, Seq())
+          wip += load.id -> newWip
+          listener.doNotify(at, WipNotification(Id, at, newWip))
+
+        override def loadAccepted(at: Tick, atStation: Id, atInduct: Id, load: Material): Unit = ()
+
+        override def loadDelivered(
+            at: Tick,
+            fromStation: Id,
+            atStation: Id,
+            fromInduct: Id,
+            toSink: Id,
+            load: Material
+          ): Unit = ()
+
+        // From PushMachineListener
+        override def materialArrival(at: Tick, atStation: Id, atMachine: Id, fromInduct: Id, load: Material): Unit = ()
+
+        override def jobArrival(at: Tick, atStation: Id, atMachine: Id, task: Task[Material]): Unit = ()
+
+        // Loading signals start of Task with a 'Wip.Complete' from the Loading Action
+        override def jobLoaded(at: Tick, atStation: Id, atMachine: Id, loadingWip: Wip.Complete[Material, Material]): Unit =
+          val ld = loadingWip.product
+          wip.get(ld.id).collect { case w: Wip.New[Material] =>
+            val supplier = Supply.Direct[Material](ld.id, ld)
+            supplier.Requirement().allocate(at).map { allocation =>
+              val inProgress = w.start(at, Seq(), Seq(allocation))
+              wip += ld.id -> inProgress
+              listener.doNotify(at, WipNotification(Id, at, inProgress))
+            }
+          }
+
+        override def jobStarted(at: Tick, atStation: Id, atMachine: Id, wip: Wip.InProgress[?]): Unit = ()
+
+        override def jobComplete(at: Tick, atStation: Id, atMachine: Id, wip: Wip.Complete[?, ?]): Unit = ()
+
+        override def jobFailed(at: Tick, atStation: Id, atMachine: Id, wip: Wip.Failed[?]): Unit = ()
+
+        override def jobUnloaded(at: Tick, atStation: Id, atMachine: Id, wip: Wip.Complete[?, ?]): Unit = ()
+
+        override def productDischarged(at: Tick, atStation: Id, atMachine: Id, viaDischarge: Id, p: Material): Unit = ()
+
+        // From Discharge Listener
+        // Discharge signals Wip Completion
+        override def loadDischarged(at: Tick, stationId: Id, discharge: Id, load: Material): Unit =
+          wip.remove(load.id).collect { case w: Wip.InProgress[Material] =>
+            for {
+              mats    <- w.materialAllocations.map(_.consume(at)).collectAny
+              product <- w.task.produce(at, mats, w.entryResources, w.startResources)
+            } yield listener.doNotify(at, WipNotification(Id, at, w.complete(at, product, mats)))
+          }
+
+        override def busyNotification(at: Tick, stationId: Id, discharge: Id): Unit = ()
+
+        override def availableNotification(at: Tick, stationId: Id, discharge: Id): Unit = ()
+
     // Inbound
     private val ibInductPhysicsHost: Induct.API.Physics = InductBinding.API.ClientStubs.Physics(host)
-    private val maybeIbInduct                           = inbound.induct(host.stationId, ibInductPhysicsHost)
+
+    private val maybeIbInduct = inbound.induct(host.stationId, ibInductPhysicsHost)
 
     // Outbound
     private val obDischargePhysicsHost: Discharge.API.Physics = DischargeBinding.API.ClientStubs.Physics(host)
     private val obLinkPhysicsHost: Link.API.Physics           = LinkBinding.API.ClientStubs.Physics(host)
     private val maybeObDischarge                              = outbound.discharge(host.stationId, obLinkPhysicsHost, obDischargePhysicsHost)
 
-    val serverPool = UnitResourcePool[ResourceType.Processor]("serverPool", Some(process.maxConcurrentJobs))
-    val wipSlots   = UnitResourcePool[ResourceType.WipSlot]("wipSlots", Some(process.maxWip))
-    val retryDelay = () => Some(13L)
+    private val serverPool = UnitResourcePool[ResourceType.Processor]("serverPool", Some(process.maxConcurrentJobs))
+    private val wipSlots   = UnitResourcePool[ResourceType.WipSlot]("wipSlots", Some(process.maxWip))
 
     private val loadingActionId   = s"$stationId::$machineId::${PushMachineComposed.Builder.loadingPrefix}"
     private val loadingTaskBuffer = RandomAccess[Task[M]](s"${PushMachineComposed.Builder.loadingPrefix}Tasks") // Unbound b/c limit given by WipSlots
@@ -80,14 +140,17 @@ object PushStationComposed:
       process.loadingFailureRate
     )
 
-    private val loadingChron = Action.ChronProxy(ActionBinding.API.ClientStubs.Chron(host, loadingActionId), process.loadingRetry)
+    private val loadingChron =
+      Action.ChronProxy(ActionBinding.API.ClientStubs.Chron(host, loadingActionId), process.loadingRetry)
 
     private val loadingBuilder = UnacknowledgingAction
       .Builder[M](serverPool, wipSlots, loadingTaskBuffer, loadingInboundBuffer, loadingPhysics, loadingChron)
 
-    private val processingActionId      = s"$stationId::$machineId::${PushMachineComposed.Builder.processingPrefix}"
-    private val processingTaskBuffer    = RandomAccess[Task[M]](s"${PushMachineComposed.Builder.processingPrefix}Tasks") // Unbound b/c limit given by WipSlots
-    private val processingInboundBuffer = RandomIndexed[Material](s"${PushMachineComposed.Builder.processingPrefix}InboundBuffer")
+    private val processingActionId   = s"$stationId::$machineId::${PushMachineComposed.Builder.processingPrefix}"
+    private val processingTaskBuffer = RandomAccess[Task[M]](s"${PushMachineComposed.Builder.processingPrefix}Tasks") // Unbound b/c limit given by WipSlots
+
+    private val processingInboundBuffer =
+      RandomIndexed[Material](s"${PushMachineComposed.Builder.processingPrefix}InboundBuffer")
 
     private val processingPhysics = Action.Physics[M](
       s"${PushMachineComposed.Builder.processingPrefix}Physics",
@@ -103,9 +166,11 @@ object PushStationComposed:
     private val processingBuilder = UnacknowledgingAction
       .Builder[M](serverPool, wipSlots, processingTaskBuffer, processingInboundBuffer, processingPhysics, processingChron)
 
-    private val unloadingActionId      = s"$stationId::$machineId::${PushMachineComposed.Builder.unloadingPrefix}"
-    private val unloadingTaskBuffer    = RandomAccess[Task[M]](s"${PushMachineComposed.Builder.unloadingPrefix}Tasks") // Unbound b/c limit given by WipSlots
-    private val unloadingInboundBuffer = RandomIndexed[Material](s"${PushMachineComposed.Builder.unloadingPrefix}InboundBuffer")
+    private val unloadingActionId   = s"$stationId::$machineId::${PushMachineComposed.Builder.unloadingPrefix}"
+    private val unloadingTaskBuffer = RandomAccess[Task[M]](s"${PushMachineComposed.Builder.unloadingPrefix}Tasks") // Unbound b/c limit given by WipSlots
+
+    private val unloadingInboundBuffer =
+      RandomIndexed[Material](s"${PushMachineComposed.Builder.unloadingPrefix}InboundBuffer")
 
     private val unloadingPhysics = Action.Physics[M](
       s"${PushMachineComposed.Builder.unloadingPrefix}Physics",
@@ -133,8 +198,11 @@ object PushStationComposed:
       outboundLink <- outbound.link
       discharge    <- maybeObDischarge
     yield
+      induct.listen(machineListener)
       discharge.addCards(0, cards) // This should probably go outside the construction of the station.
-      val machine               = machineBuilder.build(machineId, stationId, induct, discharge)
+      discharge.listen(machineListener)
+      val machine = machineBuilder.build(machineId, stationId, induct, discharge)
+      machine.listen(machineListener)
       val inductUpstreamAdaptor = InductBinding.API.ServerAdaptors.upstream[M](induct)
       val inductPhysicsAdaptor  = InductBinding.API.ServerAdaptors.physics(induct)
       val actionPhysicsAdaptor = (at: Tick) =>
@@ -189,16 +257,20 @@ class PushStationComposed[M <: Material: Typeable: ClassTag](
     outbound: => Transport[M, ?, Discharge.Environment.Listener],
     process: ProcessConfiguration[M],
     cards: List[Id],
-    clock: Clock
-) extends SimActorBehavior[PushStationComposed.PROTOCOL](stationId, clock)
-    with Subject:
+    clock: Clock)
+    extends SimActorBehavior[PushStationComposed.PROTOCOL](stationId, clock):
+
+  private val observerManagementComponent = InMemorySubject[WipNotification]("obsManager", stationId)
+
+  private val observerManagement: PartialFunction[SubjectBindings.API.Signals.Management, UnitResult] =
+    SubjectBindings.ServerAdaptors.management[WipNotification](observerManagementComponent)
 
   override protected val domainProcessor: DomainProcessor[PushStationComposed.PROTOCOL] =
-    PushStationComposed.DP(this, stationId, "machine", inbound, outbound, process, cards)
+    PushStationComposed.DP(this, stationId, "machine", inbound, outbound, process, cards, observerManagementComponent)
 
   override def oam(msg: OAMMessage): UnitResult =
     msg match
-      case obsMsg: Subject.ObserverManagement => observerManagement(obsMsg)
-      case _                                  => Right(())
+      case obsMsg: SubjectBindings.API.Signals.Management => observerManagement(obsMsg)
+      case _                                              => AppSuccess.unit
 
 end PushStationComposed // class

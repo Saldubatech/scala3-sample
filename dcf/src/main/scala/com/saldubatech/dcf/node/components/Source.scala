@@ -10,25 +10,31 @@ import com.saldubatech.lang.Id
 import com.saldubatech.lang.Identified
 
 object Source:
+
   type Identity = Component.Identity
 
   object API:
+
     trait Upstream:
     end Upstream // trait
 
     trait Control:
+
       def go(at: Tick): UnitResult
       def pause(at: Tick): UnitResult
       def resume(at: Tick): UnitResult
       def complete(at: Tick): Boolean
+
     end Control // trait
 
     type Management = Component.API.Management[Environment.Listener]
 
     trait Physics[M <: Material] extends Identified:
+
       def arrivalFinalize(atTime: Tick, load: M): UnitResult
       def deliveryFinalize(atTime: Tick, load: M): UnitResult
       def completeFinalize(atTime: Tick): UnitResult
+
     end Physics
 
   end API // object
@@ -36,16 +42,72 @@ object Source:
   object Environment:
 
     trait Listener extends Identified:
+
+      /** The generation of load has started
+        * @param at
+        *   The time at which it starts
+        * @param atStation
+        *   The station id that generates the loads
+        * @param atSource
+        *   The source within the station that generates the load
+        */
       def start(at: Tick, atStation: Id, atSource: Id): Unit
+
+      /** A load "arrives" into the system from an external source.
+        *
+        * @param at
+        *   Time of arrival
+        * @param atStation
+        *   Station of arrival
+        * @param atSource
+        *   Source within the station
+        * @param load
+        *   The load that arrived
+        */
       def loadArrival(at: Tick, atStation: Id, atSource: Id, load: Material): Unit
+
+      /** A load has been delivered to the outbound "sink", typically a discharge.
+        * @param at
+        *   The time when the load is delivered
+        * @param atStation
+        *   The station that delivers the load
+        * @param atSource
+        *   The source within the station
+        * @param load
+        *   The load that has been delivered
+        */
       def loadDelivered(at: Tick, atStation: Id, atSource: Id, load: Material): Unit
+
+      /** Signals that loads that have arrived cannot be delivered because of congestion on the outbound channel. This
+        * notification is sent only once when congestion first appears after a series of successful deliveries.
+        * @param at
+        *   The time when congestion appears
+        * @param atStation
+        *   The station reporting congestion
+        * @param atSource
+        *   The source within the station
+        * @param backup
+        *   The list of Loads that are waiting to be delivered
+        */
       def congestion(at: Tick, atStation: Id, atSource: Id, backup: List[Material]): Unit
+
+      /** All the loads that are expected from this source have been generated.
+        * @param at
+        *   The time at which the generation is complete
+        * @param atStation
+        *   The station completing the generation
+        * @param atSource
+        *   The source within the station
+        */
       def complete(at: Tick, atStation: Id, atSource: Id): Unit
+
     end Listener // trait
 
     trait Physics[M <: Material]:
+
       def goCommand(at: Tick): UnitResult
       def deliveryCommand(at: Tick, load: M): UnitResult
+
     end Physics // trait
 
   end Environment // object
@@ -53,10 +115,12 @@ object Source:
   class Physics[M <: Material](
       host: API.Physics[M],
       arrivalProcess: (at: Tick) => Option[(Duration, M)],
-      arrivalProcessDelay: Duration = 1L
-  ) extends Environment.Physics[M]:
+      arrivalProcessDelay: Duration = 1L)
+      extends Environment.Physics[M]:
+
     private var latestArrivalTime: Tick = 0L
     private var _complete: Boolean      = false
+    def markComplete: Unit              = _complete = true
     def complete                        = _complete
 
     def goCommand(at: Tick): UnitResult =
@@ -64,7 +128,7 @@ object Source:
       else
         arrivalProcess(at) match
           case None =>
-            _complete = true
+            markComplete
             host.completeFinalize(at + 1L)
           case Some((interArrival, load)) =>
             latestArrivalTime = math.max(latestArrivalTime, at + interArrival)
@@ -72,6 +136,7 @@ object Source:
             goCommand(latestArrivalTime)
 
     def deliveryCommand(at: Tick, load: M): UnitResult = host.deliveryFinalize(at + arrivalProcessDelay, load)
+
   end Physics // class
 
 end Source // object
@@ -86,9 +151,10 @@ class SourceImpl[M <: Material](
     physics: Source.Environment.Physics[M],
     outbound: Sink.API.Upstream[M],
     retryDelay: () => Duration = () => 1L,
-    autoRetry: Boolean = true
-) extends Source[M]
+    autoRetry: Boolean = true)
+    extends Source[M]
     with SubjectMixIn[Source.Environment.Listener]:
+
   override lazy val id: Id = s"$stationId::Source[$sId]"
   // From Source.API.Control
   private var _complete: Boolean = false

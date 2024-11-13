@@ -29,28 +29,43 @@ object SinkStation:
       consumer: Option[(Tick, Id, Id, Id, Id, M) => UnitResult] = None,
       // cardCruiseControl: Option[(at: Tick, nReceivedLoads: Int) => Option[Int]]
       cardCruiseControl: Option[(Tick, Int) => Option[Int]],
-      listener: Subject.API.Control[WipNotification]
-  ) extends DomainProcessor[PROTOCOL]:
+      listener: Subject.API.Control[WipNotification])
+      extends DomainProcessor[PROTOCOL]:
 
     private val sinkListener = new LoadSink.Environment.Listener with Induct.Environment.Listener:
       override lazy val id = host.stationId
       private val wip      = collection.mutable.Map.empty[Id, Wip[Material]]
       // From Induct
-      // Arrival to Induct triggers the task and its immediate start
+      // Arrival to Induct triggers the task creation
       override def loadArrival(at: Tick, fromStation: Id, atStation: Id, atInduct: Id, load: Material): Unit =
         val autoTask = Task.autoTask(load)
         val newWip   = Wip.New[Material](autoTask, at, Seq())
-        val supplier = Supply.Direct[Material](load.id, load)
-        supplier.Requirement().allocate(at).map { allocation =>
-          val inProgress = newWip.start(at, Seq(), Seq(allocation))
-          wip += load.id -> inProgress
-          listener.doNotify(at, WipNotification(Id, at, newWip))
-          listener.doNotify(at, WipNotification(Id, at, inProgress))
-        }
+        wip += load.id -> newWip
+        listener.doNotify(at, WipNotification(Id, at, newWip))
 
-      override def loadDelivered(at: Tick, fromStation: Id, atStation: Id, fromInduct: Id, toSink: Id, load: Material): Unit = ()
+      override def loadAccepted(at: Tick, atStation: Id, atInduct: Id, load: Material): Unit = ()
+
+      // Delivery from the Induct signals task start
+      override def loadDelivered(
+          at: Tick,
+          fromStation: Id,
+          atStation: Id,
+          fromInduct: Id,
+          toSink: Id,
+          load: Material
+        ): Unit = ()
 
       // From Sink
+      override def loadDraining(at: Tick, atStation: Id, atSink: Id, load: Material): Unit =
+        wip.get(load.id).collect { case newWip: Wip.New[Material] =>
+          val supplier = Supply.Direct[Material](load.id, load)
+          supplier.Requirement().allocate(at).map { allocation =>
+            val inProgress = newWip.start(at, Seq(), Seq(allocation))
+            wip += load.id -> inProgress
+            listener.doNotify(at, WipNotification(Id, at, inProgress))
+          }
+        }
+
       // When the load departs, it signals the completion of the task.
       override def loadDeparted(at: Tick, fromStation: Id, fromSink: Id, load: Material): Unit =
         wip.remove(load.id).collect { case w: Wip.InProgress[Material] =>
@@ -66,6 +81,7 @@ object SinkStation:
     private val maybeDispatch: AppResult[Tick => PartialFunction[PROTOCOL, UnitResult]] =
       for induct <- transport.induct(host.stationId, inductPhysicsHost)
       yield
+        induct.listen(sinkListener)
         val impl: LoadSink[M, ?] = LoadSinkImpl[M, LoadSink.Environment.Listener](
           "sink",
           host.stationId,
@@ -105,11 +121,13 @@ class SinkStation[M <: Material: Typeable](
     consumer: Option[(Tick, Id, Id, Id, Id, M) => UnitResult] = None,
     //    cardCruiseControl: Option[(at: Tick, nReceivedLoads: Int) => Option[Int]] = None,
     cardCruiseControl: Option[(Tick, Int) => Option[Int]] = None,
-    clock: Clock
-) extends SimActorBehavior[SinkStation.PROTOCOL](stationId, clock):
+    clock: Clock)
+    extends SimActorBehavior[SinkStation.PROTOCOL](stationId, clock):
 
   private val observerManagementComponent = InMemorySubject[WipNotification]("obsManager", stationId)
-  private val observerManagement          = SubjectBindings.ServerAdaptors.management[WipNotification](observerManagementComponent)
+
+  private val observerManagement: PartialFunction[SubjectBindings.API.Signals.Management, UnitResult] =
+    SubjectBindings.ServerAdaptors.management[WipNotification](observerManagementComponent)
 
   override protected val domainProcessor: DomainProcessor[SinkStation.PROTOCOL] =
     SinkStation.DP(this, inbound.transport, consumer, cardCruiseControl, observerManagementComponent)

@@ -4,7 +4,7 @@ import com.saldubatech.dcf.job.{Task, Wip, WipNotification}
 import com.saldubatech.dcf.material.{Material, Supply}
 import com.saldubatech.dcf.node.components.Source
 import com.saldubatech.dcf.node.components.bindings.Source as SourceBindings
-import com.saldubatech.dcf.node.components.transport.bindings.{Discharge as DischargeBinding, DLink as LinkBinding}
+import com.saldubatech.dcf.node.components.transport.bindings.{DLink as LinkBinding, Discharge as DischargeBinding}
 import com.saldubatech.dcf.node.components.transport.{Discharge, Link, Transport}
 import com.saldubatech.dcf.node.machine.{SourceMachine, SourceMachineImpl}
 import com.saldubatech.dcf.node.machine.bindings.Source as SourceMachineBinding
@@ -31,8 +31,8 @@ object SourceStation:
       arrivalGenerator: (currentTime: Tick) => Option[(Tick, M)],
       outboundTransport: Transport[M, ?, Discharge.Environment.Listener],
       cards: Seq[Id],
-      listener: Subject.API.Control[WipNotification]
-  ) extends DomainProcessor[PROTOCOL]:
+      listener: Subject.API.Control[WipNotification])
+      extends DomainProcessor[PROTOCOL]:
 
     private val sourcePhysics = Source.Physics[M](
       SourceBindings.API.ClientStubs.Physics[M](host, host.stationId, s"${host.stationId}::Source[source]"),
@@ -84,6 +84,7 @@ object SourceStation:
       link      <- outboundTransport.link
     yield
       discharge.addCards(0, cards.toList)
+      discharge.listen(machineListener)
       val machine            = SourceMachineImpl[M]("source", host.stationId, sourcePhysics, discharge).tap(_.listen(machineListener))
       val controlAdaptor     = SourceMachineBinding.API.ServerAdaptors.control(machine)
       val sourceAdaptor      = SourceBindings.API.ServerAdaptors.physics(machine.source, machine.source.id)
@@ -120,8 +121,8 @@ class SourceStation[M <: Material: Typeable](
     val stationId: Id,
     outbound: => Outbound[M, Discharge.Environment.Listener],
     arrivalGenerator: (currentTime: Tick) => Option[(Tick, M)],
-    clock: Clock
-) extends SimActorBehavior[SourceStation.PROTOCOL](stationId, clock):
+    clock: Clock)
+    extends SimActorBehavior[SourceStation.PROTOCOL](stationId, clock):
 
   private val observerManagementComponent = InMemorySubject[WipNotification]("obsManager", stationId)
   private val observerManagement          = SubjectBindings.ServerAdaptors.management[WipNotification](observerManagementComponent)

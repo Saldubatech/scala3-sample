@@ -1,0 +1,89 @@
+
+!procedure $declareStation(name, suffix, color = "white")
+concise %string(name+"_"+suffix) #color
+%string(name+"_"+suffix) is {hidden}
+concise %string("Loading_"+suffix) #color
+%string("Loading_"+suffix) is {hidden}
+concise %string("Processing_"+suffix) #color
+%string("Processing_"+suffix) is {hidden}
+concise %string("Unloading_"+suffix) #color
+%string("Unloading_"+suffix) is {hidden}
+!endprocedure
+
+!procedure $action(action, client, $acquire = "", $release = "", startup = 0, span_t = 100)
+client -[#red]> action: go\n
+action is {-}
+!if $acquire != ""
+  action@+0 <-> @+20: acquire\n$acquire
+!endif
+!if startup > 0
+  @+%string(startup)
+!else
+  @+1
+!endif
+action -[#grey]> client@+10: started
+action is InProgress
+@+%string(span_t - 20)
+!if $release != ""
+  action@+0 <-> @+20: release\n$release
+!endif
+@+20
+action -[#grey]> client@+10: ended
+action is {hidden}
+!endprocedure
+
+!procedure $mechanism(mechanism, suffix, client, downstream, supply_delay=0, action_span_t = 100)
+!$m = mechanism+"_"+suffix
+!$l = "Loading_"+suffix
+!$p = "Processing_"+suffix
+!$u = "Unloading_"+suffix
+
+!if supply_delay == 0
+  !$sl = 1
+!else
+  !$sl = supply_delay
+!endif
+
+$m is New
+!if $sl < 0
+  @+%string($sl)
+  $l is {-}
+  @+%string(40 - $sl)
+  $m is {-}
+!else
+  !if $sl > 40
+    @+40
+    $m is {-}
+    $l is {-}
+    @+%string($sl - 40)
+  !else
+    @+%string($sl)
+    $l is {-}
+    @+%string(40 - $sl)
+    $m is {-}
+  !endif
+!endif
+
+$action($l, $m, "entry\nresources", "", 0, action_span_t)
+@+%string(10 - action_span_t)
+$m is Loading
+@+%string(action_span_t)
+$m is {-}
+
+$l@+-10 -> $p@+40: acceptLoad
+$action($p, $m, "process\nresources", "process\nresources", 40, action_span_t)
+@+%string(10 - action_span_t)
+$m is InProgress
+@+100
+$m is {-}
+$p@+-10 -> $u@+40: acceptLoad
+$action($u, $m, "", "entry\nresources", 40, action_span_t)
+@+%string(10 - action_span_t)
+$m is Unloading
+@+100
+$m is {-}
+$u@+-10 -> downstream@+40: acceptLoad
+@+10
+$m -[#grey]> client: Task Complete
+$m is {hidden}
+!endprocedure

@@ -14,47 +14,52 @@ import com.saldubatech.util.{stack, LogEnabled}
 import scala.util.chaining.scalaUtilChainingOps
 
 object UnacknowledgingAction:
+
   class Builder[OB <: Material](
+      serverPool: UnitResourcePool[ResourceType.Processor],
+      wipSlots: UnitResourcePool[ResourceType.WipSlot],
+      requestedTaskBuffer: Buffer[Task[OB]],
+      inboundBuffer: Buffer[Material] & Buffer.Indexed[Material],
+      physics: Action.Environment.Physics[OB],
+      retryProxy: Action.API.Chron):
+
+    def build(
+        aId: Id,
+        componentId: Id,
+        stationId: Id,
+        outbound: Sink.API.Upstream[OB]
+      ): Action[OB] =
+      UnacknowledgingAction[OB](
+        serverPool, wipSlots, requestedTaskBuffer, inboundBuffer, physics, retryProxy
+      )(aId, componentId, stationId, outbound)
+
+end UnacknowledgingAction
+
+class UnacknowledgingAction[OB <: Material](
     serverPool: UnitResourcePool[ResourceType.Processor],
     wipSlots: UnitResourcePool[ResourceType.WipSlot],
     requestedTaskBuffer: Buffer[Task[OB]],
     inboundBuffer: Buffer[Material] & Buffer.Indexed[Material],
     physics: Action.Environment.Physics[OB],
     retryProxy: Action.API.Chron
-  ):
-    def build(
-      aId: Id,
-      componentId: Id,
-      stationId: Id,
-      outbound: Sink.API.Upstream[OB]
-    ): Action[OB] =
-      UnacknowledgingAction[OB](
-        serverPool, wipSlots, requestedTaskBuffer, inboundBuffer, physics, retryProxy
-        )(aId, componentId, stationId, outbound)
-end UnacknowledgingAction
+  )(aId: Id,
+    componentId: Id,
+    override val stationId: Id,
+    outbound: Sink.API.Upstream[OB])
+    extends AbstractAction[OB](
+      serverPool, wipSlots, requestedTaskBuffer, inboundBuffer, physics, retryProxy
+    )(
+      aId,
+      componentId,
+      stationId,
+      outbound
+    ):
 
-class UnacknowledgingAction[OB <: Material]
-(
-  serverPool: UnitResourcePool[ResourceType.Processor],
-  wipSlots: UnitResourcePool[ResourceType.WipSlot],
-  requestedTaskBuffer: Buffer[Task[OB]],
-  inboundBuffer: Buffer[Material] & Buffer.Indexed[Material],
-  physics: Action.Environment.Physics[OB],
-  retryProxy: Action.API.Chron
-)(
-  aId: Id,
-  componentId: Id,
-  override val stationId: Id,
-  outbound: Sink.API.Upstream[OB]
-) extends AbstractAction[OB](
-  serverPool, wipSlots, requestedTaskBuffer, inboundBuffer, physics, retryProxy
-)(
-  aId, componentId, stationId, outbound
-):
   override def prepareToAccept(at: Tick, load: Material): UnitResult = AppSuccess.unit
 
   override protected def postSendHouseKeeping(at: Tick, wip: Wip.Complete[OB, OB]): UnitResult =
-    wip.entryResources.map( rs => rs.release(at)).collectAll.unit
+    wip.entryResources.map(rs => rs.release(at)).collectAll.unit
+
 end UnacknowledgingAction // class
 
 object AcknowledgingAction:
@@ -65,6 +70,7 @@ object AcknowledgingAction:
   end Acknowledgement // trait
 
   object API:
+
     type Downstream = Acknowledgement
 
     trait Control[OB <: Material] extends Action.API.Control[OB]:
@@ -77,62 +83,64 @@ object AcknowledgingAction:
     type Upstream = Acknowledgement
   end Environment // class
 
-
   class Builder[OB <: Material](
+      serverPool: UnitResourcePool[ResourceType.Processor],
+      wipSlots: UnitResourcePool[ResourceType.WipSlot],
+      requestedTaskBuffer: Buffer[Task[OB]],
+      inboundBuffer: Buffer[Material] & Buffer.Indexed[Material],
+      physics: Action.Environment.Physics[OB],
+      retryProxy: Action.API.Chron):
+
+    def build(
+        aId: Id,
+        componentId: Id,
+        stationId: Id,
+        outbound: Sink.API.Upstream[OB],
+        acknowledgement: () => Environment.Upstream
+      ): AcknowledgingAction[OB] =
+      AcknowledgingAction(
+        serverPool, wipSlots, requestedTaskBuffer, inboundBuffer, physics, retryProxy
+      )(aId, componentId, stationId, outbound, acknowledgement)
+
+end AcknowledgingAction // object
+
+class AcknowledgingAction[OB <: Material](
     serverPool: UnitResourcePool[ResourceType.Processor],
     wipSlots: UnitResourcePool[ResourceType.WipSlot],
     requestedTaskBuffer: Buffer[Task[OB]],
     inboundBuffer: Buffer[Material] & Buffer.Indexed[Material],
     physics: Action.Environment.Physics[OB],
     retryProxy: Action.API.Chron
-  ):
-    def build(
-      aId: Id,
-      componentId: Id,
-      stationId: Id,
-      outbound: Sink.API.Upstream[OB],
-      acknowledgement: () => Environment.Upstream
-    ): AcknowledgingAction[OB] =
-      AcknowledgingAction(
-        serverPool, wipSlots, requestedTaskBuffer, inboundBuffer, physics, retryProxy
-        )(aId, componentId, stationId, outbound, acknowledgement)
-end AcknowledgingAction // object
+  )(aId: Id,
+    componentId: Id,
+    override val stationId: Id,
+    outbound: Sink.API.Upstream[OB],
+    acknowledgement: () => AcknowledgingAction.Environment.Upstream)
+    extends AbstractAction[OB](
+      serverPool, wipSlots, requestedTaskBuffer, inboundBuffer, physics, retryProxy
+    )(
+      aId,
+      componentId,
+      stationId,
+      outbound
+    )
+    with AcknowledgingAction.API.Downstream
+    with AcknowledgingAction.API.Control[OB]:
 
-class AcknowledgingAction[OB <: Material]
-(
-  serverPool: UnitResourcePool[ResourceType.Processor],
-  wipSlots: UnitResourcePool[ResourceType.WipSlot],
-  requestedTaskBuffer: Buffer[Task[OB]],
-  inboundBuffer: Buffer[Material] & Buffer.Indexed[Material],
-  physics: Action.Environment.Physics[OB],
-  retryProxy: Action.API.Chron
-)(
-  aId: Id,
-  componentId: Id,
-  override val stationId: Id,
-  outbound: Sink.API.Upstream[OB],
-  acknowledgement: () => AcknowledgingAction.Environment.Upstream
-) extends AbstractAction[OB](
-  serverPool, wipSlots, requestedTaskBuffer, inboundBuffer, physics, retryProxy
-)(
-  aId, componentId, stationId, outbound
-)
-with AcknowledgingAction.API.Downstream
-with AcknowledgingAction.API.Control[OB]:
   private lazy val _ack = acknowledgement()
 
   override def delivered(at: Tick): Iterable[Wip.Complete[OB, OB]] = pendingAcknowledge.values
 
-  override def prepareToAccept(at: Tick, load: Material): UnitResult =
-    _ack.acknowledge(at, load.id)
+  override def prepareToAccept(at: Tick, load: Material): UnitResult = _ack.acknowledge(at, load.id)
 
   private val pendingAcknowledge = collection.mutable.Map.empty[Id, Wip.Complete[OB, OB]]
 
   override def acknowledge(at: Tick, loadId: Id): UnitResult =
-    pendingAcknowledge.remove(loadId).map(
-      wip => wip.entryResources.map( rs => rs.release(at)).collectAll.unit
-    ).getOrElse(AppSuccess.unit) // nothing to acknowledge
+    pendingAcknowledge
+      .remove(loadId)
+      .fold(AppSuccess.unit)(wip => wip.entryResources.map(rs => rs.release(at)).collectAll.unit) // nothing to acknowledge
 
   override protected def postSendHouseKeeping(at: Tick, wip: Wip.Complete[OB, OB]): UnitResult =
     AppSuccess(pendingAcknowledge += wip.product.id -> wip)
+
 end AcknowledgingAction // class

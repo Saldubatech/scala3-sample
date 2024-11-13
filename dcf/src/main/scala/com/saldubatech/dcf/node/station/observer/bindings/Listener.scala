@@ -20,6 +20,7 @@ import scala.reflect.Typeable
 object Listener:
 
   trait Processor:
+
     def initialize: UnitResult
     def close: UnitResult
     def process(ntf: Listener.API.Signals.Notification): UnitResult
@@ -28,25 +29,28 @@ object Listener:
   type Ref      = ActorRef[API.Signals.Notification]
 
   object API:
+
     object Signals:
+
       sealed trait Management extends OAMMessage
       case object Initialize  extends Management
       case object Close       extends Management
 
       sealed trait Notification extends OAMMessage with Identified:
+
         val nId: Id
         final override lazy val id: Id = nId
         val at: Tick
         val from: Id
         val realTime: Epoch
 
-      case class NotifyEvent[EV_INFO](
+      case class NotifyEvent[+EV_INFO](
           override val nId: Id,
           override val at: Tick,
           override val from: Id,
           payload: EV_INFO,
-          override val realTime: Epoch
-      ) extends Notification
+          override val realTime: Epoch)
+          extends Notification
 
     end Signals // object
   end API       // object
@@ -54,6 +58,7 @@ object Listener:
   object ClientStubs:
 
     class Listener[EV_INFO](lId: Id, target: Ref) extends ListenerComponent.API.Listener[EV_INFO] with ListenerComponent.Identity:
+
       override lazy val id: Id = lId
 
       override def doNotify(at: Tick, from: Id, ntf: EV_INFO): Unit =
@@ -67,7 +72,7 @@ object Listener:
 
     def listener[EV_INFO: Typeable](
         target: ListenerComponent.API.Listener[EV_INFO]
-    ): PartialFunction[API.Signals.Notification, Unit] = {
+      ): PartialFunction[API.Signals.Notification, Unit] = {
       case Listener.API.Signals.NotifyEvent(id, at, from, payload: EV_INFO, realTime) => target.doNotify(at, from, payload)
     }
 
@@ -75,6 +80,7 @@ end Listener // object
 
 class Listener(lId: Id, processor: Listener.Processor) extends LogEnabled with Identified:
   selfListener =>
+
   final override lazy val id: Id                        = lId
   private var _ref: Option[ActorRef[Listener.PROTOCOL]] = None
   lazy val ref: ActorRef[Listener.PROTOCOL]             = _ref.get

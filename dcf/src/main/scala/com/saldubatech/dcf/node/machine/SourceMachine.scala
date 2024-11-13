@@ -18,9 +18,11 @@ import scala.reflect.Typeable
 import scala.util.chaining.scalaUtilChainingOps
 
 object SourceMachine:
+
   type Identity = Component.Identity
 
   object API:
+
     type Management = Component.API.Management[Environment.Listener]
 
     trait Control:
@@ -32,9 +34,51 @@ object SourceMachine:
   object Environment:
 
     trait Listener extends Identified:
+
+      /** Generation of loads has started
+        * @param at
+        *   the staring time
+        * @param stationId
+        *   The Station Id
+        * @param sourceId
+        *   The source within the station
+        */
       def startNotification(at: Tick, stationId: Id, sourceId: Id): Unit
+
+      /** Load Arrives to the system
+        * @param at
+        *   the time of arrival
+        * @param stationId
+        *   The Station Id
+        * @param fromSource
+        *   The source within the station
+        * @param load
+        *   The load that arrived
+        */
       def loadArrival(at: Tick, stationId: Id, fromSource: Id, load: Material): Unit
+
+      /** The load has departed the outbound discharge and injected into the transport
+        * @param at
+        *   The time of departure
+        * @param stationId
+        *   The Station Id
+        * @param machine
+        *   The Machine Id within the Station
+        * @param viaDischargeId
+        *   The discharge used to inject the load, which determines a single transport
+        * @param load
+        *   The load that has been injected
+        */
       def loadInjected(at: Tick, stationId: Id, machine: Id, viaDischargeId: Id, load: Material): Unit
+
+      /** All expected loads have been generated and injected
+        * @param at
+        *   The time of completion
+        * @param stationId
+        *   The Station Id
+        * @param machine
+        *   The Machine Id within the Station
+        */
       def completeNotification(at: Tick, stationId: Id, machine: Id): Unit
 
     end Listener
@@ -51,10 +95,11 @@ class SourceMachineImpl[M <: Material](
     mId: Id,
     override val stationId: Id,
     sourcePhysics: Source.Physics[M],
-    outbound: Discharge.API.Upstream[M] & Discharge.API.Management[Discharge.Environment.Listener]
-) extends SourceMachine[M]
+    outbound: Discharge.API.Upstream[M] & Discharge.API.Management[Discharge.Environment.Listener])
+    extends SourceMachine[M]
     with SubjectMixIn[SourceMachine.Environment.Listener]:
   selfMachine =>
+
   override lazy val id: Id = s"$stationId::Source[$mId]"
 
   val source: Source[M] = SourceImpl[M]("source", stationId, sourcePhysics, outbound.asSink)
@@ -74,8 +119,7 @@ class SourceMachineImpl[M <: Material](
   private val dischargeWatcher = new Discharge.Environment.Listener:
     override lazy val id: Id = selfMachine.id
     def loadDischarged(at: Tick, stId: Id, discharge: Id, load: Material): Unit =
-      // Nothing to do. The link will take it over the outbound transport
-      doNotify(_.loadInjected(at, stationId, id, discharge, load))
+      doNotify(l => l.loadInjected(at, stationId, id, discharge, load))
     def busyNotification(at: Tick, stId: Id, discharge: Id): Unit           = source.pause(at) // this will happen when we run out of cards.
     def availableNotification(at: Tick, stationId: Id, discharge: Id): Unit = source.resume(at)
   .tap(outbound.listen)
